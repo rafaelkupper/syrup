@@ -2,7 +2,7 @@
 
 Syrup embeds Sparkle 2.10.1. Local builds have no update feed or public key and do not start the updater. Distribution builds receive both values from the release command.
 
-Choose your own GitHub release repository, HTTPS appcast URL, Apple Developer team, and local notarization profile. Keep the matching Sparkle private key in the login Keychain under Sparkle's default `ed25519` account. Never export it into the repository.
+Releases and the update feed live in the source repository: each version is a GitHub release, and `appcast.xml` sits at the repository root on the default branch. Supply your own GitHub repository, its HTTPS appcast URL, Apple Developer team, and local notarization profile. A separate release repository also works, as long as it has `appcast.xml` at its root. The `appcast.xml` in this repository starts empty; a fork publishes to its own repository and feed. Keep the matching Sparkle private key in the login Keychain under Sparkle's default `ed25519` account. Never export it into the repository.
 
 ## Prepare for review
 
@@ -15,8 +15,8 @@ Choose your own GitHub release repository, HTTPS appcast URL, Apple Developer te
 ```sh
 script/release.sh \
   --sparkle-tools /path/to/Sparkle/bin \
-  --feed-url https://example.org/syrup/appcast.xml \
-  --release-repo example/syrup-releases \
+  --feed-url https://raw.githubusercontent.com/example/syrup/main/appcast.xml \
+  --release-repo example/syrup \
   --team-id TEAMID1234 \
   --public-key "$SPARKLE_PUBLIC_KEY" \
   --notary-profile syrup-notary
@@ -30,9 +30,9 @@ The command passes `SYRUP_UPDATE_FEED_URL`, `SYRUP_UPDATE_PUBLIC_KEY`, `DEVELOPM
 
 Run this only with authorization to publish the version and target repository. Repeat the same publisher arguments and add `--publish dist/updates/<version>-<build>`. The notarization profile is not needed at this stage.
 
-Configure your Git commit name and email before publishing. The temporary release-repository clone uses your Git configuration; the script supplies no author identity.
+Configure your Git commit name and email before publishing. The temporary clone uses your Git configuration; the script supplies no author identity.
 
-Publishing verifies the manifest, publisher configuration, and reviewed artifact hashes again. It uploads the ZIP to a GitHub release and pushes the feed from a temporary clone. If the upload succeeds but the feed push fails, retain the review directory and inspect the release and repository before retrying.
+Publishing verifies the manifest, publisher configuration, and reviewed artifact hashes again. It uploads the ZIP to a GitHub release and pushes the feed from a temporary clone. The release tag is created at the tip of the default branch, and the feed commit lands on that branch, so push the commit you built from before publishing. If the upload succeeds but the feed push fails, retain the review directory and inspect the release and repository before retrying.
 
 ## Verify an installed update
 
