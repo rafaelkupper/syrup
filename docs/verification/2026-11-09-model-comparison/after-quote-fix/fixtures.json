@@ -1,0 +1,110 @@
+[
+ {
+  "id": "self-name-en",
+  "input": "Send the report to John, I mean Mark, by Friday.",
+  "language": "English",
+  "required": [
+   [
+    "Mark"
+   ],
+   [
+    "Friday"
+   ],
+   [
+    "report"
+   ]
+  ],
+  "forbidden": [
+   "John",
+   "I mean"
+  ],
+  "layout": "single",
+  "feature": "self-correction"
+ },
+ {
+  "id": "newline-en",
+  "input": "Hello Alice. New line. Please send the report.",
+  "language": "English",
+  "required": [
+   [
+    "Alice"
+   ],
+   [
+    "report"
+   ]
+  ],
+  "forbidden": [
+   "new line"
+  ],
+  "layout": "line",
+  "feature": "formatting"
+ },
+ {
+  "id": "quotes-en",
+  "input": "In quotes hello.",
+  "language": "English",
+  "required": [
+   [
+    "hello"
+   ]
+  ],
+  "forbidden": [
+   "in quotes"
+  ],
+  "layout": "quote",
+  "feature": "formatting"
+ },
+ {
+  "id": "quotes-pt",
+  "input": "Entre aspas bom dia.",
+  "language": "English",
+  "required": [
+   [
+    "good morning"
+   ]
+  ],
+  "forbidden": [
+   "entre aspas",
+   "in quotes"
+  ],
+  "layout": "quote",
+  "feature": "formatting"
+ },
+ {
+  "id": "literal-paragraph",
+  "input": "Please add a new paragraph to the contract.",
+  "language": "English",
+  "required": [
+   [
+    "paragraph"
+   ],
+   [
+    "contract"
+   ]
+  ],
+  "forbidden": [],
+  "layout": "single",
+  "feature": "literal"
+ },
+ {
+  "id": "plain-pt",
+  "input": "Preciso que você revise o contrato até sexta-feira.",
+  "language": "English",
+  "required": [
+   [
+    "review"
+   ],
+   [
+    "contract"
+   ],
+   [
+    "Friday"
+   ]
+  ],
+  "forbidden": [
+   "sexta"
+  ],
+  "layout": "single",
+  "feature": "plain"
+ }
+]

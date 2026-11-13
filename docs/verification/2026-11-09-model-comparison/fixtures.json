@@ -1,0 +1,452 @@
+[
+ {
+  "id": "self-time-en",
+  "input": "The meeting is at 3, no wait, 4.",
+  "language": "English",
+  "required": [
+   [
+    "4",
+    "four"
+   ],
+   [
+    "meeting"
+   ]
+  ],
+  "forbidden": [
+   "three",
+   "3",
+   "no wait"
+  ],
+  "layout": "single",
+  "feature": "self-correction"
+ },
+ {
+  "id": "self-name-en",
+  "input": "Send the report to John, I mean Mark, by Friday.",
+  "language": "English",
+  "required": [
+   [
+    "Mark"
+   ],
+   [
+    "Friday"
+   ],
+   [
+    "report"
+   ]
+  ],
+  "forbidden": [
+   "John",
+   "I mean"
+  ],
+  "layout": "single",
+  "feature": "self-correction"
+ },
+ {
+  "id": "self-multiple-en",
+  "input": "We need fifteen boxes, sorry, fifty boxes, delivered on Monday, no, Tuesday.",
+  "language": "English",
+  "required": [
+   [
+    "fifty",
+    "50"
+   ],
+   [
+    "Tuesday"
+   ],
+   [
+    "boxes"
+   ]
+  ],
+  "forbidden": [
+   "fifteen",
+   "15",
+   "Monday",
+   "sorry"
+  ],
+  "layout": "single",
+  "feature": "self-correction"
+ },
+ {
+  "id": "self-name-pt",
+  "input": "Manda o relatório para o João, quer dizer, para a Maria, amanhã de manhã.",
+  "language": "English",
+  "required": [
+   [
+    "Maria"
+   ],
+   [
+    "report"
+   ],
+   [
+    "tomorrow"
+   ]
+  ],
+  "forbidden": [
+   "João",
+   "Joao",
+   "John",
+   "quer dizer",
+   "I mean"
+  ],
+  "layout": "single",
+  "feature": "self-correction"
+ },
+ {
+  "id": "self-date-pt",
+  "input": "A reunião vai ser terça-feira às três, não, quarta-feira às quatro.",
+  "language": "English",
+  "required": [
+   [
+    "Wednesday"
+   ],
+   [
+    "four",
+    "4"
+   ],
+   [
+    "meeting"
+   ]
+  ],
+  "forbidden": [
+   "Tuesday",
+   "three",
+   "3"
+  ],
+  "layout": "single",
+  "feature": "self-correction"
+ },
+ {
+  "id": "literal-negation",
+  "input": "No, don't send the report to Mark.",
+  "language": "English",
+  "required": [
+   [
+    "Mark"
+   ],
+   [
+    "report"
+   ],
+   [
+    "don't",
+    "do not"
+   ]
+  ],
+  "forbidden": [],
+  "layout": "single",
+  "feature": "literal"
+ },
+ {
+  "id": "newline-en",
+  "input": "Hello Alice. New line. Please send the report.",
+  "language": "English",
+  "required": [
+   [
+    "Alice"
+   ],
+   [
+    "report"
+   ]
+  ],
+  "forbidden": [
+   "new line"
+  ],
+  "layout": "line",
+  "feature": "formatting"
+ },
+ {
+  "id": "newline-pt",
+  "input": "Olá, Ana. Nova linha. Envie o relatório.",
+  "language": "English",
+  "required": [
+   [
+    "Ana"
+   ],
+   [
+    "report"
+   ]
+  ],
+  "forbidden": [
+   "nova linha",
+   "new line"
+  ],
+  "layout": "line",
+  "feature": "formatting"
+ },
+ {
+  "id": "paragraph-en",
+  "input": "The launch is ready. New paragraph. We should notify the team.",
+  "language": "English",
+  "required": [
+   [
+    "launch",
+    "release"
+   ],
+   [
+    "ready"
+   ],
+   [
+    "team"
+   ]
+  ],
+  "forbidden": [
+   "new paragraph"
+  ],
+  "layout": "paragraph",
+  "feature": "formatting"
+ },
+ {
+  "id": "paragraph-pt",
+  "input": "O lançamento está pronto. Novo parágrafo. Precisamos avisar a equipe.",
+  "language": "English",
+  "required": [
+   [
+    "launch",
+    "release"
+   ],
+   [
+    "ready"
+   ],
+   [
+    "team"
+   ]
+  ],
+  "forbidden": [
+   "novo parágrafo",
+   "new paragraph"
+  ],
+  "layout": "paragraph",
+  "feature": "formatting"
+ },
+ {
+  "id": "bullets",
+  "input": "Make a list: milk, eggs, bread.",
+  "language": "English",
+  "required": [
+   [
+    "milk"
+   ],
+   [
+    "eggs"
+   ],
+   [
+    "bread"
+   ]
+  ],
+  "forbidden": [
+   "make a list"
+  ],
+  "layout": "bullets",
+  "feature": "formatting"
+ },
+ {
+  "id": "numbered-list",
+  "input": "Numbered list: check the logs, fix the bug, run the tests.",
+  "language": "English",
+  "required": [
+   [
+    "logs"
+   ],
+   [
+    "bug"
+   ],
+   [
+    "tests"
+   ]
+  ],
+  "forbidden": [
+   "numbered list"
+  ],
+  "layout": "numbered",
+  "feature": "formatting"
+ },
+ {
+  "id": "quotes-en",
+  "input": "In quotes hello.",
+  "language": "English",
+  "required": [
+   [
+    "hello"
+   ]
+  ],
+  "forbidden": [
+   "in quotes"
+  ],
+  "layout": "quote",
+  "feature": "formatting"
+ },
+ {
+  "id": "quotes-pt",
+  "input": "Entre aspas bom dia.",
+  "language": "English",
+  "required": [
+   [
+    "good morning"
+   ]
+  ],
+  "forbidden": [
+   "entre aspas",
+   "in quotes"
+  ],
+  "layout": "quote",
+  "feature": "formatting"
+ },
+ {
+  "id": "literal-paragraph",
+  "input": "Please add a new paragraph to the contract.",
+  "language": "English",
+  "required": [
+   [
+    "paragraph"
+   ],
+   [
+    "contract"
+   ]
+  ],
+  "forbidden": [],
+  "layout": "single",
+  "feature": "literal"
+ },
+ {
+  "id": "literal-newline",
+  "input": "The phrase new line appears in the manual.",
+  "language": "English",
+  "required": [
+   [
+    "new line"
+   ],
+   [
+    "manual"
+   ]
+  ],
+  "forbidden": [],
+  "layout": "single",
+  "feature": "literal"
+ },
+ {
+  "id": "plain-pt",
+  "input": "Preciso que você revise o contrato até sexta-feira.",
+  "language": "English",
+  "required": [
+   [
+    "review"
+   ],
+   [
+    "contract"
+   ],
+   [
+    "Friday"
+   ]
+  ],
+  "forbidden": [
+   "sexta"
+  ],
+  "layout": "single",
+  "feature": "plain"
+ },
+ {
+  "id": "plain-en-cleanup",
+  "input": "Um, so, the deploy is, uh, scheduled for tomorrow.",
+  "language": "English",
+  "required": [
+   [
+    "deploy",
+    "deployment"
+   ],
+   [
+    "tomorrow"
+   ]
+  ],
+  "forbidden": [
+   "um",
+   "uh"
+  ],
+  "layout": "single",
+  "feature": "plain"
+ },
+ {
+  "id": "plain-pt-names",
+  "input": "O Pedro vai apresentar o relatório do Kubernetes na reunião.",
+  "language": "English",
+  "required": [
+   [
+    "Pedro"
+   ],
+   [
+    "Kubernetes"
+   ],
+   [
+    "report"
+   ],
+   [
+    "meeting"
+   ]
+  ],
+  "forbidden": [
+   "relatório",
+   "reunião"
+  ],
+  "layout": "single",
+  "feature": "plain"
+ },
+ {
+  "id": "plain-en-numbers",
+  "input": "We have 3 servers and 12 workers in São Paulo.",
+  "language": "English",
+  "required": [
+   [
+    "3",
+    "three"
+   ],
+   [
+    "12",
+    "twelve"
+   ],
+   [
+    "São Paulo",
+    "Sao Paulo"
+   ]
+  ],
+  "forbidden": [],
+  "layout": "single",
+  "feature": "plain"
+ },
+ {
+  "id": "self-place-en",
+  "input": "Let's meet at the office, actually, let's meet at the café.",
+  "language": "English",
+  "required": [
+   [
+    "café",
+    "cafe"
+   ]
+  ],
+  "forbidden": [
+   "office",
+   "actually"
+  ],
+  "layout": "single",
+  "feature": "self-correction"
+ },
+ {
+  "id": "self-number-pt",
+  "input": "Compra duas, digo, três caixas de leite.",
+  "language": "English",
+  "required": [
+   [
+    "three",
+    "3"
+   ],
+   [
+    "milk"
+   ]
+  ],
+  "forbidden": [
+   "two",
+   "2",
+   "digo"
+  ],
+  "layout": "single",
+  "feature": "self-correction"
+ }
+]

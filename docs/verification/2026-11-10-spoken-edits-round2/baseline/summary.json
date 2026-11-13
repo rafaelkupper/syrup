@@ -1,0 +1,50 @@
+{
+ "gpt-oss-120b": {
+  "requests": 120,
+  "completed": 120,
+  "latency_ms": {
+   "median": 368.5,
+   "p90": 482,
+   "max": 2300
+  },
+  "features": {
+   "plain": {
+    "total": 15,
+    "raw_pass": 12,
+    "delivered_pass": 12
+   },
+   "self-correction": {
+    "total": 27,
+    "raw_pass": 23,
+    "delivered_pass": 23
+   },
+   "formatting": {
+    "total": 18,
+    "raw_pass": 18,
+    "delivered_pass": 18
+   },
+   "punctuation": {
+    "total": 9,
+    "raw_pass": 8,
+    "delivered_pass": 8
+   },
+   "quotes": {
+    "total": 15,
+    "raw_pass": 11,
+    "delivered_pass": 9
+   },
+   "literal": {
+    "total": 21,
+    "raw_pass": 20,
+    "delivered_pass": 20
+   },
+   "combined": {
+    "total": 15,
+    "raw_pass": 1,
+    "delivered_pass": 1
+   }
+  },
+  "delivered_pass": 91,
+  "raw_pass": 93
+ }
+}

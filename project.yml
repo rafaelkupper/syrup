@@ -1,0 +1,71 @@
+name: Syrup
+options:
+  bundleIdPrefix: org.syrup
+  deploymentTarget:
+    macOS: "26.0"
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.10.1
+  FluidAudio:
+    url: https://github.com/FluidInference/FluidAudio
+    exactVersion: 0.18.0
+  KeyboardShortcuts:
+    url: https://github.com/sindresorhus/KeyboardShortcuts
+    from: 2.0.0
+  WhisperKit:
+    url: https://github.com/argmaxinc/WhisperKit
+    from: 1.1.0
+targets:
+  Syrup:
+    type: application
+    platform: macOS
+    sources: [Sources]
+    info:
+      path: Sources/App/Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        SUFeedURL: $(SYRUP_UPDATE_FEED_URL)
+        SUPublicEDKey: $(SYRUP_UPDATE_PUBLIC_KEY)
+        SUEnableSystemProfiling: false
+        SUAutomaticallyUpdate: false
+    dependencies:
+      - package: Sparkle
+      - package: FluidAudio
+      - package: KeyboardShortcuts
+      - package: WhisperKit
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: 13
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_ENTITLEMENTS: Syrup.entitlements
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        SYRUP_UPDATE_FEED_URL: ""
+        SYRUP_UPDATE_PUBLIC_KEY: ""
+        GENERATE_INFOPLIST_FILE: true
+        PRODUCT_BUNDLE_IDENTIFIER: org.syrup.SyrupApp
+        INFOPLIST_KEY_LSUIElement: true
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "Syrup records while you hold the hotkey, to transcribe your dictation."
+        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "Syrup transcribes your dictation on-device."
+      configs:
+        Debug:
+          # Keep Debug debuggable: hardened runtime blocks LLDB attach, and the
+          # default-injected get-task-allow entitlement only matters here.
+          ENABLE_HARDENED_RUNTIME: false
+        Release:
+          ENABLE_HARDENED_RUNTIME: true
+          CODE_SIGN_INJECT_BASE_ENTITLEMENTS: false
+  SyrupTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources: [Tests/SyrupTests]
+    dependencies:
+      - target: Syrup
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        GENERATE_INFOPLIST_FILE: true

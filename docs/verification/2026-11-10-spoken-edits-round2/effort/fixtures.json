@@ -1,0 +1,875 @@
+[
+ {
+  "id": "self-time-en",
+  "input": "The meeting is at 3, no wait, 4.",
+  "language": "English",
+  "required": [
+   [
+    "4",
+    "four"
+   ],
+   [
+    "meeting"
+   ]
+  ],
+  "forbidden": [
+   "three",
+   "3",
+   "no wait"
+  ],
+  "layout": "single",
+  "feature": "self-correction"
+ },
+ {
+  "id": "self-name-en",
+  "input": "Send the report to John, I mean Mark, by Friday.",
+  "language": "English",
+  "required": [
+   [
+    "Mark"
+   ],
+   [
+    "Friday"
+   ],
+   [
+    "report"
+   ]
+  ],
+  "forbidden": [
+   "John",
+   "I mean"
+  ],
+  "layout": "single",
+  "feature": "self-correction"
+ },
+ {
+  "id": "self-multiple-en",
+  "input": "We need fifteen boxes, sorry, fifty boxes, delivered on Monday, no, Tuesday.",
+  "language": "English",
+  "required": [
+   [
+    "fifty",
+    "50"
+   ],
+   [
+    "Tuesday"
+   ],
+   [
+    "boxes"
+   ]
+  ],
+  "forbidden": [
+   "fifteen",
+   "15",
+   "Monday",
+   "sorry"
+  ],
+  "layout": "single",
+  "feature": "self-correction"
+ },
+ {
+  "id": "self-name-pt",
+  "input": "Manda o relatório para o João, quer dizer, para a Maria, amanhã de manhã.",
+  "language": "English",
+  "required": [
+   [
+    "Maria"
+   ],
+   [
+    "report"
+   ],
+   [
+    "tomorrow"
+   ]
+  ],
+  "forbidden": [
+   "João",
+   "Joao",
+   "John",
+   "quer dizer",
+   "I mean"
+  ],
+  "layout": "single",
+  "feature": "self-correction"
+ },
+ {
+  "id": "self-date-pt",
+  "input": "A reunião vai ser terça-feira às três, não, quarta-feira às quatro.",
+  "language": "English",
+  "required": [
+   [
+    "Wednesday"
+   ],
+   [
+    "four",
+    "4"
+   ],
+   [
+    "meeting"
+   ]
+  ],
+  "forbidden": [
+   "Tuesday",
+   "three",
+   "3"
+  ],
+  "layout": "single",
+  "feature": "self-correction"
+ },
+ {
+  "id": "literal-negation",
+  "input": "No, don't send the report to Mark.",
+  "language": "English",
+  "required": [
+   [
+    "Mark"
+   ],
+   [
+    "report"
+   ],
+   [
+    "don't",
+    "do not"
+   ]
+  ],
+  "forbidden": [],
+  "layout": "single",
+  "feature": "literal"
+ },
+ {
+  "id": "newline-en",
+  "input": "Hello Alice. New line. Please send the report.",
+  "language": "English",
+  "required": [
+   [
+    "Alice"
+   ],
+   [
+    "report"
+   ]
+  ],
+  "forbidden": [
+   "new line"
+  ],
+  "layout": "line",
+  "feature": "formatting"
+ },
+ {
+  "id": "newline-pt",
+  "input": "Olá, Ana. Nova linha. Envie o relatório.",
+  "language": "English",
+  "required": [
+   [
+    "Ana"
+   ],
+   [
+    "report"
+   ]
+  ],
+  "forbidden": [
+   "nova linha",
+   "new line"
+  ],
+  "layout": "line",
+  "feature": "formatting"
+ },
+ {
+  "id": "paragraph-en",
+  "input": "The launch is ready. New paragraph. We should notify the team.",
+  "language": "English",
+  "required": [
+   [
+    "launch",
+    "release"
+   ],
+   [
+    "ready"
+   ],
+   [
+    "team"
+   ]
+  ],
+  "forbidden": [
+   "new paragraph"
+  ],
+  "layout": "paragraph",
+  "feature": "formatting"
+ },
+ {
+  "id": "paragraph-pt",
+  "input": "O lançamento está pronto. Novo parágrafo. Precisamos avisar a equipe.",
+  "language": "English",
+  "required": [
+   [
+    "launch",
+    "release"
+   ],
+   [
+    "ready"
+   ],
+   [
+    "team"
+   ]
+  ],
+  "forbidden": [
+   "novo parágrafo",
+   "new paragraph"
+  ],
+  "layout": "paragraph",
+  "feature": "formatting"
+ },
+ {
+  "id": "bullets",
+  "input": "Make a list: milk, eggs, bread.",
+  "language": "English",
+  "required": [
+   [
+    "milk"
+   ],
+   [
+    "eggs"
+   ],
+   [
+    "bread"
+   ]
+  ],
+  "forbidden": [
+   "make a list"
+  ],
+  "layout": "bullets",
+  "feature": "formatting"
+ },
+ {
+  "id": "numbered-list",
+  "input": "Numbered list: check the logs, fix the bug, run the tests.",
+  "language": "English",
+  "required": [
+   [
+    "logs"
+   ],
+   [
+    "bug"
+   ],
+   [
+    "tests"
+   ]
+  ],
+  "forbidden": [
+   "numbered list"
+  ],
+  "layout": "numbered",
+  "feature": "formatting"
+ },
+ {
+  "id": "quotes-en",
+  "input": "In quotes hello.",
+  "language": "English",
+  "required": [
+   [
+    "hello"
+   ]
+  ],
+  "forbidden": [
+   "in quotes"
+  ],
+  "layout": "quote",
+  "feature": "formatting"
+ },
+ {
+  "id": "quotes-pt",
+  "input": "Entre aspas bom dia.",
+  "language": "English",
+  "required": [
+   [
+    "good morning"
+   ]
+  ],
+  "forbidden": [
+   "entre aspas",
+   "in quotes"
+  ],
+  "layout": "quote",
+  "feature": "formatting"
+ },
+ {
+  "id": "literal-paragraph",
+  "input": "Please add a new paragraph to the contract.",
+  "language": "English",
+  "required": [
+   [
+    "paragraph"
+   ],
+   [
+    "contract"
+   ]
+  ],
+  "forbidden": [],
+  "layout": "single",
+  "feature": "literal"
+ },
+ {
+  "id": "literal-newline",
+  "input": "The phrase new line appears in the manual.",
+  "language": "English",
+  "required": [
+   [
+    "new line"
+   ],
+   [
+    "manual"
+   ]
+  ],
+  "forbidden": [],
+  "layout": "single",
+  "feature": "literal"
+ },
+ {
+  "id": "plain-pt",
+  "input": "Preciso que você revise o contrato até sexta-feira.",
+  "language": "English",
+  "required": [
+   [
+    "review"
+   ],
+   [
+    "contract"
+   ],
+   [
+    "Friday"
+   ]
+  ],
+  "forbidden": [
+   "sexta"
+  ],
+  "layout": "single",
+  "feature": "plain"
+ },
+ {
+  "id": "plain-en-cleanup",
+  "input": "Um, so, the deploy is, uh, scheduled for tomorrow.",
+  "language": "English",
+  "required": [
+   [
+    "deploy",
+    "deployment"
+   ],
+   [
+    "tomorrow"
+   ]
+  ],
+  "forbidden": [
+   "um",
+   "uh"
+  ],
+  "layout": "single",
+  "feature": "plain"
+ },
+ {
+  "id": "plain-pt-names",
+  "input": "O Pedro vai apresentar o relatório do Kubernetes na reunião.",
+  "language": "English",
+  "required": [
+   [
+    "Pedro"
+   ],
+   [
+    "Kubernetes"
+   ],
+   [
+    "report"
+   ],
+   [
+    "meeting"
+   ]
+  ],
+  "forbidden": [
+   "relatório",
+   "reunião"
+  ],
+  "layout": "single",
+  "feature": "plain"
+ },
+ {
+  "id": "plain-en-numbers",
+  "input": "We have 3 servers and 12 workers in São Paulo.",
+  "language": "English",
+  "required": [
+   [
+    "3",
+    "three"
+   ],
+   [
+    "12",
+    "twelve"
+   ],
+   [
+    "São Paulo",
+    "Sao Paulo"
+   ]
+  ],
+  "forbidden": [],
+  "layout": "single",
+  "feature": "plain"
+ },
+ {
+  "id": "self-place-en",
+  "input": "Let's meet at the office, actually, let's meet at the café.",
+  "language": "English",
+  "required": [
+   [
+    "café",
+    "cafe"
+   ]
+  ],
+  "forbidden": [
+   "office",
+   "actually"
+  ],
+  "layout": "single",
+  "feature": "self-correction"
+ },
+ {
+  "id": "self-number-pt",
+  "input": "Compra duas, digo, três caixas de leite.",
+  "language": "English",
+  "required": [
+   [
+    "three",
+    "3"
+   ],
+   [
+    "milk"
+   ]
+  ],
+  "forbidden": [
+   "two",
+   "2",
+   "digo"
+  ],
+  "layout": "single",
+  "feature": "self-correction"
+ },
+ {
+  "id": "real-typed",
+  "input": "Hmm vamos testar mais algumas coisas... eu queria fazer dois, não, três testes nova linha abre aspas vamos ver se isso aqui funciona fecha aspas e é.... ponto final.",
+  "language": "English",
+  "required": [
+   [
+    "three",
+    "3"
+   ],
+   [
+    "tests"
+   ],
+   [
+    "works"
+   ]
+  ],
+  "forbidden": [
+   "two",
+   "2",
+   "period",
+   "ponto final",
+   "nova linha",
+   "new line",
+   "aspas",
+   "open quote",
+   "close quote",
+   "full stop"
+  ],
+  "layout": "line",
+  "feature": "combined",
+  "quoted": "works",
+  "ends": [
+   ".\"",
+   "\".",
+   ".”",
+   "”."
+  ]
+ },
+ {
+  "id": "real-asr",
+  "input": "Hum, vamos testar mais algumas coisas. Eu queria fazer dois, não, três testes. Nova linha. Abre aspas, vamos ver se isso aqui funciona, fecha aspas. E é ponto final.",
+  "language": "English",
+  "required": [
+   [
+    "three",
+    "3"
+   ],
+   [
+    "tests"
+   ],
+   [
+    "works"
+   ]
+  ],
+  "forbidden": [
+   "two",
+   "2",
+   "period",
+   "ponto final",
+   "nova linha",
+   "new line",
+   "aspas",
+   "open quote",
+   "close quote",
+   "full stop"
+  ],
+  "layout": "line",
+  "feature": "combined",
+  "quoted": "works",
+  "ends": [
+   ".\"",
+   "\".",
+   ".”",
+   "”."
+  ]
+ },
+ {
+  "id": "real-bare",
+  "input": "hum vamos testar mais algumas coisas eu queria fazer dois não três testes nova linha abre aspas vamos ver se isso aqui funciona fecha aspas e é ponto final",
+  "language": "English",
+  "required": [
+   [
+    "tests"
+   ],
+   [
+    "works"
+   ]
+  ],
+  "forbidden": [
+   "period",
+   "ponto final",
+   "nova linha",
+   "new line",
+   "aspas",
+   "open quote",
+   "close quote",
+   "full stop"
+  ],
+  "layout": "line",
+  "feature": "combined",
+  "quoted": "works",
+  "ends": [
+   ".\"",
+   "\".",
+   ".”",
+   "”."
+  ]
+ },
+ {
+  "id": "combo-en",
+  "input": "Um, send it to John, no, to Mark. New paragraph. Thanks period",
+  "language": "English",
+  "required": [
+   [
+    "Mark"
+   ],
+   [
+    "thanks",
+    "thank you"
+   ]
+  ],
+  "forbidden": [
+   "John",
+   "period",
+   "new paragraph",
+   "um"
+  ],
+  "layout": "paragraph",
+  "feature": "combined"
+ },
+ {
+  "id": "combo-pt",
+  "input": "Oi Ana vírgula a reunião é às duas, quer dizer, às três ponto final nova linha obrigado",
+  "language": "English",
+  "required": [
+   [
+    "Ana"
+   ],
+   [
+    "three",
+    "3"
+   ],
+   [
+    "thanks",
+    "thank you"
+   ]
+  ],
+  "forbidden": [
+   "two",
+   "2",
+   "vírgula",
+   "comma",
+   "ponto final",
+   "period",
+   "nova linha",
+   "new line",
+   "quer dizer",
+   "I mean"
+  ],
+  "layout": "line",
+  "feature": "combined"
+ },
+ {
+  "id": "self-count-pt",
+  "input": "Eu queria fazer dois, não, três testes.",
+  "language": "English",
+  "required": [
+   [
+    "three",
+    "3"
+   ],
+   [
+    "tests"
+   ]
+  ],
+  "forbidden": [
+   "two",
+   "2"
+  ],
+  "layout": "single",
+  "feature": "self-correction"
+ },
+ {
+  "id": "self-count-en",
+  "input": "I want to run two, no, three tests.",
+  "language": "English",
+  "required": [
+   [
+    "three",
+    "3"
+   ],
+   [
+    "tests"
+   ]
+  ],
+  "forbidden": [
+   "two",
+   "2"
+  ],
+  "layout": "single",
+  "feature": "self-correction"
+ },
+ {
+  "id": "punct-period-pt",
+  "input": "Chegamos ponto final Vamos começar ponto final",
+  "language": "English",
+  "required": [
+   [
+    "arrived",
+    "here"
+   ],
+   [
+    "start",
+    "begin"
+   ]
+  ],
+  "forbidden": [
+   "ponto final",
+   "period",
+   "full stop",
+   "final point"
+  ],
+  "layout": "single",
+  "feature": "punctuation",
+  "ends": [
+   "."
+  ]
+ },
+ {
+  "id": "punct-question-pt",
+  "input": "Olá vírgula tudo bem ponto de interrogação",
+  "language": "English",
+  "required": [
+   [
+    "hello",
+    "hi"
+   ]
+  ],
+  "forbidden": [
+   "vírgula",
+   "comma",
+   "question mark",
+   "interrogação"
+  ],
+  "layout": "single",
+  "feature": "punctuation",
+  "ends": [
+   "?"
+  ]
+ },
+ {
+  "id": "punct-en",
+  "input": "Dear team comma the release is ready period Any questions question mark",
+  "language": "English",
+  "required": [
+   [
+    "team"
+   ],
+   [
+    "release"
+   ],
+   [
+    "questions"
+   ]
+  ],
+  "forbidden": [
+   "comma",
+   "period",
+   "question mark"
+  ],
+  "layout": "single",
+  "feature": "punctuation",
+  "ends": [
+   "?"
+  ]
+ },
+ {
+  "id": "openclose-pt",
+  "input": "Ele disse abre aspas estou pronto fecha aspas",
+  "language": "English",
+  "required": [
+   [
+    "ready"
+   ]
+  ],
+  "forbidden": [
+   "aspas",
+   "open quote",
+   "close quote",
+   "quotes"
+  ],
+  "layout": "single",
+  "feature": "quotes",
+  "quoted": "ready"
+ },
+ {
+  "id": "openclose-en",
+  "input": "She said open quote we are done close quote",
+  "language": "English",
+  "required": [
+   [
+    "done"
+   ]
+  ],
+  "forbidden": [
+   "open quote",
+   "close quote"
+  ],
+  "layout": "single",
+  "feature": "quotes",
+  "quoted": "done"
+ },
+ {
+  "id": "openclose-whole-pt",
+  "input": "Abre aspas bom dia fecha aspas",
+  "language": "English",
+  "required": [
+   [
+    "good morning"
+   ]
+  ],
+  "forbidden": [
+   "aspas",
+   "open quote",
+   "close quote"
+  ],
+  "layout": "quote",
+  "feature": "quotes"
+ },
+ {
+  "id": "literal-period-pt",
+  "input": "O ponto final do ônibus fica na praça.",
+  "language": "English",
+  "required": [
+   [
+    "stop",
+    "terminus",
+    "end of the line",
+    "final point",
+    "terminal"
+   ],
+   [
+    "bus"
+   ],
+   [
+    "square",
+    "plaza"
+   ]
+  ],
+  "forbidden": [],
+  "layout": "single",
+  "feature": "literal"
+ },
+ {
+  "id": "literal-period-en",
+  "input": "The trial period ends on Friday.",
+  "language": "English",
+  "required": [
+   [
+    "period"
+   ],
+   [
+    "Friday"
+   ]
+  ],
+  "forbidden": [],
+  "layout": "single",
+  "feature": "literal"
+ },
+ {
+  "id": "literal-comma-en",
+  "input": "Add a comma after the name.",
+  "language": "English",
+  "required": [
+   [
+    "comma"
+   ],
+   [
+    "name"
+   ]
+  ],
+  "forbidden": [],
+  "layout": "single",
+  "feature": "literal"
+ },
+ {
+  "id": "literal-no-pt",
+  "input": "Não, três testes não são suficientes.",
+  "language": "English",
+  "required": [
+   [
+    "three",
+    "3"
+   ],
+   [
+    "not",
+    "aren't",
+    "isn't",
+    "insufficient"
+   ]
+  ],
+  "forbidden": [],
+  "layout": "single",
+  "feature": "literal"
+ },
+ {
+  "id": "filler-pt",
+  "input": "É... então, hum, a gente se fala amanhã.",
+  "language": "English",
+  "required": [
+   [
+    "tomorrow"
+   ]
+  ],
+  "forbidden": [
+   "hum",
+   "um",
+   "uh",
+   "hmm"
+  ],
+  "layout": "single",
+  "feature": "plain"
+ }
+]

@@ -1,0 +1,116 @@
+{
+ "apple-on-device": {
+  "requests": 66,
+  "completed": 66,
+  "latency_ms": {
+   "median": 365.5,
+   "p90": 485,
+   "max": 1592
+  },
+  "features": {
+   "plain": {
+    "total": 12,
+    "raw_pass": 12,
+    "delivered_pass": 12
+   },
+   "self-correction": {
+    "total": 21,
+    "raw_pass": 12,
+    "delivered_pass": 12
+   },
+   "formatting": {
+    "total": 18,
+    "raw_pass": 6,
+    "delivered_pass": 6
+   },
+   "quotes": {
+    "total": 6,
+    "raw_pass": 6,
+    "delivered_pass": 0
+   },
+   "literal": {
+    "total": 9,
+    "raw_pass": 8,
+    "delivered_pass": 8
+   }
+  },
+  "delivered_pass": 38,
+  "raw_pass": 44
+ },
+ "qwen-3.8-27b": {
+  "requests": 66,
+  "completed": 66,
+  "latency_ms": {
+   "median": 325.0,
+   "p90": 502,
+   "max": 2334
+  },
+  "features": {
+   "plain": {
+    "total": 12,
+    "raw_pass": 12,
+    "delivered_pass": 12
+   },
+   "self-correction": {
+    "total": 21,
+    "raw_pass": 19,
+    "delivered_pass": 19
+   },
+   "formatting": {
+    "total": 18,
+    "raw_pass": 17,
+    "delivered_pass": 17
+   },
+   "quotes": {
+    "total": 6,
+    "raw_pass": 6,
+    "delivered_pass": 0
+   },
+   "literal": {
+    "total": 9,
+    "raw_pass": 9,
+    "delivered_pass": 9
+   }
+  },
+  "delivered_pass": 57,
+  "raw_pass": 63
+ },
+ "gpt-oss-120b": {
+  "requests": 66,
+  "completed": 66,
+  "latency_ms": {
+   "median": 370.0,
+   "p90": 453,
+   "max": 998
+  },
+  "features": {
+   "plain": {
+    "total": 12,
+    "raw_pass": 12,
+    "delivered_pass": 12
+   },
+   "self-correction": {
+    "total": 21,
+    "raw_pass": 19,
+    "delivered_pass": 19
+   },
+   "formatting": {
+    "total": 18,
+    "raw_pass": 17,
+    "delivered_pass": 17
+   },
+   "quotes": {
+    "total": 6,
+    "raw_pass": 3,
+    "delivered_pass": 0
+   },
+   "literal": {
+    "total": 9,
+    "raw_pass": 8,
+    "delivered_pass": 8
+   }
+  },
+  "delivered_pass": 56,
+  "raw_pass": 59
+ }
+}

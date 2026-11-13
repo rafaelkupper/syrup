@@ -1,0 +1,32 @@
+{
+  "baseline": {
+    "total": 32,
+    "completed": 32,
+    "raw_pass": 29,
+    "delivered_pass": 27
+  },
+  "quotes-contract": {
+    "total": 8,
+    "completed": 8,
+    "raw_pass": 7,
+    "delivered_pass": 4
+  },
+  "layout": {
+    "total": 12,
+    "completed": 12,
+    "raw_pass": null,
+    "delivered_pass": 12
+  },
+  "streaming": {
+    "total": 4,
+    "completed": 4,
+    "raw_pass": 4,
+    "delivered_pass": 3
+  },
+  "prompt-focused": {
+    "total": 32,
+    "completed": 32,
+    "raw_pass": 31,
+    "delivered_pass": 27
+  }
+}

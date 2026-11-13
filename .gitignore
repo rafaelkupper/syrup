@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+.claude/settings.local.json
+Syrup.xcodeproj/
+DerivedData/
+.DS_Store
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+dist/
+.cache/
+__pycache__/
+/.git-history-backup/

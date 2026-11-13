@@ -1,0 +1,116 @@
+{
+ "gpt-oss-120b": {
+  "requests": 12,
+  "completed": 12,
+  "latency_ms": {
+   "median": 401.5,
+   "p90": 420,
+   "max": 454
+  },
+  "features": {
+   "plain": {
+    "total": 2,
+    "raw_pass": 2,
+    "delivered_pass": 2
+   },
+   "self-correction": {
+    "total": 2,
+    "raw_pass": 2,
+    "delivered_pass": 2
+   },
+   "formatting": {
+    "total": 2,
+    "raw_pass": 2,
+    "delivered_pass": 2
+   },
+   "quotes": {
+    "total": 4,
+    "raw_pass": 2,
+    "delivered_pass": 2
+   },
+   "literal": {
+    "total": 2,
+    "raw_pass": 2,
+    "delivered_pass": 2
+   }
+  },
+  "delivered_pass": 10,
+  "raw_pass": 10
+ },
+ "qwen-3.8-27b": {
+  "requests": 12,
+  "completed": 12,
+  "latency_ms": {
+   "median": 356.0,
+   "p90": 411,
+   "max": 872
+  },
+  "features": {
+   "plain": {
+    "total": 2,
+    "raw_pass": 2,
+    "delivered_pass": 2
+   },
+   "self-correction": {
+    "total": 2,
+    "raw_pass": 2,
+    "delivered_pass": 2
+   },
+   "formatting": {
+    "total": 2,
+    "raw_pass": 0,
+    "delivered_pass": 0
+   },
+   "quotes": {
+    "total": 4,
+    "raw_pass": 4,
+    "delivered_pass": 4
+   },
+   "literal": {
+    "total": 2,
+    "raw_pass": 2,
+    "delivered_pass": 2
+   }
+  },
+  "delivered_pass": 10,
+  "raw_pass": 10
+ },
+ "apple-on-device": {
+  "requests": 12,
+  "completed": 12,
+  "latency_ms": {
+   "median": 369.5,
+   "p90": 439,
+   "max": 1393
+  },
+  "features": {
+   "plain": {
+    "total": 2,
+    "raw_pass": 2,
+    "delivered_pass": 2
+   },
+   "self-correction": {
+    "total": 2,
+    "raw_pass": 2,
+    "delivered_pass": 2
+   },
+   "formatting": {
+    "total": 2,
+    "raw_pass": 0,
+    "delivered_pass": 0
+   },
+   "quotes": {
+    "total": 4,
+    "raw_pass": 4,
+    "delivered_pass": 4
+   },
+   "literal": {
+    "total": 2,
+    "raw_pass": 0,
+    "delivered_pass": 0
+   }
+  },
+  "delivered_pass": 8,
+  "raw_pass": 8
+ }
+}

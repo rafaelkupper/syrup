@@ -1,0 +1,111 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Syrup onboarding mockup</title>
+<style>
+#bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font:12px var(--font-sans,-apple-system,system-ui);margin:0 0 10px}
+#bar b{font-weight:600}.ch{display:inline-flex;border:1px solid var(--border,#8884);border-radius:7px;overflow:hidden}
+.ch button{all:unset;padding:3px 9px;cursor:pointer}.ch button.on{background:var(--primary,#0a84ff);color:var(--primary-foreground,#fff)}
+#notes{font:12.5px/1.5 var(--font-sans,-apple-system,system-ui);margin-top:14px;max-width:560px}#notes b{font-weight:600}#notes p{margin:0 0 6px}
+
+#w{--ink-btn:#3d1a03;width:540px;height:460px;position:relative;overflow:hidden;border-radius:14px;font:13px/1.35 ui-rounded,"SF Pro Rounded","Hiragino Maru Gothic ProN",-apple-system,system-ui;color:var(--ink);background:var(--bg);box-shadow:0 0 0 .5px #0005,0 10px 30px #0006;user-select:none}
+#w.light{--bg:#fff7ea;--ink:#4f2606;--ink2:#7d5228;--card:#fffdf8;--line:#f0dfc4;--field:#fff;--off:#ead9bd;--tint:#fbe7c6;--am:#a85a06}
+#w.dark{--bg:#291607;--ink:#ffecd2;--ink2:#c2a07c;--card:#361f0f;--line:#4f3117;--field:#22120a;--off:#553418;--tint:#4a2c12;--am:#f5a52a}
+#w h1{font:400 22px/1.15 ui-rounded,"SF Pro Rounded","Arial Rounded MT Bold",-apple-system;margin:0}
+
+#drip{position:absolute;left:0;top:0;pointer-events:none}
+.lights{position:absolute;left:12px;top:8px;display:flex;gap:8px;z-index:5}.lights i{width:12px;height:12px;border-radius:50%;background:#ff5f57}.lights i+i,.lights i+i+i{background:#3d1a0333}
+.skip{position:absolute;right:14px;top:6px;z-index:5;color:var(--ink-btn);font-size:12px;cursor:default}
+
+#stage{position:absolute;left:0;right:0;top:44px;bottom:60px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.sub{color:var(--ink2);margin:4px 0 0;text-wrap:balance}
+.gap{flex:none}
+.note{font-size:11.5px;color:var(--ink2)}
+
+#foot{position:absolute;left:16px;right:16px;bottom:16px;height:28px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center}
+.pri{justify-self:end;height:28px;padding:0 14px;border-radius:14px;color:var(--ink-btn);display:inline-flex;align-items:center;font-weight:600;cursor:default;background:linear-gradient(#ffc04f,#f39a1e);box-shadow:inset 0 1px 0 #ffffff80,0 1px 3px #c8650a40}
+.pri:active{transform:scale(.97)}
+.back{color:var(--ink2);cursor:default;display:inline-flex;align-items:center;gap:3px;justify-self:start}
+#dots{display:flex;gap:8px;align-items:center}#dots i{width:6px;height:6px;border-radius:50%;background:var(--off)}#dots i.on{background:#ee8412}
+
+.list{width:420px;display:flex;flex-direction:column;gap:8px}
+.row{display:flex;align-items:center;gap:12px;background:var(--card);box-shadow:0 0 0 1px var(--line);border-radius:12px;padding:10px 12px;text-align:left}
+.ri{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--am);background:var(--tint);flex:none}
+.rt{flex:1;min-width:0}.rt b{font-weight:600}.rt small{display:block;font-size:10.5px;color:var(--ink2);line-height:1.3;margin-top:1px}
+.opt{font-size:10.5px;color:var(--ink2);margin-left:6px}
+.mini{height:24px;padding:0 10px;border-radius:12px;display:inline-flex;align-items:center;font-size:12px;font-weight:600;color:var(--ink-btn);background:linear-gradient(#ffc04f,#f39a1e);cursor:default;flex:none}
+.ok{color:var(--am);display:flex;flex:none;margin-right:6px}
+
+.recipe{display:grid;grid-template-columns:auto 210px;gap:12px;align-items:center;justify-items:end;font-size:14px}
+.pop{justify-self:stretch;display:flex;align-items:center;justify-content:space-between;height:28px;padding:0 8px 0 12px;border-radius:14px;background:var(--card);box-shadow:0 0 0 1px #e9a648;font-weight:600;cursor:default;white-space:nowrap}.pop i{color:var(--am);display:flex}
+.status{height:28px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+.bar{height:4px;width:200px;border-radius:2px;background:var(--off);overflow:hidden}.bar i{display:block;height:100%;border-radius:2px;background:#ee8412;transition:width .3s}
+
+.fl{display:block;cursor:default}.fl .top{display:flex;align-items:center;gap:12px}
+.rd{width:14px;height:14px;border-radius:50%;box-shadow:inset 0 0 0 1px var(--ink2);flex:none;box-sizing:border-box}
+.fl.on{box-shadow:0 0 0 1.5px #ee8412}.fl.on .rd{box-shadow:none;border:4px solid #ee8412;background:#fff}
+.form{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;margin:10px 0 0 26px;font-size:11.5px;color:var(--ink2)}
+.form label{justify-self:end}.fldrow{display:flex;gap:6px;align-items:center}
+.fld{height:24px;box-sizing:border-box;border-radius:7px;background:var(--field);box-shadow:inset 0 0 0 1px var(--line);display:flex;align-items:center;padding:0 8px;color:var(--ink);font-size:12px;flex:1;min-width:0;white-space:nowrap;overflow:hidden}.fld.ph{color:var(--ink2)}
+
+.key{display:inline-block;font-weight:600;padding:1px 8px;border-radius:7px;background:var(--card);box-shadow:0 0 0 1px var(--line),0 1.5px 0 var(--line);margin:0 2px;color:var(--ink)}
+.bub{width:360px;height:84px;border-radius:12px;background:var(--card);box-shadow:0 0 0 1px var(--line);padding:12px 16px;text-align:left;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center}.bub small{display:block;color:var(--ink2);font-size:10.5px}.bub p{margin:0}.bub p+small{margin-top:6px}.bub p:last-child{font-weight:600}
+.wave{display:flex;gap:3px;align-items:center;justify-content:center;height:40px}.wave i{width:4px;height:10px;border-radius:2px;background:#ee8412;animation:wv .7s ease-in-out infinite alternate}.wave i:nth-child(2){animation-delay:.12s}.wave i:nth-child(3){animation-delay:.24s}.wave i:nth-child(4){animation-delay:.36s}.wave i:nth-child(5){animation-delay:.48s}
+@keyframes wv{to{height:30px}}
+a.lnk{color:var(--am);cursor:default}
+
+.m{transform-origin:50% 92%;flex:none}.fall{animation:fall .95s cubic-bezier(.45,.05,.55,.95) both}
+@keyframes fall{0%{transform:translateY(-140px) scale(.8,1.2)}58%{transform:translateY(0) scale(.92,1.08)}70%{transform:translateY(0) scale(1.18,.8)}84%{transform:translateY(-10px) scale(.96,1.05)}100%{transform:none}}
+.blink{animation:blink 4.2s infinite;transform-box:fill-box;transform-origin:center}@keyframes blink{0%,94%,100%{transform:scaleY(1)}97%{transform:scaleY(.1)}}
+.sp{position:absolute;top:-10px;width:4px;height:11px;border-radius:2px;animation:sp linear forwards;z-index:4;pointer-events:none}@keyframes sp{to{transform:translateY(500px) rotate(520deg)}}
+</style></head><body>
+<div id="bar"><span class="ch" id="apC"></span><span class="ch" id="stC"></span><span class="ch" id="exC"></span></div>
+<div id="w" class="light"><svg id="drip" width="540" height="84"><defs><linearGradient id="sy" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e57a0e"/><stop offset=".5" stop-color="#f39a1e"/><stop offset="1" stop-color="#ffbc45"/></linearGradient></defs><path id="dp" fill="url(#sy)"/><g id="gl"></g></svg>
+<div class="lights"><i></i><i></i><i></i></div><div class="skip" data-skip>Skip setup</div><div id="stage"></div><div id="foot"></div></div>
+<div id="notes"></div>
+<script>
+const $=s=>document.querySelector(s);const st={s:0,ap:'light',ex:'fresh',perm:[0,0,0],fl:0,taste:0,dl:0,still:false};
+const DR=[[30,13,10],[64,10,26],[96,15,14],[138,11,38],[174,13,12],[218,10,14],[256,16,10],[302,10,14],[334,13,12],[378,10,42],[410,15,16],[456,10,30],[492,14,12]];
+function drip(t){const b=24;let d=`M0 0H540V${b}`;for(const[l,w,L0]of [...DR].reverse()){const L=b+L0+Math.sin(t/1400+l)*3,r=w/2;d+=`L${l+w} ${b}L${l+w} ${L-r}A${r} ${r} 0 0 1 ${l} ${L-r}L${l} ${b}`}d+=`L0 ${b}Z`;$('#dp').setAttribute('d',d);$('#gl').innerHTML=DR.map(([l,w,L0])=>{const L=b+L0+Math.sin(t/1400+l)*3;return L0>25?`<rect x="${l+w*.22}" y="${L-w*.2-8}" width="${w*.17}" height="7" rx="1" fill="#fff" opacity=".5"/>`:''}).join('')}
+const face=(eyes,mouth)=>{const E=eyes=='happy'?`<path d="M42 72q6-8 12 0M66 72q6-8 12 0" fill="none" stroke="#5a2605" stroke-width="3.6" stroke-linecap="round"/>`:`<g class="blink"><ellipse cx="48" cy="72" rx="5.5" ry="7" fill="#4a1f05"/><ellipse cx="72" cy="72" rx="5.5" ry="7" fill="#4a1f05"/><circle cx="50" cy="69" r="2.2" fill="#fff"/><circle cx="74" cy="69" r="2.2" fill="#fff"/></g>`;const M=mouth=='o'?`<ellipse cx="60" cy="87" rx="5" ry="6" fill="#7a2c08"/>`:`<path d="M53 84q7 7 14 0" fill="none" stroke="#5a2605" stroke-width="3.2" stroke-linecap="round"/>`;return E+M};
+const MC=(size,eyes,mouth,cls='')=>`<svg class="m ${cls}" width="${size}" height="${size*1.05}" viewBox="0 0 120 126"><defs><radialGradient id="dg" cx=".38" cy=".42" r=".8"><stop offset="0" stop-color="#ffd56f"/><stop offset=".55" stop-color="#f8a627"/><stop offset="1" stop-color="#d9690a"/></radialGradient></defs><path d="M60 6C60 6 16 52 16 80a44 44 0 0 0 88 0C104 52 60 6 60 6Z" fill="url(#dg)"/><path d="M36 58c3-9 10-19 16-26" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="6" stroke-linecap="round"/><ellipse cx="35" cy="85" rx="7.5" ry="4.5" fill="#d9480f" opacity=".32"/><ellipse cx="85" cy="85" rx="7.5" ry="4.5" fill="#d9480f" opacity=".32"/>${face(eyes,mouth)}</svg>`;
+const ICO={mic:'<path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM6 11a6 6 0 0 0 12 0M12 17v4"/>',wave:'<path d="M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4"/>',cur:'<path d="M9 4c2 0 3 1 3 2v12c0 1 1 2 3 2M15 4c-2 0-3 1-3 2M9 20c2 0 3-1 3-2M9 12h6"/>',chk:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',ud:'<path d="M8 10l4-4 4 4M8 14l4 4 4-4"/>',back:'<path d="M15 5l-7 7 7 7"/>'};
+const ic=(n,s=15,w=2.2)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${ICO[n]}</svg>`;
+const pop=t=>`<span class="pop">${t}<i>${ic('ud',13,2.6)}</i></span>`;
+const gap=h=>`<div class="gap" style="height:${h}px"></div>`;
+const head=(m,t,sub)=>`${m}${gap(8)}<h1>${t}</h1>${sub?`<p class="sub">${sub}</p>`:''}`;
+const perm=(i,t,d,opt)=>`<div class="row"><div class="ri">${ic(['mic','wave','cur'][i])}</div><div class="rt"><b>${t}</b>${opt?'<span class="opt">Optional</span>':''}<small>${d}</small></div>${st.perm[i]?`<div class="ok">${ic('chk',17,3)}</div>`:`<span class="mini" data-perm="${i}">Allow</span>`}</div>`;
+const CFG={fresh:{url:'https://api.openai.com/v1',model:'gpt-4o-mini',key:''},existing:{url:'https://openrouter.ai/api/v1',model:'anthropic/claude-haiku-5-5',key:'Saved'}};
+const form=()=>{const c=CFG[st.ex];return `<div class="form"><label>Endpoint</label><span class="fld">${c.url}</span><label>Model</label><span class="fld">${c.model}</span><label>API key</label><span class="fldrow"><span class="fld ${c.key?'':'ph'}">${c.key?'••••••••••••  Saved':'Stored only on this Mac'}</span><span class="mini">Test</span></span></div>`};
+const FL=[['Apple On-Device','Private and offline. Needs Apple Intelligence.'],['OpenAI-compatible','Your API key or local server.'],['Codex CLI','Uses your ChatGPT plan. A little slower.']];
+const S=[
+ {t:'Welcome',b(){return `${MC(88,'n','smile',st.still?'':'fall')}${gap(16)}<h1 style="font-size:26px">Hi, I’m Syrup!</h1>${gap(6)}<p class="sub" style="margin:0;font-size:14px">Say it in your language, I’ll pour it out in another.</p>${gap(12)}<div class="note">Takes about a minute.</div>`},n:'Start pouring',
+  sw:'A drip Shape with animatable lengths, keyframeAnimator for the fall, and a VStack centered in a fixed Window. With Reduce Motion on, the drop is already in place.',nw:'Onboarding window. It opens by itself only when there is no saved workflow list at launch. Show Welcome Again in General reopens it for anyone.'},
+ {t:'Permissions',b(){return head(MC(40,'n','smile'),'Let me listen')+gap(16)+`<div class="list">${perm(0,'Microphone','So I can hear you.')}${perm(1,'Speech Recognition','Turns your voice into text on this Mac.')}${perm(2,'Accessibility','Pastes results where you’re typing.',1)}</div>${gap(12)}<div class="note">Your voice never leaves this Mac.</div>`},n(){return st.perm[0]&&st.perm[1]?'Continue':'Skip for now'},
+  sw:'The real request calls from Privacy, and PermissionStatusModel for the checkmarks.',nw:'Allowing Accessibility also turns on pasting.'},
+ {t:'Recipe',b(){const p=st.dl;return head(MC(40,'n','smile'),'What’s the recipe?')+gap(24)+`<div class="recipe"><span>I speak</span>${pop('Portuguese (Brazil)')}<span>and I want</span>${pop('English')}</div>${gap(20)}<div class="status">${p>=100?`<div class="note" style="display:flex;gap:4px;align-items:center;color:var(--am)">${ic('chk',13,3)}Portuguese is ready</div>`:`<div class="note">Getting Portuguese ready</div><div class="bar"><i style="width:${p}%"></i></div>`}</div>`},n:'Continue',
+  sw:'Grid with two equal-width Picker(.menu) pills, and ProgressView tied to selectedLocaleProgress.',nw:'Creates the first workflow. “The same language” in the second menu makes a Transcribe workflow and skips Flavor.'},
+ {t:'Flavor',b(){const on=st.fl;return head(MC(36,'n','smile'),'Pick a flavor','Who makes the result? Change it anytime.')+gap(14)+`<div class="list">${FL.map((f,i)=>`<div class="row fl ${on==i?'on':''}" data-fl="${i}"><div class="top"><span class="rd"></span><div class="rt"><b>${f[0]}</b><small>${f[1]}</small></div></div>${on==1&&i==1?form():''}</div>`).join('')}</div>`},n:'Continue',
+  sw:'Buttons with a custom style. TextField for Endpoint and Model, SecureField and Test reused from AI Provider, all bound to the existing settings.',nw:'Fields show what is configured, so an existing setup appears as it is. Switch to “Existing setup” above to see it. A saved key shows as Saved and is never displayed.'},
+ {t:'Taste',b(){const t=st.taste;return head(MC(40,t==2?'happy':'n',t==1?'o':'smile'),t==2?'Sweet! You’re all set':'Have a taste',t==1?'I’m listening…':t==2?'I live in your menu bar. Use the same keys anywhere you type.':`Hold <span class="key">⌥\`</span> and say anything.`)+gap(20)+(t==0?`<div class="bub" style="align-items:center;color:var(--ink2)">Your first result lands here.</div>`:t==1?`<div class="bub"><div class="wave"><i></i><i></i><i></i><i></i><i></i></div></div>`:`<div class="bub"><small>You said</small><p>Bom dia, tudo bem com você?</p><small>Syrup poured</small><p>Good morning, how are you?</p></div>`)+gap(12)+`<div class="note" style="height:16px">${t==0?`<a class="lnk" data-try>Preview holding the keys</a> · <a class="lnk">Change shortcut…</a>`:''}</div>`},n(){return st.taste==2?'All done':'Skip'},
+  sw:'KeyboardShortcuts.Recorder behind Change shortcut, and Canvas for the sprinkles.',nw:'Reads the result from history. Pasting waits while this window is in front, so the first try lands here.'}
+];
+function draw(){$('#w').className=st.ap;const c=S[st.s];$('#stage').innerHTML=c.b();
+ const pr=typeof c.n=='function'?c.n():c.n;$('#foot').innerHTML=`<span class="back" ${st.s?'data-back':''}>${st.s?ic('back',12,2.6)+'Back':''}</span><div id="dots">${S.map((_,i)=>`<i class="${i<=st.s?'on':''}"></i>`).join('')}</div><span class="pri" data-next>${pr}</span>`;
+ $('[data-skip]').style.visibility=st.s==4?'hidden':'visible';
+ $('#notes').innerHTML=`<p><b>SwiftUI:</b> ${c.sw}</p><p><b>New work:</b> ${c.nw}</p>`;
+ ch('#apC',[['light','Light'],['dark','Dark']],'ap');ch('#stC',S.map((x,i)=>[String(i),x.t]),'s');ch('#exC',[['fresh','Fresh install'],['existing','Existing setup']],'ex');}
+function ch(id,o,k){$(id).innerHTML=o.map(x=>`<button class="${String(st[k])==x[0]?'on':''}" data-k="${k}" data-v="${x[0]}">${x[1]}</button>`).join('');}
+function go(i){st.s=Math.max(0,Math.min(4,i));if(st.s==2){st.dl=0;fill()}if(st.s==4)st.taste=0;draw()}
+let ft;function fill(){clearInterval(ft);ft=setInterval(()=>{if(st.s!=2||st.dl>=100){clearInterval(ft);return}st.dl=Math.min(100,st.dl+7);draw()},240)}
+function sprinkle(){const w=$('#w');const c=['#f8a627','#ffd56f','#d9690a','#fff3d6'];for(let i=0;i<30;i++){const e=document.createElement('i');e.className='sp';e.style.left=Math.random()*540+'px';e.style.background=c[i%4];e.style.animationDuration=1.3+Math.random()*1.2+'s';e.style.animationDelay=Math.random()*.5+'s';w.appendChild(e);setTimeout(()=>e.remove(),3200)}}
+document.addEventListener('click',e=>{const t=e.target;let x;
+ if(x=t.closest('[data-k]')){if(x.dataset.k=='s')return go(+x.dataset.v);st[x.dataset.k]=x.dataset.v;if(x.dataset.k=='ex'&&x.dataset.v=='existing'){st.fl=1;st.s=3}return draw()}
+ if(t.closest('[data-next]')){if(st.s==4){if(st.taste==2){st.taste=0;st.s=0;return draw()}st.taste=2;sprinkle();return draw()}return go(st.s+1)}
+ if(t.closest('[data-back]'))return go(st.s-1);
+ if(x=t.closest('[data-perm]')){st.perm[+x.dataset.perm]=1;return draw()}
+ if(x=t.closest('[data-fl]')){st.fl=+x.dataset.fl;return draw()}
+ if(t.closest('[data-skip]'))return go(4);
+ if(t.closest('[data-try]')){st.taste=1;draw();setTimeout(()=>{if(st.s==4&&st.taste==1){st.taste=2;sprinkle();draw()}},1600)}
+});
+const q=new URLSearchParams(location.hash.slice(1));for(const k of ['ap','ex'])if(q.get(k))st[k]=q.get(k);for(const k of ['s','taste','fl','dl'])if(q.get(k))st[k]=+q.get(k);if(q.get('perm'))st.perm=[1,0,0];if(q.get('still'))st.still=true;
+(function loop(t){drip(t||0);requestAnimationFrame(loop)})();draw();
+</script></body></html>

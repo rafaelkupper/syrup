@@ -1,0 +1,1243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Syrup window redesign</title>
+<style>
+:root {
+  --page: #e4e4e8;
+  --page-ink: #1d1d1f;
+  --page-muted: #5d5d63;
+  --win: #f3f3f3;
+  --titlebar: #ececec;
+  --group: #ffffff;
+  --hair: rgba(0,0,0,.09);
+  --sep: rgba(0,0,0,.075);
+  --ink: #1d1d1f;
+  --ink-2: rgba(0,0,0,.56);
+  --ink-3: rgba(0,0,0,.36);
+  --control: #ffffff;
+  --control-edge: rgba(0,0,0,.14);
+  --field: #ffffff;
+  --sel: rgba(0,0,0,.06);
+  --accent: #007aff;
+  --accent-ink: #0062cc;
+  --accent-wash: rgba(0,122,255,.10);
+  --green: #248a3d;
+  --green-fill: #34c759;
+  --green-wash: rgba(52,199,89,.14);
+  --orange: #b25000;
+  --orange-fill: #ff9500;
+  --orange-wash: rgba(255,149,0,.14);
+  --red: #d70015;
+  --red-fill: #ff3b30;
+  --k-translate: #007aff;
+  --k-custom: #af52de;
+  --k-transcribe: #8e8e93;
+  --switch-off: rgba(0,0,0,.12);
+  --shadow: 0 22px 60px rgba(0,0,0,.22), 0 2px 8px rgba(0,0,0,.10);
+  --heat-0: rgba(0,0,0,.06);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #0e0e10; --page-ink: #f2f2f4; --page-muted: #a1a1a8;
+    --win: #1e1e1e; --titlebar: #262626; --group: #2a2a2a;
+    --hair: rgba(255,255,255,.06); --sep: rgba(255,255,255,.08);
+    --ink: #f2f2f2; --ink-2: rgba(255,255,255,.62); --ink-3: rgba(255,255,255,.38);
+    --control: #3a3a3a; --control-edge: rgba(255,255,255,.08); --field: #1f1f1f;
+    --sel: rgba(255,255,255,.09);
+    --accent: #0a84ff; --accent-ink: #5aa9ff; --accent-wash: rgba(10,132,255,.16);
+    --green: #30d158; --green-fill: #30d158; --green-wash: rgba(48,209,88,.15);
+    --orange: #ff9f0a; --orange-fill: #ff9f0a; --orange-wash: rgba(255,159,10,.16);
+    --red: #ff6961; --red-fill: #ff453a;
+    --k-translate: #0a84ff; --k-custom: #bf5af2; --k-transcribe: #8e8e93;
+    --switch-off: rgba(255,255,255,.16);
+    --shadow: 0 22px 60px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.08);
+    --heat-0: rgba(255,255,255,.07);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #0e0e10; --page-ink: #f2f2f4; --page-muted: #a1a1a8;
+  --win: #1e1e1e; --titlebar: #262626; --group: #2a2a2a;
+  --hair: rgba(255,255,255,.06); --sep: rgba(255,255,255,.08);
+  --ink: #f2f2f2; --ink-2: rgba(255,255,255,.62); --ink-3: rgba(255,255,255,.38);
+  --control: #3a3a3a; --control-edge: rgba(255,255,255,.08); --field: #1f1f1f;
+  --sel: rgba(255,255,255,.09);
+  --accent: #0a84ff; --accent-ink: #5aa9ff; --accent-wash: rgba(10,132,255,.16);
+  --green: #30d158; --green-fill: #30d158; --green-wash: rgba(48,209,88,.15);
+  --orange: #ff9f0a; --orange-fill: #ff9f0a; --orange-wash: rgba(255,159,10,.16);
+  --red: #ff6961; --red-fill: #ff453a;
+  --k-translate: #0a84ff; --k-custom: #bf5af2; --k-transcribe: #8e8e93;
+  --switch-off: rgba(255,255,255,.16);
+  --shadow: 0 22px 60px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.08);
+  --heat-0: rgba(255,255,255,.07);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--page); color: var(--page-ink);
+  font: 13px/1.38 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: var(--accent-wash); }
+a { color: var(--accent-ink); text-underline-offset: 2px; }
+svg.i { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: 1px; border-radius: 6px; }
+
+/* ---------- page chrome ---------- */
+.page { max-width: 1440px; margin: 0 auto; padding: 28px 16px 80px; }
+.page-head { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: end; justify-content: space-between; margin: 0 auto 22px; max-width: 1180px; }
+.page-head h1 { font-size: 26px; letter-spacing: -0.02em; margin: 0 0 4px; font-weight: 700; }
+.page-head p { margin: 0; color: var(--page-muted); max-width: 62ch; font-size: 14px; }
+.page-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.chipbar { display: inline-flex; background: color-mix(in srgb, var(--page-ink) 7%, transparent); border-radius: 8px; padding: 2px; }
+.chipbar button { border: 0; background: none; padding: 4px 10px; border-radius: 6px; cursor: pointer; color: var(--page-muted); font-size: 12px; }
+.chipbar button[aria-pressed="true"] { background: var(--group); color: var(--page-ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.jump { font-size: 13px; }
+
+.stage { display: grid; grid-template-columns: minmax(0, 900px) minmax(0, 1fr); gap: 28px; align-items: start; max-width: 1180px; margin: 0 auto; }
+@media (max-width: 1180px) { .stage { grid-template-columns: minmax(0,1fr); } }
+.stage > *, .wf > *, .win, .content, .pane { min-width: 0; }
+
+.states { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 14px 2px 0; min-height: 28px; }
+.states .lbl { color: var(--page-muted); font-size: 12px; margin-right: 2px; }
+
+/* ---------- the window ---------- */
+.win { background: var(--win); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; color: var(--ink); }
+.titlebar { background: var(--titlebar); border-bottom: 1px solid var(--sep); }
+.titlerow { position: relative; height: 30px; display: flex; align-items: center; justify-content: center; }
+.lights { position: absolute; left: 12px; top: 9px; display: flex; gap: 8px; }
+.lights span { width: 12px; height: 12px; border-radius: 50%; background: #ff5f57; }
+.lights span:nth-child(2) { background: #febc2e; } .lights span:nth-child(3) { background: #28c840; }
+.wintitle { font-weight: 600; font-size: 13px; }
+.toolbar { display: flex; justify-content: center; gap: 2px; padding: 2px 10px 8px; overflow-x: auto; scrollbar-width: none; }
+.toolbar::-webkit-scrollbar { display: none; }
+.tab { border: 0; background: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 8px 4px; border-radius: 7px; min-width: 66px; color: var(--ink-2); }
+.tab svg.i { width: 22px; height: 22px; stroke-width: 1.55; }
+.tab span { font-size: 11px; }
+.tab:hover { background: var(--sel); }
+.tab[aria-selected="true"] { background: var(--sel); color: var(--accent); }
+.tab[aria-selected="true"] span { color: var(--ink); }
+.badge-dot { position: relative; }
+.badge-dot::after { content: attr(data-badge); position: absolute; top: 2px; right: 10px; background: var(--red-fill); color: #fff; font-size: 10px; font-weight: 600; min-width: 15px; height: 15px; border-radius: 8px; display: grid; place-items: center; padding: 0 4px; }
+
+.content { min-height: 560px; }
+.pane { display: none; padding: 20px 24px 26px; }
+.pane.on { display: block; }
+.pane.flush { padding: 0; }
+
+/* ---------- native form vocabulary ---------- */
+.sec { margin: 0 0 20px; }
+.sec:last-child { margin-bottom: 0; }
+.sec-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-weight: 600; font-size: 13px; margin: 0 2px 7px; }
+.sec-h .aside { font-weight: 400; color: var(--ink-2); font-size: 12px; }
+.foot { color: var(--ink-2); font-size: 11px; margin: 7px 2px 0; max-width: 72ch; }
+.group { background: var(--group); border-radius: 10px; border: 1px solid var(--hair); }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 12px; min-height: 40px; }
+.row + .row { border-top: 1px solid var(--sep); }
+.row .t { font-size: 13px; }
+.row .c { color: var(--ink-2); font-size: 11px; margin-top: 1px; max-width: 58ch; }
+.row .ctl { display: flex; align-items: center; gap: 8px; flex: none; }
+.row.sub { padding-left: 32px; }
+.row.off .t, .row.off .c { color: var(--ink-3); }
+.row.top { align-items: flex-start; }
+
+.switch { width: 26px; height: 15px; border-radius: 8px; background: var(--switch-off); position: relative; border: 0; padding: 0; cursor: pointer; flex: none; transition: background .18s ease; }
+.switch::after { content: ""; position: absolute; top: 1.5px; left: 1.5px; width: 12px; height: 12px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .18s cubic-bezier(.2,.8,.2,1); }
+.switch[aria-checked="true"] { background: var(--accent); }
+.switch[aria-checked="true"]::after { transform: translateX(11px); }
+.switch:disabled { opacity: .45; cursor: default; }
+
+.popup { display: inline-flex; align-items: center; gap: 8px; background: var(--control); border: 1px solid var(--control-edge); border-radius: 6px; padding: 2px 3px 2px 9px; font-size: 13px; cursor: pointer; box-shadow: 0 .5px 1px rgba(0,0,0,.08); white-space: nowrap; }
+.popup .chev { width: 16px; height: 16px; border-radius: 4px; background: var(--accent); color: #fff; display: grid; place-items: center; }
+.popup .chev svg { width: 10px; height: 10px; stroke-width: 2.2; }
+.btn { display: inline-flex; align-items: center; gap: 6px; background: var(--control); border: 1px solid var(--control-edge); border-radius: 6px; padding: 2px 10px; font-size: 13px; cursor: pointer; box-shadow: 0 .5px 1px rgba(0,0,0,.08); white-space: nowrap; min-height: 22px; }
+.btn.primary { background: var(--accent); border-color: transparent; color: #fff; }
+.btn.danger { color: var(--red); }
+.btn.icon { padding: 2px 5px; }
+.btn.small { font-size: 12px; padding: 1px 8px; }
+.linkbtn { border: 0; background: none; padding: 0; color: var(--accent-ink); cursor: pointer; font-size: inherit; }
+.seg { display: inline-flex; background: var(--sel); border-radius: 7px; padding: 2px; gap: 1px; }
+.seg button { border: 0; background: none; padding: 2px 12px; border-radius: 5px; font-size: 13px; cursor: pointer; color: var(--ink); }
+.seg button[aria-pressed="true"] { background: var(--control); box-shadow: 0 1px 2px rgba(0,0,0,.14); }
+.field { background: var(--field); border: 1px solid var(--control-edge); border-radius: 6px; padding: 3px 8px; font-size: 13px; min-width: 220px; color: var(--ink); font-family: inherit; }
+.field.mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+textarea.field { width: 100%; min-height: 64px; resize: vertical; line-height: 1.4; }
+.recorder { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 132px; height: 22px; border-radius: 11px; background: var(--field); border: 1px solid var(--control-edge); font-size: 13px; padding: 0 6px 0 12px; }
+.recorder.empty { color: var(--ink-3); padding-right: 12px; }
+.recorder .x { width: 14px; height: 14px; border-radius: 50%; background: var(--ink-3); color: var(--win); display: grid; place-items: center; }
+.recorder .x svg { width: 9px; height: 9px; stroke-width: 2.6; }
+kbd { font: 500 12px/1 -apple-system, sans-serif; background: var(--sel); border: 1px solid var(--control-edge); border-bottom-width: 2px; border-radius: 5px; padding: 3px 6px; color: var(--ink); }
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 500; padding: 1px 8px; border-radius: 10px; white-space: nowrap; }
+.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pill.ok { color: var(--green); background: var(--green-wash); }
+.pill.warn { color: var(--orange); background: var(--orange-wash); }
+.pill.plain { color: var(--ink-2); background: var(--sel); }
+.pill.plain::before, .pill.nodot::before { display: none; }
+.muted { color: var(--ink-2); }
+.dim { color: var(--ink-3); }
+.small { font-size: 11px; }
+.tile { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; color: #fff; flex: none; }
+.tile svg.i { width: 15px; height: 15px; stroke-width: 1.9; }
+.tile.sm { width: 20px; height: 20px; border-radius: 5px; }
+.tile.sm svg.i { width: 12px; height: 12px; }
+.tile.lg { width: 40px; height: 40px; border-radius: 10px; }
+.tile.lg svg.i { width: 22px; height: 22px; }
+.k-translate { background: var(--k-translate); }
+.k-custom { background: var(--k-custom); }
+.k-transcribe { background: var(--k-transcribe); }
+.app { width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center; color: #fff; font-size: 10px; font-weight: 700; flex: none; }
+
+/* ---------- Home ---------- */
+.status { display: flex; align-items: center; gap: 12px; }
+.status .orb { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--green-wash); color: var(--green); flex: none; }
+.status .orb svg.i { width: 18px; height: 18px; }
+.status.paused .orb { background: var(--sel); color: var(--ink-2); }
+.status.warn .orb { background: var(--orange-wash); color: var(--orange); }
+.status h2 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.status h2 kbd { font-size: 15px; padding: 3px 8px; }
+.status .sub { color: var(--ink-2); font-size: 12px; margin-top: 2px; }
+.status .grow { flex: 1; min-width: 0; }
+
+.recipe { margin-top: 16px; padding: 14px 16px 13px; }
+.recipe .head { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+.recipe .head .name { font-weight: 600; }
+.recipe .head .spacer { flex: 1; }
+.sentence { font-size: 17px; line-height: 1.75; letter-spacing: -0.005em; }
+.w { display: inline-flex; align-items: center; gap: 2px; color: var(--accent-ink); font-weight: 500; border-radius: 6px; padding: 0 1px 0 4px; margin: 0 -1px 0 -2px; cursor: pointer; border: 0; background: none; font-size: inherit; }
+.w:hover { background: var(--accent-wash); }
+.w svg.i { width: 11px; height: 11px; stroke-width: 2.4; opacity: .7; margin-top: 2px; }
+.w.state { color: var(--orange); }
+.w-note { font-size: 12px; color: var(--ink-2); font-weight: 400; margin-left: 2px; }
+
+.attn .row .ico { color: var(--orange); }
+.attn .row { justify-content: flex-start; }
+.attn .row .msg { flex: 1; }
+
+.stats-line { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); }
+.stat { padding: 10px 12px; }
+.stat + .stat { border-left: 1px solid var(--sep); }
+.stat b { display: block; font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.stat span { color: var(--ink-2); font-size: 11px; }
+@media (max-width: 640px) { .stats-line { grid-template-columns: repeat(2, minmax(0,1fr)); } .stat:nth-child(3) { border-left: 0; } .stat:nth-child(n+3) { border-top: 1px solid var(--sep); } }
+.activity { padding: 12px; border-top: 1px solid var(--sep); display: grid; grid-template-columns: minmax(0,1fr) 220px; gap: 18px; }
+@media (max-width: 760px) { .activity { grid-template-columns: minmax(0,1fr); } }
+.heat { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 10px); grid-auto-columns: 10px; gap: 3px; overflow: hidden; }
+.heat i { border-radius: 2px; background: var(--heat-0); }
+.heat i.l1 { background: color-mix(in srgb, var(--accent) 28%, transparent); }
+.heat i.l2 { background: color-mix(in srgb, var(--accent) 50%, transparent); }
+.heat i.l3 { background: color-mix(in srgb, var(--accent) 74%, transparent); }
+.heat i.l4 { background: var(--accent); }
+.heat i.today { outline: 1.5px solid var(--ink); outline-offset: 0; }
+.months { display: flex; justify-content: space-between; color: var(--ink-3); font-size: 10px; margin-top: 4px; width: 335px; max-width: 100%; }
+.streak { color: var(--ink-2); font-size: 11px; margin-top: 8px; }
+.apps .a { display: grid; grid-template-columns: 18px minmax(0,1fr) 44px; gap: 8px; align-items: center; font-size: 12px; margin-bottom: 6px; }
+.apps .bar { height: 5px; border-radius: 3px; background: var(--accent); opacity: .8; margin-top: 3px; }
+.apps .n { text-align: right; color: var(--ink-2); font-variant-numeric: tabular-nums; font-size: 11px; }
+
+.rec .row { align-items: flex-start; padding: 10px 12px; }
+.rec .body { flex: 1; min-width: 0; display: flex; gap: 10px; }
+.rec .txt { font-size: 13px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.rec .meta { color: var(--ink-2); font-size: 11px; margin-top: 2px; }
+.rec .acts { display: flex; gap: 2px; opacity: .0; transition: opacity .12s; }
+.rec .row:hover .acts, .rec .row:focus-within .acts, .rec .row.fail .acts { opacity: 1; }
+.iconbtn { border: 0; background: none; padding: 4px; border-radius: 5px; cursor: pointer; color: var(--ink-2); display: grid; place-items: center; }
+.iconbtn:hover { background: var(--sel); color: var(--ink); }
+.rec .row.fresh { background: linear-gradient(var(--accent-wash), var(--accent-wash)); animation: settle 2.4s 1.2s ease-out forwards; }
+@keyframes settle { to { background-color: transparent; background-image: none; } }
+.rec .row.fresh .txt { font-weight: 500; }
+.rec .row.fail .txt { color: var(--ink); }
+.rec .fail-ico { color: var(--red); }
+.try { padding: 16px; display: grid; gap: 10px; }
+.try .q { font-size: 15px; }
+.try .arrow { color: var(--ink-3); }
+
+/* ---------- Workflows ---------- */
+.wf { display: grid; grid-template-columns: 236px minmax(0,1fr); min-height: 620px; }
+@media (max-width: 720px) { .wf { grid-template-columns: minmax(0,1fr); } .wf-list { border-right: 0 !important; border-bottom: 1px solid var(--sep); } }
+.wf-list { border-right: 1px solid var(--sep); display: flex; flex-direction: column; background: color-mix(in srgb, var(--group) 45%, var(--win)); }
+.wf-items { padding: 8px; flex: 1; }
+.wf-item { width: 100%; display: flex; align-items: center; gap: 9px; border: 0; background: none; padding: 6px 8px; border-radius: 7px; cursor: pointer; text-align: left; }
+.wf-item:hover { background: var(--sel); }
+.wf-item[aria-selected="true"] { background: var(--accent); color: #fff; }
+.wf-item[aria-selected="true"] .s { color: rgba(255,255,255,.8); }
+.wf-item .n { font-size: 13px; display: block; }
+.wf-item .s { display: block; font-size: 11px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wf-item .mid { flex: 1; min-width: 0; }
+.wf-item .chk { color: var(--accent); }
+.wf-item[aria-selected="true"] .chk { color: #fff; }
+.listbar { display: flex; align-items: center; gap: 0; border-top: 1px solid var(--sep); padding: 4px 6px; }
+.listbar .iconbtn { padding: 4px 7px; }
+.listbar .sp { flex: 1; }
+.wf-ed { padding: 18px 22px 24px; min-width: 0; }
+.ed-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.ed-head .nm { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; border: 1px solid transparent; background: none; border-radius: 6px; padding: 1px 6px; margin-left: -6px; color: var(--ink); font-family: inherit; width: 100%; max-width: 320px; }
+.ed-head .nm:hover { border-color: var(--control-edge); }
+.ed-head .grow { flex: 1; min-width: 0; }
+.ed-head .kind { color: var(--ink-2); font-size: 12px; }
+.ed-recipe { padding: 12px 14px; margin-bottom: 20px; }
+.ed-recipe .sentence { font-size: 15px; line-height: 1.7; }
+.corr { display: grid; grid-template-columns: minmax(0,1fr) 16px minmax(0,1fr) 22px; gap: 8px; align-items: center; padding: 6px 12px; }
+.corr + .corr { border-top: 1px solid var(--sep); }
+.corr .field { min-width: 0; width: 100%; }
+.corr-h { display: grid; grid-template-columns: minmax(0,1fr) 16px minmax(0,1fr) 22px; gap: 8px; padding: 7px 12px 3px; color: var(--ink-2); font-size: 11px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; background: var(--sel); border-radius: 6px; padding: 3px 4px 3px 6px; font-size: 12px; }
+.chip .iconbtn { padding: 1px; }
+.chip .iconbtn svg.i { width: 11px; height: 11px; }
+
+/* ---------- Models ---------- */
+.model .row { align-items: flex-start; padding: 10px 12px; }
+.model .nm { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.tag { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; background: var(--sel); color: var(--ink-2); letter-spacing: .01em; }
+.tag.live { background: var(--accent-wash); color: var(--accent-ink); }
+.meters { display: flex; gap: 16px; margin-top: 6px; flex-wrap: wrap; }
+.meter { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--ink-2); }
+.meter .steps { display: flex; gap: 2px; }
+.meter .steps i { width: 12px; height: 5px; border-radius: 2px; background: var(--heat-0); }
+.meter .steps i.on { background: var(--accent); }
+.usedby { font-size: 11px; color: var(--ink-2); margin-top: 4px; }
+.prog { width: 120px; height: 5px; border-radius: 3px; background: var(--heat-0); overflow: hidden; }
+.prog i { display: block; height: 100%; width: 42%; background: var(--accent); border-radius: 3px; }
+.prov .row { padding: 10px 12px; align-items: flex-start; justify-content: flex-start; cursor: pointer; }
+.radio { width: 15px; height: 15px; border-radius: 50%; border: 1px solid var(--control-edge); background: var(--control); flex: none; margin-top: 1px; display: grid; place-items: center; }
+.radio.on { background: var(--accent); border-color: var(--accent); }
+.radio.on::after { content: ""; width: 5px; height: 5px; border-radius: 50%; background: #fff; }
+.conn { display: inline-flex; align-items: center; gap: 6px; color: var(--green); font-size: 12px; }
+
+/* ---------- Glossary ---------- */
+.gl-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+.search { display: flex; align-items: center; gap: 6px; background: var(--field); border: 1px solid var(--control-edge); border-radius: 7px; padding: 3px 8px; flex: 1; color: var(--ink-3); max-width: 300px; }
+.table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table th { text-align: left; font-weight: 500; font-size: 11px; color: var(--ink-2); padding: 6px 12px; border-bottom: 1px solid var(--sep); }
+.table td { padding: 6px 12px; border-bottom: 1px solid var(--sep); }
+.table tr:last-child td { border-bottom: 0; }
+.table tr:nth-child(even) td { background: color-mix(in srgb, var(--sel) 45%, transparent); }
+.table td.sl { color: var(--ink-2); }
+.sugg .row { justify-content: flex-start; }
+.sugg .row .msg { flex: 1; }
+details.more { margin: 7px 2px 0; }
+details.more summary { cursor: pointer; color: var(--accent-ink); font-size: 11px; list-style: none; }
+details.more summary::-webkit-details-marker { display: none; }
+details.more p { color: var(--ink-2); font-size: 11px; margin: 6px 0 0; max-width: 72ch; }
+
+/* ---------- Privacy ---------- */
+.flow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; }
+.node { display: inline-flex; align-items: center; gap: 6px; background: var(--sel); border-radius: 6px; padding: 3px 8px; }
+.node.ext { background: var(--orange-wash); color: var(--orange); }
+.node.local { background: var(--green-wash); color: var(--green); }
+
+/* ---------- notes column ---------- */
+.notes { position: sticky; top: 16px; }
+.note-card { background: color-mix(in srgb, var(--page-ink) 4%, var(--page)); border: 1px solid color-mix(in srgb, var(--page-ink) 9%, transparent); border-radius: 12px; padding: 16px 18px; }
+.note-card h3 { margin: 0 0 8px; font-size: 15px; letter-spacing: -0.01em; }
+.note-card h4 { margin: 14px 0 6px; font-size: 12px; color: var(--page-muted); font-weight: 600; }
+.note-card ul { margin: 0; padding-left: 18px; }
+.note-card li { margin: 0 0 5px; font-size: 12.5px; }
+.note-card code { font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; background: color-mix(in srgb, var(--page-ink) 8%, transparent); padding: 0 4px; border-radius: 4px; }
+.notes .tn { display: none; } .notes .tn.on { display: block; }
+.demo-label { font-size: 11px; color: var(--page-muted); margin: 10px 2px 0; }
+
+/* ---------- review ---------- */
+.review { max-width: 1180px; margin: 64px auto 0; }
+.review h2 { font-size: 22px; letter-spacing: -0.02em; margin: 0 0 6px; }
+.review > section { margin: 0 0 44px; }
+.review h3 { font-size: 16px; margin: 26px 0 10px; letter-spacing: -0.01em; }
+.review p, .review li { font-size: 14px; max-width: 78ch; }
+.review .lede { color: var(--page-muted); margin: 0 0 18px; }
+.rt { width: 100%; border-collapse: collapse; font-size: 13px; margin: 6px 0 4px; background: color-mix(in srgb, var(--page-ink) 3%, var(--page)); border-radius: 10px; overflow: hidden; }
+.rt th, .rt td { text-align: left; padding: 8px 12px; border-bottom: 1px solid color-mix(in srgb, var(--page-ink) 9%, transparent); vertical-align: top; }
+.rt th { font-size: 12px; color: var(--page-muted); font-weight: 600; }
+.rt td.n { font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
+.rt tr:last-child td { border-bottom: 0; }
+.rt code, .review code { font: 12px ui-monospace, "SF Mono", Menlo, monospace; background: color-mix(in srgb, var(--page-ink) 8%, transparent); padding: 0 4px; border-radius: 4px; }
+.sev { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-right: 6px; }
+.sev.p1 { background: var(--orange-wash); color: var(--orange); }
+.sev.p2 { background: color-mix(in srgb, var(--page-ink) 9%, transparent); color: var(--page-ink); }
+.sev.p3 { background: color-mix(in srgb, var(--page-ink) 5%, transparent); color: var(--page-muted); }
+.issue { padding: 14px 0; border-top: 1px solid color-mix(in srgb, var(--page-ink) 9%, transparent); }
+.issue h4 { margin: 0 0 6px; font-size: 14px; }
+.issue p { margin: 4px 0; }
+.issue .lbl { color: var(--page-muted); font-weight: 600; font-size: 12px; margin-right: 4px; }
+.cols2 { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 24px; }
+@media (max-width: 900px) { .cols2 { grid-template-columns: minmax(0,1fr); } }
+.thesis { font-size: 17px; line-height: 1.5; max-width: 60ch; margin: 0 0 12px; letter-spacing: -0.01em; }
+
+@media (max-width: 560px) {
+  .pane { padding: 16px 14px 20px; }
+  .row { flex-wrap: wrap; }
+  .field { min-width: 0; width: 100%; }
+  .sentence { font-size: 15px; }
+  .status h2 { font-size: 17px; }
+  .tab { min-width: 58px; padding: 6px 4px 4px; }
+  .toolbar { justify-content: flex-start; }
+  .row .ctl { flex-wrap: wrap; flex: 0 1 auto; justify-content: flex-end; }
+  .status { flex-wrap: wrap; }
+  .status .grow { flex: 1 1 calc(100% - 46px); }
+  .status .btn { margin-left: 46px; }
+  .recipe .head { flex-wrap: wrap; }
+  .wf-ed { padding: 16px 14px 20px; }
+  .corr, .corr-h { grid-template-columns: minmax(0,1fr) 12px minmax(0,1fr) 22px; }
+  .rec .acts { opacity: 1; flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rec .row.fresh { animation: none; }
+  .switch, .switch::after { transition: none; }
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5.5h4V20"/></symbol>
+    <symbol id="i-wand" viewBox="0 0 24 24"><path d="m4 20 10-10"/><path d="m13 7 1.2-3.2L15.4 7l3.2 1.2-3.2 1.2-1.2 3.2-1.2-3.2L9.8 8.2z"/><path d="M19 13.5l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6z"/><path d="M7 3.5l.5 1.2 1.2.5-1.2.5L7 6.9l-.5-1.2-1.2-.5 1.2-.5z"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5V21"/></symbol>
+    <symbol id="i-deliver" viewBox="0 0 24 24"><path d="M12 3v10"/><path d="m8 9.5 4 4 4-4"/><path d="M4 14v4.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V14"/></symbol>
+    <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/><path d="M9 2.5V6M15 2.5V6M9 18v3.5M15 18v3.5M2.5 9H6M2.5 15H6M18 9h3.5M18 15h3.5"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5z"/><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 19.5 6v5.5c0 4.6-3.2 8-7.5 9.5-4.3-1.5-7.5-4.9-7.5-9.5V6z"/><path d="m9 12 2.2 2.2L15.5 10"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/><circle cx="12" cy="12" r="6.6"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.4 2.4 3.5 5.3 3.5 8.5s-1.1 6.1-3.5 8.5c-2.4-2.4-3.5-5.3-3.5-8.5S9.6 5.9 12 3.5z"/></symbol>
+    <symbol id="i-wave" viewBox="0 0 24 24"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 10.5v3"/></symbol>
+    <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></symbol>
+    <symbol id="i-cursor" viewBox="0 0 24 24"><path d="M9 4h6M9 20h6M12 4v16"/><path d="M4 9h3M4 15h3M17 9h3M17 15h3"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6A1.5 1.5 0 0 0 14 4.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/></symbol>
+    <symbol id="i-paste" viewBox="0 0 24 24"><path d="M9 4.5h6v2.5H9z"/><path d="M15 5.5h2.5A1.5 1.5 0 0 1 19 7v12a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19V7a1.5 1.5 0 0 1 1.5-1.5H9"/><path d="M9 13.5h6M12 10.5v6"/></symbol>
+    <symbol id="i-retry" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4h-4"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m10 8.8 5 3.2-5 3.2z"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-updown" viewBox="0 0 24 24"><path d="m7 9.5 5-5 5 5M7 14.5l5 5 5-5"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4 21 19.5H3z"/><path d="M12 10v4.5M12 17.2v.3"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><path d="M6 12h.01M12 12h.01M18 12h.01" stroke-width="3"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 6v12M15 6v12"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4h-4"/></symbol>
+    <symbol id="i-laptop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="10" rx="1.5"/><path d="M3 18.5h18"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18.5a4 4 0 0 1-.6-8A5.5 5.5 0 0 1 17 9a4.8 4.8 0 0 1 .5 9.5z"/></symbol>
+  </defs>
+</svg>
+
+<div class="page">
+  <header class="page-head">
+    <div>
+      <h1>Syrup window redesign</h1>
+      <p>Mockup, 2026-11-05. Toolbar tabs replace the sidebar, and Home shows what the next dictation will do. All controls are standard SwiftUI. Click the tabs, the bracketed words, and the state buttons under the window. Workflows, results, and stats are example data.</p>
+    </div>
+    <div class="page-tools">
+      <a class="jump" href="#review">Jump to the review</a>
+      <div class="chipbar" role="group" aria-label="Appearance">
+        <button type="button" data-theme-set="system" aria-pressed="true">System</button>
+        <button type="button" data-theme-set="light" aria-pressed="false">Light</button>
+        <button type="button" data-theme-set="dark" aria-pressed="false">Dark</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="stage">
+    <div>
+      <div class="win" role="application" aria-label="Syrup window mockup">
+        <div class="titlebar">
+          <div class="titlerow"><div class="lights" aria-hidden="true"><span></span><span></span><span></span></div><div class="wintitle" id="wintitle">Home</div></div>
+          <div class="toolbar" role="tablist" aria-label="Syrup sections">
+            <button class="tab" role="tab" data-tab="home" aria-selected="true"><svg class="i"><use href="#i-home"/></svg><span>Home</span></button>
+            <button class="tab" role="tab" data-tab="workflows" aria-selected="false"><svg class="i"><use href="#i-wand"/></svg><span>Workflows</span></button>
+            <button class="tab" role="tab" data-tab="dictation" aria-selected="false"><svg class="i"><use href="#i-mic"/></svg><span>Dictation</span></button>
+            <button class="tab" role="tab" data-tab="delivery" aria-selected="false"><svg class="i"><use href="#i-deliver"/></svg><span>Delivery</span></button>
+            <button class="tab" role="tab" data-tab="models" aria-selected="false"><svg class="i"><use href="#i-cpu"/></svg><span>Models</span></button>
+            <button class="tab" role="tab" data-tab="glossary" aria-selected="false"><svg class="i"><use href="#i-book"/></svg><span>Glossary</span></button>
+            <button class="tab" id="privacyTab" role="tab" data-tab="privacy" aria-selected="false"><svg class="i"><use href="#i-shield"/></svg><span>Privacy</span></button>
+            <button class="tab" role="tab" data-tab="general" aria-selected="false"><svg class="i"><use href="#i-gear"/></svg><span>General</span></button>
+          </div>
+        </div>
+
+        <div class="content">
+
+<!-- ================= HOME ================= -->
+<section class="pane on" data-pane="home" id="home">
+  <div class="status" id="status">
+    <div class="orb"><svg class="i"><use href="#i-mic"/></svg></div>
+    <div class="grow">
+      <h2 id="statusLine">Hold <kbd>⌥</kbd><kbd>`</kbd> and speak</h2>
+      <div class="sub" id="statusSub">Ready. Fn works too: hold it, or double-tap to start.</div>
+    </div>
+    <button class="btn" id="pauseBtn" type="button"><svg class="i"><use href="#i-pause"/></svg>Pause Shortcuts</button>
+  </div>
+
+  <div class="group recipe">
+    <div class="head">
+      <span class="tile sm k-translate"><svg class="i"><use href="#i-globe"/></svg></span>
+      <button class="w" type="button" style="font-size:13px;color:var(--ink);font-weight:600">Translate<svg class="i"><use href="#i-down"/></svg></button>
+      <span class="muted small">runs next, and in any app not set to another workflow</span>
+      <span class="spacer"></span>
+      <button class="linkbtn small" type="button" data-goto="workflows">Edit Workflow…</button>
+    </div>
+    <div class="sentence" id="homeSentence">
+      Hear <button class="w" type="button">Portuguese (Brazil)<svg class="i"><use href="#i-down"/></svg></button> with <button class="w" type="button" id="modelWord">Parakeet Ultra<svg class="i"><use href="#i-down"/></svg></button>, translate to <button class="w" type="button">English<svg class="i"><use href="#i-down"/></svg></button> in a <button class="w" type="button">Neutral<svg class="i"><use href="#i-down"/></svg></button> tone, then <button class="w" type="button" id="deliverWord">paste it<svg class="i"><use href="#i-down"/></svg></button>.
+    </div>
+  </div>
+
+  <div class="sec attn" id="attn" hidden style="margin-top:12px">
+    <div class="group">
+      <div class="row"><svg class="i ico"><use href="#i-warn"/></svg><div class="msg"><div class="t">Parakeet Ultra isn't downloaded</div><div class="c">Translate uses Apple speech until it is.</div></div><div class="ctl"><button class="btn small" type="button">Download</button></div></div>
+      <div class="row"><svg class="i ico"><use href="#i-warn"/></svg><div class="msg"><div class="t">Pasting is off until Syrup can use Accessibility</div><div class="c">Results still reach the clipboard.</div></div><div class="ctl"><button class="btn small" type="button">Allow…</button></div></div>
+    </div>
+  </div>
+
+  <div class="sec" style="margin-top:22px" id="statsSec">
+    <div class="sec-h"><span>Your dictation</span><span class="aside">Counts only, kept on this Mac</span></div>
+    <div class="group" id="statsFull">
+      <div class="stats-line">
+        <div class="stat"><b>142</b><span>words per minute</span></div>
+        <div class="stat"><b>18,420</b><span>words dictated</span></div>
+        <div class="stat"><b>6 h 10 min</b><span>saved vs typing at 40 wpm</span></div>
+        <div class="stat"><b>312</b><span>fillers and terms fixed</span></div>
+      </div>
+      <div class="activity">
+        <div>
+          <div class="heat" id="heat" role="img" aria-label="Activity, last 26 weeks: dictated on 94 days, most on Tuesdays"></div>
+          <div class="months" aria-hidden="true"><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span><span>Sep</span><span>Oct</span><span>Nov</span></div>
+          <div class="streak">12-day streak, longest 23 days</div>
+        </div>
+        <div class="apps" aria-label="Top apps">
+          <div class="a"><span class="app" style="background:#4a154b">S</span><div>Slack<div class="bar" style="width:100%"></div></div><span class="n">7,904</span></div>
+          <div class="a"><span class="app" style="background:#1f6feb">M</span><div>Mail<div class="bar" style="width:52%"></div></div><span class="n">4,110</span></div>
+          <div class="a"><span class="app" style="background:#5e6ad2">L</span><div>Linear<div class="bar" style="width:31%"></div></div><span class="n">2,460</span></div>
+          <div class="a"><span class="app" style="background:#d4a017">N</span><div>Notes<div class="bar" style="width:18%"></div></div><span class="n">1,388</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="group" id="statsEmpty" hidden><div class="row"><div><div class="t muted">Words, speed, and streaks appear after your first dictation.</div></div></div></div>
+  </div>
+
+  <div class="sec rec">
+    <div class="sec-h"><span>Recent</span><span class="aside" id="recAside"><button class="linkbtn" type="button" id="clearBtn">Clear History…</button></span></div>
+    <div class="group" id="recList">
+      <div class="row fresh">
+        <div class="body"><span class="tile sm k-translate"><svg class="i"><use href="#i-globe"/></svg></span><div><div class="txt">Can we move the design review to Thursday afternoon? I still need a day to finish the onboarding mockups.</div><div class="meta">Translate · just now · OpenAI-compatible · 1.3 s</div></div></div>
+        <div class="acts"><button class="iconbtn" type="button" title="Copy" aria-label="Copy result"><svg class="i"><use href="#i-copy"/></svg></button><button class="iconbtn" type="button" title="Paste into the front app" aria-label="Paste result"><svg class="i"><use href="#i-paste"/></svg></button></div>
+      </div>
+      <div class="row">
+        <div class="body"><span class="tile sm k-custom"><svg class="i"><use href="#i-sparkle"/></svg></span><div><div class="txt">Thanks for the quick turnaround. I tested the build on my machine and everything looks good, so I'll ship it tonight.</div><div class="meta">Polish · 12 min ago · OpenAI-compatible · 2.1 s</div></div></div>
+        <div class="acts"><button class="iconbtn" type="button" aria-label="Copy result"><svg class="i"><use href="#i-copy"/></svg></button><button class="iconbtn" type="button" aria-label="Paste result"><svg class="i"><use href="#i-paste"/></svg></button></div>
+      </div>
+      <div class="row fail">
+        <div class="body"><span class="fail-ico"><svg class="i"><use href="#i-warn"/></svg></span><div><div class="txt">The AI provider didn't answer in time</div><div class="meta">Translate · 40 min ago · OpenAI-compatible · your transcript was kept</div></div></div>
+        <div class="acts"><button class="btn small" type="button">Copy Transcript</button><button class="btn small" type="button">Retry<svg class="i" style="width:10px;height:10px"><use href="#i-down"/></svg></button></div>
+      </div>
+      <div class="row">
+        <div class="body"><span class="tile sm k-transcribe"><svg class="i"><use href="#i-wave"/></svg></span><div><div class="txt">Lembrar de mandar o contrato revisado para a Ana até sexta.</div><div class="meta">Transcribe · 1 h ago · on this Mac · 0.6 s</div></div></div>
+        <div class="acts"><button class="iconbtn" type="button" aria-label="Copy result"><svg class="i"><use href="#i-copy"/></svg></button><button class="iconbtn" type="button" aria-label="Paste result"><svg class="i"><use href="#i-paste"/></svg></button></div>
+      </div>
+    </div>
+    <div class="group" id="recEmpty" hidden>
+      <div class="try">
+        <div class="muted small">Try it now. Hold <kbd>⌥</kbd><kbd>`</kbd> and say:</div>
+        <div class="q">“Oi, tudo bem? Podemos conversar amanhã de manhã?”</div>
+        <div class="muted small">Syrup puts this on your clipboard and pastes it:</div>
+        <div class="q">“Hi, how are you? Can we talk tomorrow morning?”</div>
+      </div>
+    </div>
+    <div class="foot" id="recFoot">History stays in memory until Syrup quits. <button class="linkbtn" type="button" data-goto="privacy">Keep it across restarts…</button></div>
+  </div>
+</section>
+
+<!-- ================= WORKFLOWS ================= -->
+<section class="pane flush" data-pane="workflows" id="workflows">
+  <div class="wf">
+    <div class="wf-list">
+      <div class="wf-items" role="listbox" aria-label="Workflows" id="wfItems"></div>
+      <div class="listbar">
+        <button class="iconbtn" type="button" aria-label="New workflow" title="New workflow from a template"><svg class="i"><use href="#i-plus"/></svg></button>
+        <button class="iconbtn" type="button" aria-label="Delete workflow"><svg class="i"><use href="#i-minus"/></svg></button>
+        <span class="sp"></span>
+        <button class="iconbtn" type="button" aria-label="More" title="Make Active, Duplicate"><svg class="i"><use href="#i-more"/></svg></button>
+      </div>
+    </div>
+    <div class="wf-ed" id="wfEditor"></div>
+  </div>
+</section>
+
+<!-- ================= DICTATION ================= -->
+<section class="pane" data-pane="dictation" id="dictation">
+  <div class="sec">
+    <div class="sec-h">Shortcuts</div>
+    <div class="group">
+      <div class="row"><div><div class="t">Dictate</div><div class="c">Runs the workflow for the app in front, or Translate</div></div><div class="ctl"><span class="recorder"><span>⌥ `</span><span class="x"><svg class="i"><use href="#i-x"/></svg></span></span></div></div>
+      <div class="row"><div><div class="t">Revise last result</div><div class="c">Say one change, like “shorter” or “more formal”</div></div><div class="ctl"><span class="recorder"><span>⌃ ⌥ `</span><span class="x"><svg class="i"><use href="#i-x"/></svg></span></span></div></div>
+      <div class="row"><div><div class="t">Paste last result</div></div><div class="ctl"><span class="recorder empty">Record Shortcut</span></div></div>
+      <div class="row"><div><div class="t">Shortcuts work by</div><div class="c" id="modeCap">Hold to record, release to finish</div></div><div class="ctl"><div class="seg" id="modeSeg"><button type="button" aria-pressed="true">Holding</button><button type="button" aria-pressed="false">Pressing twice</button></div></div></div>
+      <div class="row"><div><div class="t">Also use the Fn key</div><div class="c">Hold Fn to talk, or double-tap to start and again to stop</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="true" aria-label="Also use the Fn key"></button></div></div>
+    </div>
+    <details class="more"><summary>Fn does something else too?</summary><p>In Keyboard Settings, set “Press globe key to” to Do Nothing and turn off Press Fn Twice for Dictation. Some third-party keyboards never send Fn to macOS, so Fn can't work on them. <button class="linkbtn" type="button">Open Keyboard Settings…</button></p></details>
+    <div class="foot">Each workflow can also have its own shortcut, set in Workflows.</div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-h">Microphone</div>
+    <div class="group">
+      <div class="row"><div><div class="t">Input</div><div class="c">Now using MacBook Pro Microphone</div></div><div class="ctl"><span class="popup">System default<span class="chev"><svg class="i"><use href="#i-updown"/></svg></span></span><button class="btn icon" type="button" aria-label="Refresh microphones"><svg class="i"><use href="#i-refresh"/></svg></button></div></div>
+      <div class="row"><div><div class="t">Avoid Bluetooth microphones</div><div class="c">With System default, uses the built-in or another non-Bluetooth mic when there is one</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="true" aria-label="Avoid Bluetooth microphones"></button></div></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-h">While you speak</div>
+    <div class="group">
+      <div class="row"><div><div class="t">Lower other audio</div><div class="c">Turns the Mac down to 30%, then restores it</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="true" aria-label="Lower other audio"></button></div></div>
+      <div class="row"><div><div class="t">Show the recording wave</div><div class="c">At the bottom of the screen</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="true" aria-label="Show the recording wave" data-parent="live"></button></div></div>
+      <div class="row sub" data-child="live"><div><div class="t">Show words as they're heard</div><div class="c">A preview only. The result doesn't change.</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="true" aria-label="Show words as they're heard"></button></div></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-h">Limits</div>
+    <div class="group">
+      <div class="row"><div><div class="t">Stop recording after</div></div><div class="ctl"><input type="range" min="0" max="12" value="6" aria-label="Stop recording after" style="width:200px;accent-color:var(--accent)"><span class="muted" style="width:44px;text-align:right;font-variant-numeric:tabular-nums">2 min</span></div></div>
+      <div class="row"><div><div class="t">Prefer faster recognition</div><div class="c">Uses less context, so it can be less accurate</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="false" aria-label="Prefer faster recognition"></button></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= DELIVERY ================= -->
+<section class="pane" data-pane="delivery" id="delivery">
+  <div class="group" style="padding:12px 14px;margin-bottom:20px">
+    <div class="flow" aria-label="Where results go">
+      <span class="node"><svg class="i"><use href="#i-copy"/></svg>Clipboard, always</span>
+      <svg class="i dim"><use href="#i-arrow"/></svg>
+      <span class="node" id="flowPaste"><svg class="i"><use href="#i-paste"/></svg>Pasted into the editor you started in</span>
+    </div>
+  </div>
+  <div class="sec">
+    <div class="sec-h">The result</div>
+    <div class="group">
+      <div class="row"><div><div class="t">Paste into the active app</div><div class="c">Accessibility is allowed</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="true" aria-label="Paste into the active app" data-parent="paste" id="pasteSwitch"></button></div></div>
+      <div class="row sub" data-child="paste"><div><div class="t">Type it as it arrives</div><div class="c">For providers that stream. Others paste when done.</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="false" aria-label="Type it as it arrives"></button></div></div>
+      <div class="row sub" data-child="paste"><div><div class="t">Add a space after a word</div><div class="c">Only when the cursor follows a word. The clipboard keeps the exact text.</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="true" aria-label="Add a space after a word"></button></div></div>
+      <div class="row sub" data-child="paste"><div><div class="t">Stay in the original editor</div><div class="c">If you switch apps before the result arrives, it's only copied</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="true" aria-label="Stay in the original editor"></button></div></div>
+    </div>
+  </div>
+  <div class="sec">
+    <div class="sec-h">Sound</div>
+    <div class="group">
+      <div class="row"><div><div class="t">When a result is ready</div></div><div class="ctl"><span class="popup">Swipe<span class="chev"><svg class="i"><use href="#i-updown"/></svg></span></span><button class="btn icon" type="button" aria-label="Play sound"><svg class="i"><use href="#i-play"/></svg></button></div></div>
+    </div>
+    <div class="foot">Errors show a notification when macOS allows Syrup to send them.</div>
+  </div>
+</section>
+
+<!-- ================= MODELS ================= -->
+<section class="pane" data-pane="models" id="models">
+  <div class="sec model">
+    <div class="sec-h"><span>Speech recognition</span><span class="aside">Runs on this Mac. Each workflow picks one.</span></div>
+    <div class="group" id="modelList"></div>
+    <div class="foot">Bars come from synthetic English and Portuguese clips, so results with your voice may differ. Speed is the wait after you stop talking.</div>
+  </div>
+
+  <div class="sec prov">
+    <div class="sec-h"><span>Writing</span><span class="aside">Translates and rewrites. Workflows use this unless they pick another.</span></div>
+    <div class="group">
+      <div class="row"><span class="radio on"></span><div style="flex:1"><div class="t">OpenAI-compatible <span class="tag">Cloud or local server</span></div><div class="c">Fastest. OpenAI, OpenRouter, Cerebras, Ollama, LM Studio, and others.</div></div></div>
+      <div class="row"><span class="radio"></span><div style="flex:1"><div class="t">Apple On-Device <span class="tag live">Private · Offline</span></div><div class="c">Runs on this Mac with Apple Intelligence. Nothing leaves the Mac.</div></div></div>
+      <div class="row"><span class="radio"></span><div style="flex:1"><div class="t">Codex CLI <span class="tag">Slower</span></div><div class="c">Uses your ChatGPT plan through the Codex CLI, with no API key.</div></div></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-h">OpenAI-compatible server</div>
+    <div class="group">
+      <div class="row"><div class="t">Base URL</div><div class="ctl"><input class="field mono" value="https://api.cerebras.ai/v1" aria-label="Base URL"></div></div>
+      <div class="row"><div class="t">Model</div><div class="ctl"><input class="field mono" value="gpt-oss-120b" aria-label="Model"></div></div>
+      <div class="row"><div><div class="t">API key</div><div class="c">Kept in Syrup's own store on this Mac</div></div><div class="ctl"><span class="pill ok">Saved</span><button class="btn" type="button">Change…</button><button class="btn danger" type="button">Remove</button></div></div>
+      <div class="row"><div><div class="t">Connection</div><div class="c"><span class="conn"><svg class="i" style="width:12px;height:12px"><use href="#i-check"/></svg>Answered in 0.41 s, 2 min ago</span></div></div><div class="ctl"><button class="btn" type="button">Test Again</button></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= GLOSSARY ================= -->
+<section class="pane" data-pane="glossary" id="glossary">
+  <div class="gl-bar">
+    <div class="search"><svg class="i"><use href="#i-search"/></svg><span>Search 6 terms</span></div>
+    <span style="flex:1"></span>
+    <button class="btn" type="button"><svg class="i" style="width:13px;height:13px"><use href="#i-plus"/></svg>Add Term</button>
+    <button class="btn icon" type="button" aria-label="Import or export"><svg class="i"><use href="#i-more"/></svg></button>
+  </div>
+  <div class="group" style="margin-bottom:20px;overflow:hidden">
+    <table class="table">
+      <thead><tr><th style="width:38%">Spelling</th><th>Sounds like</th></tr></thead>
+      <tbody>
+        <tr><td>Kubernetes</td><td class="sl">cuber netties, cooper nettis</td></tr>
+        <tr><td>Cerebras</td><td class="sl">cerebrus</td></tr>
+        <tr><td>OAuth</td><td class="sl">oh auth</td></tr>
+        <tr><td>Grafana</td><td class="sl"></td></tr>
+        <tr><td>Supabase</td><td class="sl">super base</td></tr>
+        <tr><td>Ana Beatriz</td><td class="sl">anna beatrice</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="sec sugg">
+    <div class="sec-h"><span>Suggested from your recordings</span><span class="aside">1 new</span></div>
+    <div class="group">
+      <div class="row"><div class="msg"><div class="t">Nemotron</div><div class="c">Heard as “nemo tron” in 3 dictations</div></div><div class="ctl"><button class="btn small" type="button">Add</button><button class="btn small" type="button">Dismiss</button></div></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-h">Learning</div>
+    <div class="group">
+      <div class="row"><div><div class="t">Suggest terms from my recordings</div><div class="c">Keeps audio on this Mac until it's compared, then deletes it</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="true" aria-label="Suggest terms from my recordings"></button></div></div>
+      <div class="row"><div><div class="t">Comparison model</div><div class="c">Ready, 626 MB</div></div><div class="ctl"><button class="btn danger" type="button">Delete</button></div></div>
+      <div class="row"><div><div class="t">Waiting to be compared</div><div class="c">4 recordings</div></div><div class="ctl"><button class="btn" type="button">Compare Now</button><button class="btn danger" type="button">Delete All</button></div></div>
+    </div>
+    <details class="more"><summary>What is sent, and where?</summary><p>Syrup keeps each dictation's audio on this Mac, at most 50 recordings or 7 days. In idle time it transcribes the audio again on this Mac. It may send the two transcripts, with your glossary terms to skip, to your AI provider (OpenAI-compatible) to spot misheard words. Audio never leaves the Mac. Suggestions wait here for you to add or dismiss.</p></details>
+  </div>
+
+  <div class="sec">
+    <div class="sec-h">Built-in vocabulary</div>
+    <div class="group">
+      <div class="row"><div><div class="t">Common tech terms</div><div class="c">Words like “deploy” and “pull request”. Your terms come first.</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="true" aria-label="Common tech terms"></button></div></div>
+    </div>
+    <div class="foot">Glossary terms go to speech recognition and to your AI provider with each run. To fix one word in one workflow, use that workflow's Corrections.</div>
+  </div>
+</section>
+
+<!-- ================= PRIVACY ================= -->
+<section class="pane" data-pane="privacy" id="privacy">
+  <div class="sec">
+    <div class="sec-h">Permissions</div>
+    <div class="group">
+      <div class="row"><div><div class="t">Microphone</div><div class="c">Records your voice for dictation</div></div><div class="ctl"><span class="pill ok">Allowed</span></div></div>
+      <div class="row"><div><div class="t">Speech Recognition</div><div class="c">Turns your voice into text on this Mac</div></div><div class="ctl"><span class="pill ok">Allowed</span></div></div>
+      <div class="row"><div><div class="t">Notifications</div><div class="c">Tells you when a dictation fails</div></div><div class="ctl"><span class="pill ok">Allowed</span></div></div>
+      <div class="row"><div><div class="t">Accessibility</div><div class="c">Pastes results and reads selected text. Dictation works without it.</div></div><div class="ctl" id="axCtl"><span class="pill warn">Not allowed</span><button class="btn" type="button">Allow…</button></div></div>
+    </div>
+    <div class="foot">Syrup asks only when you first use a feature. This page updates when you come back from System Settings.</div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-h">What leaves this Mac</div>
+    <div class="group">
+      <div class="row"><div><div class="t">Audio</div><div class="c">Never sent anywhere</div></div><div class="ctl flow"><span class="node local"><svg class="i"><use href="#i-laptop"/></svg>This Mac</span></div></div>
+      <div class="row"><div><div class="t">What you said, and your glossary</div><div class="c">Sent with each run. Transcribe workflows send nothing.</div></div><div class="ctl flow"><span class="node ext"><svg class="i"><use href="#i-cloud"/></svg>api.cerebras.ai</span></div></div>
+      <div class="row"><div><div class="t">Selected text</div><div class="c">Only for workflows that include it. Never saved.</div></div><div class="ctl flow"><span class="node ext"><svg class="i"><use href="#i-cloud"/></svg>api.cerebras.ai</span></div></div>
+    </div>
+    <div class="foot">Shows your default provider. Summarize Selection uses Apple On-Device, so its text stays here.</div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-h">What's kept</div>
+    <div class="group">
+      <div class="row"><div><div class="t">Keep history across restarts</div><div class="c">Off: the last 20 results stay in memory until Syrup quits</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="false" aria-label="Keep history across restarts"></button></div></div>
+      <div class="row"><div><div class="t">Keep usage stats</div><div class="c">Counts and app names for Home, never your words</div></div><div class="ctl"><button class="btn danger" type="button">Delete Stats…</button><button class="switch" role="switch" aria-checked="true" aria-label="Keep usage stats"></button></div></div>
+      <div class="row"><div><div class="t">Recordings for glossary learning</div><div class="c">4 waiting, deleted after they're compared</div></div><div class="ctl"><button class="btn" type="button" data-goto="glossary">Show in Glossary</button></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= GENERAL ================= -->
+<section class="pane" data-pane="general" id="general">
+  <div class="sec">
+    <div class="group">
+      <div class="row"><div><div class="t">Open Syrup at login</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="true" aria-label="Open Syrup at login"></button></div></div>
+    </div>
+  </div>
+  <div class="sec">
+    <div class="sec-h">Updates</div>
+    <div class="group">
+      <div class="row"><div><div class="t">Check for updates automatically</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="true" aria-label="Check for updates automatically"></button></div></div>
+      <div class="row"><div><div class="t">Syrup 0.9</div><div class="c">Up to date. Checked today at 09:12.</div></div><div class="ctl"><button class="btn" type="button">Check Now</button></div></div>
+    </div>
+    <div class="foot">Updates wait until a dictation finishes.</div>
+  </div>
+  <div class="sec">
+    <div class="sec-h">Setup</div>
+    <div class="group">
+      <div class="row"><div><div class="t">Welcome guide</div><div class="c">Goes through permissions, language, and AI provider again. Keeps your current settings.</div></div><div class="ctl"><button class="btn" type="button">Show Welcome Again</button></div></div>
+    </div>
+  </div>
+</section>
+
+        </div>
+      </div>
+      <div class="states" id="states"></div>
+      <div class="demo-label">Example data: workflows, results, stats, apps, and glossary terms are invented for the mockup. The provider URL and model are your current settings.</div>
+    </div>
+
+    <aside class="notes" aria-label="Notes for the current tab">
+      <div class="note-card">
+        <div class="tn on" data-note="home">
+          <h3>Home</h3>
+          <ul>
+            <li>Opens with one line that says what to do: hold this key and speak. Pausing turns that line into a Resume button.</li>
+            <li>The workflow sentence shows what the next dictation will do, and every word in it can be changed. It replaces four labeled pickers and the Edit button.</li>
+            <li>“then paste it / copy it” uses the existing auto-paste setting, so you can see on Home whether results paste.</li>
+            <li>Items that need attention appear only when something is wrong, and each has its fix button.</li>
+            <li>Stats are one row of four figures, a 26-week activity grid, and top apps with their real icons.</li>
+            <li>Recent shows the full result text with its workflow's color. Copy and Paste show on hover. A new result stays highlighted until you've seen it. As today, it never shows which app a result went to, because history stores no app identity.</li>
+            <li>Clear History asks to confirm. Today it deletes everything at once.</li>
+          </ul>
+          <h4>Built with</h4>
+          <ul>
+            <li><code>Settings { TabView { Tab(…) } }</code> for the toolbar tabs. ⌘, and Open Syrup… both open it, through <code>openSettings</code>.</li>
+            <li>The sentence: a small <code>Layout</code> that wraps words, with <code>Picker</code>s in <code>.menu</code> style and <code>.buttonStyle(.borderless)</code>.</li>
+            <li>The grid: Swift Charts <code>RectangleMark</code>, which reads as one chart in VoiceOver instead of 252 cells.</li>
+            <li>App icons come from <code>NSWorkspace.icon(forFile:)</code>, looked up once and cached.</li>
+          </ul>
+        </div>
+        <div class="tn" data-note="workflows">
+          <h3>Workflows</h3>
+          <ul>
+            <li>The list and the editor sit side by side, so there is no back button and no list page that is mostly empty.</li>
+            <li>The row shows each workflow's shortcut, and the active one has a check. Make Active is in the ⋯ menu, not hidden in a right-click.</li>
+            <li>The editor starts with the same sentence as Home, then has three sections: Input, Output, and When it runs.</li>
+            <li>Spoken edits (self-corrections, formatting commands) move here from Recording, under Output on Translate workflows, and note that the setting is shared by every Translate workflow.</li>
+            <li>The workflow's own shortcut and its apps move here. The Shortcuts page no longer lists workflows.</li>
+            <li>Corrections become a two-column table.</li>
+            <li>Colors come from the action (blue Translate, purple custom instruction, gray Transcribe), so no new setting key is needed.</li>
+          </ul>
+          <h4>Built with</h4>
+          <ul>
+            <li><code>HSplitView</code> or <code>HStack</code> with a <code>List(selection:)</code> and a grouped <code>Form</code>. +, −, and ⋯ form a standard list bar of borderless buttons.</li>
+            <li>+ is a <code>Menu</code> of the existing templates.</li>
+          </ul>
+        </div>
+        <div class="tn" data-note="dictation">
+          <h3>Dictation</h3>
+          <ul>
+            <li>Covers how you start a dictation and how Syrup listens. It merges Shortcuts and the microphone part of Recording.</li>
+            <li>The Fn setup paragraph moves into a disclosure. The toggle keeps one line.</li>
+            <li>Speech models move to Models, and spoken edits move to the Translate workflow.</li>
+            <li>The indented child toggle uses the standard disabled state. It no longer uses a hand-set 45% opacity.</li>
+          </ul>
+          <h4>Built with</h4>
+          <ul><li><code>KeyboardShortcuts.Recorder</code>, <code>Picker(.segmented)</code>, a <code>DisclosureGroup</code> for the Fn help, and the existing detent <code>Slider</code> with its scale labels.</li></ul>
+        </div>
+        <div class="tn" data-note="delivery">
+          <h3>Delivery</h3>
+          <ul>
+            <li>Renamed from “After Dictation”.</li>
+            <li>A one-line diagram at the top shows where the result goes. It changes when pasting is off or Accessibility isn't allowed.</li>
+            <li>The three paste options stay under their parent toggle, and their captions are shorter.</li>
+            <li>The sound label now says when it plays.</li>
+          </ul>
+          <h4>Built with</h4>
+          <ul><li>Grouped <code>Form</code>, with an <code>HStack</code> of <code>Label</code>s for the diagram.</li></ul>
+        </div>
+        <div class="tn" data-note="models">
+          <h3>Models</h3>
+          <ul>
+            <li>Brings together the two things that do the work: speech recognition, which runs on the Mac, and the writing provider.</li>
+            <li>Each model row shows which workflows use it, so you can tell whether it's safe to delete.</li>
+            <li>Parakeet Ultra and Redux have no measured bars or final download sizes in code yet (<code>SpeechEngine.swift</code> holds placeholders). The mockup says “Not measured yet” and leaves the size out.</li>
+            <li>Test Connection keeps its last result in place: how long the server took, and when.</li>
+          </ul>
+          <h4>Built with</h4>
+          <ul><li>The existing <code>SpeechModelControls</code>, plus a <code>Picker(.radioGroup)</code> with captions for the provider.</li></ul>
+        </div>
+        <div class="tn" data-note="glossary">
+          <h3>Glossary</h3>
+          <ul>
+            <li>Terms are a sortable two-column table with search, Add Term, and an Import/Export menu.</li>
+            <li>The 70-word paragraph under Learning moves into “What is sent, and where?”.</li>
+            <li>Suggestions sit above Learning, because that's where you act on them.</li>
+            <li>A footer explains the difference between the Glossary and a workflow's Corrections.</li>
+          </ul>
+          <h4>Built with</h4>
+          <ul><li><code>Table</code> with editable <code>TextField</code> cells, <code>.searchable</code>, and a <code>DisclosureGroup</code>.</li></ul>
+        </div>
+        <div class="tn" data-note="privacy">
+          <h3>Privacy</h3>
+          <ul>
+            <li>“Granted” becomes “Allowed”, the word macOS uses.</li>
+            <li>Each data type shows where it goes: this Mac in green, a server in orange.</li>
+            <li>The footer names any workflow whose provider differs from the default.</li>
+            <li>Delete Stats… sits next to its toggle and asks before deleting.</li>
+            <li>The tab badge counts permissions that need attention, as the Privacy sidebar badge does today.</li>
+          </ul>
+          <h4>Built with</h4>
+          <ul><li>Grouped <code>Form</code> and <code>LabeledContent</code>. The badge comes from <code>.badge(_:)</code> on the tab item.</li></ul>
+        </div>
+        <div class="tn" data-note="general">
+          <h3>General</h3>
+          <ul>
+            <li>Kept as a short last tab. Putting the login and update toggles in a menu would hide them.</li>
+            <li>The version row says when Syrup last checked.</li>
+          </ul>
+          <h4>Built with</h4>
+          <ul><li>Grouped <code>Form</code>, <code>SMAppService</code>, and Sparkle's <code>SPUUpdater</code>, as today.</li></ul>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+<!-- ================= REVIEW ================= -->
+  <div class="review" id="review">
+    <section>
+      <h2>Review of the current window</h2>
+      <p class="lede">Reviewed from source, without the detector, because the window is native. Screenshots come from the installed 0.8 build (2026-11-05). The uncommitted working tree supplied stats, the model list, and spoken edits. Nothing was profiled, so the performance notes below are about code, not measurements.</p>
+
+      <h3>Critique: design health 23/40 (Acceptable)</h3>
+      <table class="rt">
+        <thead><tr><th>#</th><th>Heuristic</th><th>Score</th><th>Key issue</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Visibility of system status</td><td class="n">3</td><td>The Ready pill and attention rows work. When shortcuts are paused, the only sign is a small pill.</td></tr>
+          <tr><td>2</td><td>Match with the real world</td><td class="n">2</td><td>The section names “Intelligence”, “Syrup”, “After Dictation”, “Syrup does”, and “Runs when” don't say what is inside them.</td></tr>
+          <tr><td>3</td><td>User control and freedom</td><td class="n">2</td><td>Recent's Clear deletes all history at once, with no confirmation and no undo (<code>HomeSettingsPane.swift:196</code>).</td></tr>
+          <tr><td>4</td><td>Consistency and standards</td><td class="n">2</td><td>The speech model, the provider, and shortcuts each live on two pages. The same green capsule means Granted, Saved, Active, and Ready. Remove Model sits next to Delete.</td></tr>
+          <tr><td>5</td><td>Error prevention</td><td class="n">3</td><td>Paste options turn off with their parent toggle. Home checks the provider before you dictate.</td></tr>
+          <tr><td>6</td><td>Recognition over recall</td><td class="n">2</td><td>Make Active is only in a right-click menu. Spoken edits are set in Recording but apply only to Translate workflows.</td></tr>
+          <tr><td>7</td><td>Flexibility and efficiency</td><td class="n">3</td><td>Per-workflow shortcuts and per-app routing are strong. Pages have no keyboard shortcuts, and search only matches a hand-written keyword list.</td></tr>
+          <tr><td>8</td><td>Aesthetic and minimalist design</td><td class="n">1</td><td>All nine pages are the same gray grouped form. Some captions run 40 to 70 words: glossary learning, Fn setup, and the spoken symbols list.</td></tr>
+          <tr><td>9</td><td>Error recovery</td><td class="n">3</td><td>Failed results offer Retry with another provider and Copy Transcript.</td></tr>
+          <tr><td>10</td><td>Help and documentation</td><td class="n">2</td><td>Help is always shown in full under each control, with nothing to expand for more detail.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Does it look made for Syrup?</h3>
+      <p>No. Without the window title, nothing on screen says Syrup. The onboarding has its own amber world with a dripping band, and the app icon is honey. The main window looks like System Settings. You asked to stay native, so the mockup gets its character from what native apps already allow: one color per action used everywhere a workflow appears, a workflow sentence you can edit, real app icons, and a Recent list that shows your actual words. It does not reskin the controls.</p>
+
+      <h3>Audit (native): 13/20 (Acceptable)</h3>
+      <table class="rt">
+        <thead><tr><th>Dimension</th><th>Score</th><th>Key finding</th></tr></thead>
+        <tbody>
+          <tr><td>Accessibility</td><td class="n">2</td><td>Fixed sizes: the 20 pt page title (<code>SettingsPage.swift</code>), 10 pt <code>TagBadge</code>, and 9 pt heatmap legend, weekday letters, and slider scale. The heatmap gives VoiceOver 252 separate cells. The disabled child toggle also has a hand-set 45% opacity, so it is dimmed twice.</td></tr>
+          <tr><td>Performance</td><td class="n">3</td><td>Each Recent row runs its own 30-second <code>TimelineView</code>. <code>HomeStatsSection.appName</code> asks <code>NSWorkspace</code> and the file system on every render. <code>activityWeeks</code> is rebuilt on every body pass. Home's provider check reads the secret store whenever its task id changes. Not measured, and probably not something you'd notice.</td></tr>
+          <tr><td>Appearance and theming</td><td class="n">3</td><td>Semantic colors are used throughout. The onboarding palette is hard-coded RGB that the main window never uses.</td></tr>
+          <tr><td>Platform conformance</td><td class="n">2</td><td>A custom header replaces the navigation title (hidden title bar plus an <code>ignoresSafeArea</code> workaround). A hand-made chevron replaces the stack's back button. Actions are hidden in context menus. The settings window is a regular <code>Window</code> instead of a <code>Settings</code> scene.</td></tr>
+          <tr><td>Adaptivity</td><td class="n">3</td><td><code>ViewThatFits</code> wraps Home's pickers, and long names were checked. Content stops at 720 pt, which leaves wide empty margins when the window is large.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Priority issues</h3>
+      <div class="issue"><h4><span class="sev p1">P1</span>Three concepts are each split across two pages</h4>
+        <p><span class="lbl">Why</span>The speech model is in a workflow and in Recording. The provider is in AI Provider and in a workflow. Shortcuts are in Shortcuts and in a workflow. Spoken edits are in Recording but only affect Translate. You have to remember which page owns what.</p>
+        <p><span class="lbl">Fix</span>Eight tabs, with one place for each concept. Workflows owns everything that belongs to a workflow. Models owns both engines. See the tab map below.</p></div>
+      <div class="issue"><h4><span class="sev p1">P1</span>Home doesn't say what will happen or what just happened</h4>
+        <p><span class="lbl">Why</span>A status pill, a pause toggle, a headline, four pickers, Edit, stat tiles, a heatmap, and Recent all have the same weight. Recent cuts off the result, its most useful content.</p>
+        <p><span class="lbl">Fix</span>A status line, then the workflow sentence, then attention items only when needed, then stats in one row, then Recent with the full text and its workflow color.</p></div>
+      <div class="issue"><h4><span class="sev p1">P1</span>The workflow editor is a long push page</h4>
+        <p><span class="lbl">Why</span>You leave the list to edit, then scroll past Name, the Active row, five Input rows, and about 100 words of captions before reaching what the workflow does. Duplicate and Delete sit in a section of their own.</p>
+        <p><span class="lbl">Fix</span>A list and editor side by side. A sentence summary first, then Input, Output, Corrections, and When it runs, with short captions. Delete moves to the list bar.</p></div>
+      <div class="issue"><h4><span class="sev p1">P1</span>Clear deletes history with no warning</h4>
+        <p><span class="lbl">Why</span>When history is kept across restarts, one click on a small link deletes every result for good.</p>
+        <p><span class="lbl">Fix</span>“Clear History…” asks to confirm and names the result count. Delete Stats… also asks.</p></div>
+      <div class="issue"><h4><span class="sev p2">P2</span>Captions repeat the control or bury the rule</h4>
+        <p><span class="lbl">Why</span>The glossary learning caption is 70 words and the Fn caption is 60. The spoken symbols toggle lists 20 words inline.</p>
+        <p><span class="lbl">Fix</span>One line per caption. Edge cases go in a disclosure. See the label table below.</p></div>
+
+      <h3>Who gets stuck</h3>
+      <div class="cols2">
+        <div><p><b>Power user.</b> Can't make a workflow active without right-clicking, and has no ⌘1 to ⌘8 for pages. Has to open each workflow to see its shortcut. In the mockup, shortcuts show in the list, ⋯ has Make Active, and each tab gets a ⌘ number from the Window menu.</p></div>
+        <div><p><b>First-time user.</b> Sees “OpenAI-compatible”, “Base URL”, “streaming”, and “Parakeet v3” before ever dictating. Recent says “Nothing yet” and doesn't suggest what to try. In the mockup, an empty Home shows an example to say and its result.</p></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Tab map</h2>
+      <table class="rt">
+        <thead><tr><th>New tab</th><th>Takes from</th><th>Changes</th></tr></thead>
+        <tbody>
+          <tr><td>Home</td><td>Home</td><td>Workflow sentence, attention items only when needed, stats in one row, Recent with full text</td></tr>
+          <tr><td>Workflows</td><td>Workflows, workflow page, workflow shortcuts from Shortcuts, Spoken edits from Recording</td><td>List and editor side by side. Each workflow owns its shortcut, apps, and corrections.</td></tr>
+          <tr><td>Dictation</td><td>Shortcuts (Dictate, Revise, Paste last, mode, Fn), Recording (mic, while speaking, limits)</td><td>Fn help moves into a disclosure</td></tr>
+          <tr><td>Delivery</td><td>After Dictation</td><td>Renamed, with a diagram of where results go</td></tr>
+          <tr><td>Models</td><td>Speech models from Recording, AI Provider</td><td>Shows which workflows use each model, and keeps the last connection test result</td></tr>
+          <tr><td>Glossary</td><td>Glossary</td><td>Terms table, suggestions above Learning, long text in a disclosure</td></tr>
+          <tr><td>Privacy</td><td>Privacy</td><td>Shows where each data type goes. Delete Stats asks first.</td></tr>
+          <tr><td>General</td><td>General</td><td>Shows when Syrup last checked for updates</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Clarify: labels</h2>
+      <table class="rt">
+        <thead><tr><th>Today</th><th>Mockup</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>Pause hotkey (toggle)</td><td>Pause Shortcuts (button), then Resume</td><td>Says what it does. The old switch read as on when shortcuts were off.</td></tr>
+          <tr><td>After Dictation</td><td>Delivery</td><td>Describes the page by what's on it, not by when it applies</td></tr>
+          <tr><td>Intelligence / Syrup (sidebar groups)</td><td>No groups</td><td>Toolbar tabs don't need group names</td></tr>
+          <tr><td>You speak / Syrup does / Runs when</td><td>Input / Output / When it runs</td><td>Works for Selected text workflows too, where you don't speak</td></tr>
+          <tr><td>How the shortcut works: Hold to talk / Press to toggle</td><td>Shortcuts work by: Holding / Pressing twice</td><td>Covers every shortcut, not just one</td></tr>
+          <tr><td>Granted</td><td>Allowed</td><td>The word System Settings uses</td></tr>
+          <tr><td>Show recording indicator</td><td>Show the recording wave</td><td>Names the thing you actually see</td></tr>
+          <tr><td>Maximum recording</td><td>Stop recording after</td><td>Says what happens</td></tr>
+          <tr><td>Completion sound</td><td>When a result is ready (sound)</td><td>Says when it plays</td></tr>
+          <tr><td>Remove Model / Delete</td><td>Delete everywhere</td><td>One verb for one action</td></tr>
+          <tr><td>Clear</td><td>Clear History…</td><td>Names what it deletes, and the ellipsis shows it asks first</td></tr>
+          <tr><td>Nothing yet. Your results will appear here.</td><td>An example to say, and what Syrup returns</td><td>Shows a first-time user what to do</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Polish, optimize, and delight</h2>
+      <div class="cols2">
+        <div>
+          <h3>Polish (to do when building)</h3>
+          <ul>
+            <li>Use semantic text styles everywhere (<code>.title2</code>, <code>.caption</code>), not fixed point sizes.</li>
+            <li>One status capsule style, used only for state: Allowed, Saved, Not allowed. Active becomes a check in the list.</li>
+            <li>Remove <code>SettingsPage</code> and its title inset workaround, because the Settings window draws its own title.</li>
+            <li>Disabled child rows use <code>.disabled</code> only.</li>
+          </ul>
+          <h3>Optimize</h3>
+          <ul>
+            <li>Use one <code>TimelineView</code> for the whole Recent section, not one per row.</li>
+            <li>Cache app names and icons by bundle ID, and build the activity weeks once per stats change.</li>
+            <li>Run the provider check when the window opens and when the provider changes, not on every Base URL keystroke.</li>
+            <li>Then measure window open and tab switch times with the Instruments SwiftUI template. None of this is measured yet.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Delight</h3>
+          <p class="thesis">Syrup should feel like it already knows what you want: one sentence tells you what the next dictation will do, and what you just said is waiting where you can find it.</p>
+          <ul>
+            <li><b>The workflow sentence</b> is Syrup's own: read it out loud and it describes the run.</li>
+            <li><b>A new result stays highlighted</b> until you've seen it, then fades. If Reduce Motion is on, it doesn't fade.</li>
+            <li><b>An empty Home suggests a phrase to try</b> in your dictation language, with the result Syrup would give.</li>
+            <li><b>Your numbers</b>, like time saved and your streak, say what they measure.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const icon = (id, extra = '') => `<svg class="i" ${extra}><use href="#i-${id}"/></svg>`;
+  const titles = { home: 'Home', workflows: 'Workflows', dictation: 'Dictation', delivery: 'Delivery', models: 'Models', glossary: 'Glossary', privacy: 'Privacy', general: 'General' };
+
+  // theme
+  $$('[data-theme-set]').forEach(b => b.addEventListener('click', () => {
+    const v = b.dataset.themeSet;
+    if (v === 'system') document.documentElement.removeAttribute('data-theme'); else document.documentElement.dataset.theme = v;
+    $$('[data-theme-set]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  }));
+
+  // switches
+  document.addEventListener('click', e => {
+    const s = e.target.closest('.switch');
+    if (!s || s.disabled) return;
+    s.setAttribute('aria-checked', String(s.getAttribute('aria-checked') !== 'true'));
+    syncChildren();
+  });
+  function syncChildren() {
+    $$('.switch[data-parent]').forEach(p => {
+      const on = p.getAttribute('aria-checked') === 'true';
+      $$(`[data-child="${p.dataset.parent}"]`, p.closest('.pane')).forEach(row => {
+        row.classList.toggle('off', !on);
+        $$('.switch', row).forEach(sw => sw.disabled = !on);
+      });
+    });
+    const paste = $('#pasteSwitch').getAttribute('aria-checked') === 'true';
+    $('#flowPaste').innerHTML = paste ? `${icon('paste')}Pasted into the editor you started in` : `${icon('paste')}Not pasted. Press ⌘V yourself.`;
+    $('#flowPaste').style.opacity = paste ? 1 : .6;
+    $('#deliverWord').firstChild.textContent = paste ? 'paste it' : 'copy it';
+  }
+
+  // segmented controls
+  document.addEventListener('click', e => {
+    const b = e.target.closest('.seg button');
+    if (!b) return;
+    $$('button', b.parentElement).forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    if (b.parentElement.id === 'modeSeg') $('#modeCap').textContent = b.textContent === 'Holding' ? 'Hold to record, release to finish' : 'Press once to start, again to finish';
+  });
+
+  // tabs
+  const states = {
+    home: [['Normal', 'normal'], ['First run', 'first'], ['Needs attention', 'attention'], ['Paused', 'paused']],
+    workflows: [['Translate', 'translate'], ['Polish', 'polish'], ['Summarize Selection', 'sumsel'], ['Transcribe', 'transcribe']],
+  };
+  function selectTab(tab) {
+    $$('.tab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.tab === tab)));
+    $$('.pane').forEach(p => p.classList.toggle('on', p.dataset.pane === tab));
+    $$('.tn').forEach(n => n.classList.toggle('on', n.dataset.note === tab));
+    $('#wintitle').textContent = titles[tab];
+    renderStates(tab);
+  }
+  $$('.tab').forEach(t => t.addEventListener('click', () => selectTab(t.dataset.tab)));
+  document.addEventListener('click', e => { const g = e.target.closest('[data-goto]'); if (g) selectTab(g.dataset.goto); });
+  $('.toolbar').addEventListener('keydown', e => {
+    const tabs = $$('.tab'); const i = tabs.findIndex(t => t.getAttribute('aria-selected') === 'true');
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { const n = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length]; n.focus(); selectTab(n.dataset.tab); }
+  });
+
+  function renderStates(tab) {
+    const box = $('#states'); box.innerHTML = '';
+    const list = states[tab]; if (!list) return;
+    box.insertAdjacentHTML('beforeend', `<span class="lbl">${tab === 'home' ? 'State' : 'Workflow'}</span>`);
+    const bar = document.createElement('div'); bar.className = 'chipbar'; bar.setAttribute('role', 'group');
+    list.forEach(([label, key], idx) => {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = label;
+      const current = tab === 'home' ? homeState : wfSel;
+      b.setAttribute('aria-pressed', String(key === current));
+      b.addEventListener('click', () => { tab === 'home' ? setHome(key) : selectWf(key); renderStates(tab); });
+      bar.appendChild(b);
+    });
+    box.appendChild(bar);
+  }
+
+  // Home states
+  let homeState = 'normal';
+  function setHome(k) {
+    homeState = k;
+    const st = $('#status');
+    st.classList.toggle('paused', k === 'paused'); st.classList.toggle('warn', k === 'attention');
+    $('#attn').hidden = k !== 'attention';
+    $('#statsFull').hidden = k === 'first'; $('#statsEmpty').hidden = k !== 'first';
+    $('#recList').hidden = k === 'first'; $('#recEmpty').hidden = k !== 'first';
+    $('#recAside').hidden = k === 'first';
+    const mw = $('#modelWord');
+    mw.classList.toggle('state', k === 'attention');
+    mw.innerHTML = k === 'attention' ? `Parakeet Ultra${icon('down')}<span class="w-note">(using Apple until downloaded)</span>` : `Parakeet Ultra${icon('down')}`;
+    const pb = $('#pauseBtn');
+    if (k === 'paused') {
+      $('#statusLine').innerHTML = 'Shortcuts are paused';
+      $('#statusSub').textContent = 'Dictate, Revise, and Fn do nothing until you resume.';
+      pb.innerHTML = `${icon('mic')}Resume`; pb.classList.add('primary');
+      st.querySelector('.orb').innerHTML = icon('pause');
+    } else {
+      $('#statusLine').innerHTML = 'Hold <kbd>⌥</kbd><kbd>`</kbd> and speak';
+      $('#statusSub').textContent = k === 'attention' ? '2 things need your attention, but you can still dictate.' : k === 'first' ? 'Ready. Your first result appears below.' : 'Ready. Fn works too: hold it, or double-tap to start.';
+      pb.innerHTML = `${icon('pause')}Pause Shortcuts`; pb.classList.remove('primary');
+      st.querySelector('.orb').innerHTML = k === 'attention' ? icon('warn') : icon('mic');
+    }
+    $('#privacyTab').dataset.badge = k === 'attention' ? '1' : '';
+    $('#privacyTab').classList.toggle('badge-dot', k === 'attention');
+  }
+  $('#pauseBtn').addEventListener('click', () => { setHome(homeState === 'paused' ? 'normal' : 'paused'); renderStates('home'); });
+  $('#clearBtn').addEventListener('click', () => alert('Clear 4 results from History?\n\nThis can\'t be undone.\n\n[Cancel]  [Clear History]'));
+
+  // heatmap
+  (() => {
+    const heat = $('#heat'); let seed = 7;
+    const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    const cells = 26 * 7; let html = '';
+    for (let i = 0; i < cells; i++) {
+      const dow = i % 7, wk = Math.floor(i / 7);
+      let lvl = 0; const r = rnd();
+      if (dow > 0 && dow < 6) lvl = r < .18 ? 0 : r < .45 ? 1 : r < .72 ? 2 : r < .9 ? 3 : 4; else lvl = r < .7 ? 0 : 1;
+      if (wk > 22 && dow > 0 && dow < 6) lvl = Math.max(lvl, 2);
+      if (i > cells - 3) { html += '<i style="visibility:hidden"></i>'; continue; }
+      html += `<i class="l${lvl}${i === cells - 3 ? ' today' : ''}"></i>`;
+    }
+    heat.innerHTML = html;
+  })();
+
+  // Models
+  const models = [
+    { n: 'Apple', lang: 'Installed languages', live: false, a: 2, s: 4, ctl: '<span class="muted">Built in</span>', used: 'Polish and Transcribe' },
+    { n: 'Parakeet Ultra', lang: '25 languages', live: false, a: null, s: null, ctl: '<span class="muted small">Ready</span><button class="btn danger" type="button">Delete</button>', used: 'Translate', tag: 'Fewest errors on real Portuguese' },
+    { n: 'Parakeet Redux', lang: '25 languages', live: false, a: null, s: null, ctl: '<button class="btn" type="button">Download</button>', used: '' },
+    { n: 'Nemotron Streaming 3.5', lang: '28 languages', live: true, a: 3, s: 5, ctl: '<div class="prog" role="progressbar" aria-valuenow="42" aria-label="Downloading Nemotron"><i></i></div><span class="muted small">42%</span>', used: '' },
+    { n: 'Parakeet Unified EN 0.6B', lang: 'English', live: true, a: 4, s: 5, ctl: '<button class="btn" type="button">Download (595 MB)</button>', used: '' },
+    { n: 'Canary 180M Flash', lang: '4 languages', live: false, a: 3, s: 4, ctl: '<button class="btn" type="button">Download (256 MB)</button>', used: '' },
+  ];
+  const steps = v => v == null ? '<span class="dim">Not measured yet</span>' : `<span class="steps">${[1,2,3,4,5].map(i => `<i class="${i <= v ? 'on' : ''}"></i>`).join('')}</span>`;
+  $('#modelList').innerHTML = models.map(m => `
+    <div class="row"><div style="flex:1;min-width:0">
+      <div class="nm"><span class="t">${m.n}</span><span class="tag">${m.lang}</span>${m.live ? '<span class="tag live">Live text</span>' : ''}</div>
+      ${m.tag ? `<div class="c">${m.tag}</div>` : ''}
+      <div class="meters"><span class="meter">Accuracy ${steps(m.a)}</span><span class="meter">Speed ${steps(m.s)}</span></div>
+      ${m.used ? `<div class="usedby">Used by ${m.used}</div>` : ''}
+    </div><div class="ctl">${m.ctl}</div></div>`).join('');
+
+  // Workflows
+  const wfs = {
+    translate: { name: 'Translate', kind: 'translate', icon: 'globe', active: true, key: '⌥ `', input: 'Voice', sub: 'Portuguese (Brazil) to English',
+      sentence: 'Hear <w>Portuguese (Brazil)</w> with <w>Parakeet Ultra</w>, translate to <w>English</w> in a <w>Neutral</w> tone, using <w>OpenAI-compatible</w>.',
+      apps: ['Slack', 'Linear'], corr: [['cuber', 'Kubernetes'], ['syrup app', 'Syrup']] },
+    polish: { name: 'Polish', kind: 'custom', icon: 'sparkle', key: '⌃ ⌥ P', input: 'Voice', sub: 'Custom instruction',
+      sentence: 'Hear <w>Portuguese (Brazil)</w> with <w>Apple</w>, follow <w>my instruction</w>, using <w>OpenAI-compatible</w>.',
+      instruction: 'Fix grammar and punctuation. Keep my wording and language.', apps: ['Mail'], corr: [] },
+    sumsel: { name: 'Summarize Selection', kind: 'custom', icon: 'sparkle', key: '⌃ ⌥ S', input: 'Selected text', sub: 'Selected text, custom instruction',
+      sentence: 'Take <w>the selected text</w>, follow <w>my instruction</w>, using <w>Apple On-Device</w>.',
+      instruction: 'Summarize the provided text as short bullet points in English. Keep names, numbers, and decisions.', apps: [], corr: [] },
+    transcribe: { name: 'Transcribe', kind: 'transcribe', icon: 'wave', key: '', input: 'Voice', sub: 'Portuguese (Brazil), no AI',
+      sentence: 'Hear <w>Portuguese (Brazil)</w> with <w>Apple</w> and keep the words as spoken, <w>cleaned up</w>.',
+      apps: ['Notes'], corr: [] },
+  };
+  let wfSel = 'translate';
+  const appColor = { Slack: '#4a154b', Linear: '#5e6ad2', Mail: '#1f6feb', Notes: '#d4a017' };
+  function renderList() {
+    $('#wfItems').innerHTML = Object.entries(wfs).map(([k, w]) => `
+      <button class="wf-item" type="button" role="option" aria-selected="${k === wfSel}" data-wf="${k}">
+        <span class="tile k-${w.kind}">${icon(w.icon)}</span>
+        <span class="mid"><span class="n">${w.name}</span><span class="s">${w.key ? w.key.replace(/ /g, '') + ' · ' : ''}${w.sub}</span></span>
+        ${w.active ? `<span class="chk" title="Active: your main shortcut runs it">${icon('check')}</span>` : ''}
+      </button>`).join('');
+    $$('.wf-item').forEach(b => b.addEventListener('click', () => { selectWf(b.dataset.wf); renderStates('workflows'); }));
+  }
+  function row(t, c, ctl, cls = '') { return `<div class="row ${cls}"><div><div class="t">${t}</div>${c ? `<div class="c">${c}</div>` : ''}</div><div class="ctl">${ctl}</div></div>`; }
+  const popup = v => `<span class="popup">${v}<span class="chev">${icon('updown')}</span></span>`;
+  const sw = (on, label) => `<button class="switch" role="switch" aria-checked="${on}" aria-label="${label}"></button>`;
+  function selectWf(k) {
+    wfSel = k; const w = wfs[k]; renderList();
+    const sentence = w.sentence.replace(/<w>(.*?)<\/w>/g, `<button class="w" type="button">$1${icon('down')}</button>`);
+    const voice = w.input === 'Voice';
+    let out = '';
+    if (w.kind === 'translate') {
+      out = row('Action', '', popup('Translate'))
+        + row('Translate to', '', `<input class="field" value="English" aria-label="Translate to" style="min-width:160px">`)
+        + row('Tone', '', popup('Neutral'))
+        + row('Handle self-corrections', '“at 3, no wait, 4” becomes “at 4”', sw(true, 'Handle self-corrections'))
+        + row('Follow formatting commands', '“new line”, “make a list”, “in quotes”', sw(true, 'Follow formatting commands'))
+        + row('AI provider', '', popup('Default (OpenAI-compatible)'));
+    } else if (w.kind === 'custom') {
+      out = row('Action', '', popup('Custom instruction'))
+        + `<div class="row top" style="display:block"><div class="t" style="margin-bottom:6px">Instruction</div><textarea class="field" aria-label="Instruction">${w.instruction}</textarea></div>`
+        + row('Output only the result', 'No preamble, explanation, or quotes', sw(true, 'Output only the result'))
+        + row('AI provider', k === 'sumsel' ? 'Recommended for selected text: it stays on this Mac' : '', popup(k === 'sumsel' ? 'Apple On-Device' : 'Default (OpenAI-compatible)'));
+    } else {
+      out = row('Action', 'No AI provider, nothing leaves this Mac', popup('Transcribe'))
+        + row('Clean up fillers and spoken formatting', 'English and Portuguese, with local rules', sw(true, 'Clean up fillers'))
+        + row('Replace spoken symbols', '“hashtag”, “arroba”, “slash”, and 17 more, even in normal sentences. <button class="linkbtn">Show all</button>', sw(false, 'Replace spoken symbols'));
+    }
+    const input = row('Source', '', `<div class="seg"><button type="button" aria-pressed="${voice}">Voice</button><button type="button" aria-pressed="${!voice}">Selected text</button></div>`)
+      + (voice ? row('Dictation language', 'Downloaded', popup('Portuguese (Brazil)'))
+        + row('Speech model', k === 'translate' ? 'Parakeet Ultra is ready. Apple shows live words.' : 'Built into macOS', popup(k === 'translate' ? 'Parakeet Ultra' : 'Apple'))
+        + (w.kind !== 'transcribe' ? row('Include selected text', 'So you can say “reply to this”. Sent to this workflow\'s provider.', sw(false, 'Include selected text')) : '')
+        : row('Selected text', 'Read with Accessibility, up to 20,000 characters, never saved', ''));
+    const corr = voice ? `<div class="sec"><div class="sec-h"><span>Corrections</span><span class="aside">Fixes a word before anything else runs</span></div><div class="group">
+        ${w.corr.length ? `<div class="corr-h"><span>Heard</span><span></span><span>Replace with</span><span></span></div>` + w.corr.map(([a, b]) => `<div class="corr"><input class="field" value="${a}" aria-label="Heard"><span class="dim">${icon('arrow', 'style="width:12px;height:12px"')}</span><input class="field" value="${b}" aria-label="Replace with"><button class="iconbtn" type="button" aria-label="Remove correction">${icon('minus')}</button></div>`).join('') : ''}
+        <div class="row"><button class="linkbtn" type="button">${w.corr.length ? 'Add Correction' : 'Add a correction for a word this workflow keeps mishearing'}</button></div></div></div>` : '';
+    const apps = w.apps.length ? `<div class="chips">${w.apps.map(a => `<span class="chip"><span class="app" style="background:${appColor[a]}">${a[0]}</span>${a}<button class="iconbtn" type="button" aria-label="Remove ${a}">${icon('x')}</button></span>`).join('')}</div>` : '<span class="muted small">No apps</span>';
+    $('#wfEditor').innerHTML = `
+      <div class="ed-head"><span class="tile lg k-${w.kind}">${icon(w.icon)}</span>
+        <div class="grow"><input class="nm" value="${w.name}" aria-label="Workflow name"><div class="kind">${w.input === 'Voice' ? 'Voice · ' : ''}${w.sub}</div></div>
+        ${w.active ? '<span class="pill ok">Active</span>' : '<button class="btn" type="button">Make Active</button>'}</div>
+      <div class="group ed-recipe"><div class="sentence">${sentence}</div></div>
+      <div class="sec"><div class="sec-h">Input</div><div class="group">${input}</div></div>
+      <div class="sec"><div class="sec-h">Output</div><div class="group">${out}</div>${w.kind === 'translate' ? '<div class="foot">Self-corrections and formatting commands apply to every Translate workflow.</div>' : ''}</div>
+      ${corr}
+      <div class="sec"><div class="sec-h">When it runs</div><div class="group">
+        ${row('Its own shortcut', 'Runs this workflow from any app', w.key ? `<span class="recorder"><span>${w.key}</span><span class="x">${icon('x')}</span></span>` : '<span class="recorder empty">Record Shortcut</span>')}
+        <div class="row top"><div><div class="t">In these apps</div><div class="c">Dictate uses this workflow while one of them is in front</div></div><div class="ctl" style="flex-direction:column;align-items:flex-end;gap:6px">${apps}<button class="btn small" type="button">Add App…</button></div></div>
+      </div></div>`;
+  }
+
+  renderList(); selectWf('translate'); syncChildren();
+  const hp = new URLSearchParams(location.hash.slice(1));
+  if (hp.get('theme')) document.documentElement.dataset.theme = hp.get('theme');
+  if (hp.get('state')) setHome(hp.get('state'));
+  if (hp.get('wf')) selectWf(hp.get('wf'));
+  selectTab(hp.get('tab') || 'home');
+})();
+</script>
+</body>
+</html>

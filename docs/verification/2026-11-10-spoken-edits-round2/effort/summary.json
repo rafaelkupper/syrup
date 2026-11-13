@@ -1,0 +1,146 @@
+{
+ "gpt-oss-120b@low": {
+  "requests": 120,
+  "completed": 120,
+  "latency_ms": {
+   "median": 340.5,
+   "p90": 473,
+   "max": 1360
+  },
+  "features": {
+   "plain": {
+    "total": 15,
+    "raw_pass": 15,
+    "delivered_pass": 15
+   },
+   "self-correction": {
+    "total": 27,
+    "raw_pass": 24,
+    "delivered_pass": 24
+   },
+   "formatting": {
+    "total": 18,
+    "raw_pass": 18,
+    "delivered_pass": 18
+   },
+   "punctuation": {
+    "total": 9,
+    "raw_pass": 9,
+    "delivered_pass": 9
+   },
+   "quotes": {
+    "total": 15,
+    "raw_pass": 14,
+    "delivered_pass": 14
+   },
+   "literal": {
+    "total": 21,
+    "raw_pass": 18,
+    "delivered_pass": 18
+   },
+   "combined": {
+    "total": 15,
+    "raw_pass": 6,
+    "delivered_pass": 6
+   }
+  },
+  "delivered_pass": 104,
+  "raw_pass": 104
+ },
+ "gpt-oss-120b@medium": {
+  "requests": 120,
+  "completed": 120,
+  "latency_ms": {
+   "median": 382.5,
+   "p90": 593,
+   "max": 72343
+  },
+  "features": {
+   "plain": {
+    "total": 15,
+    "raw_pass": 15,
+    "delivered_pass": 15
+   },
+   "self-correction": {
+    "total": 27,
+    "raw_pass": 25,
+    "delivered_pass": 25
+   },
+   "formatting": {
+    "total": 18,
+    "raw_pass": 18,
+    "delivered_pass": 18
+   },
+   "punctuation": {
+    "total": 9,
+    "raw_pass": 9,
+    "delivered_pass": 9
+   },
+   "quotes": {
+    "total": 15,
+    "raw_pass": 13,
+    "delivered_pass": 13
+   },
+   "literal": {
+    "total": 21,
+    "raw_pass": 19,
+    "delivered_pass": 19
+   },
+   "combined": {
+    "total": 15,
+    "raw_pass": 5,
+    "delivered_pass": 5
+   }
+  },
+  "delivered_pass": 104,
+  "raw_pass": 104
+ },
+ "gpt-oss-120b@high": {
+  "requests": 120,
+  "completed": 120,
+  "latency_ms": {
+   "median": 446.5,
+   "p90": 976,
+   "max": 10991
+  },
+  "features": {
+   "plain": {
+    "total": 15,
+    "raw_pass": 15,
+    "delivered_pass": 15
+   },
+   "self-correction": {
+    "total": 27,
+    "raw_pass": 26,
+    "delivered_pass": 26
+   },
+   "formatting": {
+    "total": 18,
+    "raw_pass": 18,
+    "delivered_pass": 18
+   },
+   "punctuation": {
+    "total": 9,
+    "raw_pass": 9,
+    "delivered_pass": 9
+   },
+   "quotes": {
+    "total": 15,
+    "raw_pass": 14,
+    "delivered_pass": 14
+   },
+   "literal": {
+    "total": 21,
+    "raw_pass": 21,
+    "delivered_pass": 21
+   },
+   "combined": {
+    "total": 15,
+    "raw_pass": 7,
+    "delivered_pass": 7
+   }
+  },
+  "delivered_pass": 110,
+  "raw_pass": 110
+ }
+}

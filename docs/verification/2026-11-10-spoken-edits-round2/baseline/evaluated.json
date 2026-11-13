@@ -1,0 +1,3519 @@
+[
+ {
+  "duration_ms": 456,
+  "finish_reason": "stop",
+  "id": "self-time-en",
+  "key": "gpt-oss-120b/1/self-time-en",
+  "model": "gpt-oss-120b",
+  "output": "The meeting is at 4.",
+  "raw_output": "The meeting is at 4.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 75,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 58,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 348,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "total_tokens": 423
+  },
+  "feature": "self-correction",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 351,
+  "finish_reason": "stop",
+  "id": "self-name-en",
+  "key": "gpt-oss-120b/1/self-name-en",
+  "model": "gpt-oss-120b",
+  "output": "Send the report to Mark by Friday.",
+  "raw_output": "Send the report to Mark by Friday.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 77,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 59,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 348,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "total_tokens": 425
+  },
+  "feature": "self-correction",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 319,
+  "finish_reason": "stop",
+  "id": "self-multiple-en",
+  "key": "gpt-oss-120b/1/self-multiple-en",
+  "model": "gpt-oss-120b",
+  "output": "We need fifty boxes, delivered on Tuesday.",
+  "raw_output": "We need fifty boxes, delivered on Tuesday.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 112,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 93,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 353,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 465
+  },
+  "feature": "self-correction",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 328,
+  "finish_reason": "stop",
+  "id": "self-name-pt",
+  "key": "gpt-oss-120b/1/self-name-pt",
+  "model": "gpt-oss-120b",
+  "output": "Send the report to Maria tomorrow morning.",
+  "raw_output": "Send the report to Maria tomorrow morning.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 136,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 118,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 354,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 490
+  },
+  "feature": "self-correction",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 315,
+  "finish_reason": "stop",
+  "id": "self-date-pt",
+  "key": "gpt-oss-120b/1/self-date-pt",
+  "model": "gpt-oss-120b",
+  "output": "The meeting will be on Wednesday at four.",
+  "raw_output": "The meeting will be on Wednesday at four.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 116,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 97,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 351,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 467
+  },
+  "feature": "self-correction",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 396,
+  "finish_reason": "stop",
+  "id": "literal-negation",
+  "key": "gpt-oss-120b/1/literal-negation",
+  "model": "gpt-oss-120b",
+  "output": "No, don't send the report to Mark.",
+  "raw_output": "No, don't send the report to Mark.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 92,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 73,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 344,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 436
+  },
+  "feature": "literal",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 428,
+  "finish_reason": "stop",
+  "id": "newline-en",
+  "key": "gpt-oss-120b/1/newline-en",
+  "model": "gpt-oss-120b",
+  "output": "Hello Alice.\nPlease send the report.",
+  "raw_output": "Hello Alice.\nPlease send the report.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 107,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 89,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 346,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 453
+  },
+  "feature": "formatting",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 317,
+  "finish_reason": "stop",
+  "id": "newline-pt",
+  "key": "gpt-oss-120b/1/newline-pt",
+  "model": "gpt-oss-120b",
+  "output": "Hello, Ana.\nSend the report.",
+  "raw_output": "Hello, Ana.\nSend the report.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 102,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 84,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 347,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 449
+  },
+  "feature": "formatting",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 414,
+  "finish_reason": "stop",
+  "id": "paragraph-en",
+  "key": "gpt-oss-120b/1/paragraph-en",
+  "model": "gpt-oss-120b",
+  "output": "The launch is ready.\n\nWe should notify the team.",
+  "raw_output": "The launch is ready.\n\nWe should notify the team.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 201,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 180,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 349,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "total_tokens": 550
+  },
+  "feature": "formatting",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 383,
+  "finish_reason": "stop",
+  "id": "paragraph-pt",
+  "key": "gpt-oss-120b/1/paragraph-pt",
+  "model": "gpt-oss-120b",
+  "output": "The launch is ready.\n\nWe need to notify the team.",
+  "raw_output": "The launch is ready.\n\nWe need to notify the team.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 112,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 90,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 351,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 463
+  },
+  "feature": "formatting",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 354,
+  "finish_reason": "stop",
+  "id": "bullets",
+  "key": "gpt-oss-120b/1/bullets",
+  "model": "gpt-oss-120b",
+  "output": "- milk\n- eggs\n- bread",
+  "raw_output": "- milk\n- eggs\n- bread",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 76,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 58,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 345,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 421
+  },
+  "feature": "formatting",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 377,
+  "finish_reason": "stop",
+  "id": "numbered-list",
+  "key": "gpt-oss-120b/1/numbered-list",
+  "model": "gpt-oss-120b",
+  "output": "1. Check the logs.  \n2. Fix the bug.  \n3. Run the tests.",
+  "raw_output": "1. Check the logs.  \n2. Fix the bug.  \n3. Run the tests.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 142,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 112,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 351,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 493
+  },
+  "feature": "formatting",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 410,
+  "finish_reason": "stop",
+  "id": "quotes-en",
+  "key": "gpt-oss-120b/1/quotes-en",
+  "model": "gpt-oss-120b",
+  "output": "\"hello\"",
+  "raw_output": "\"hello\"",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 116,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 103,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 339,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 455
+  },
+  "feature": "quotes",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 362,
+  "finish_reason": "stop",
+  "id": "quotes-pt",
+  "key": "gpt-oss-120b/1/quotes-pt",
+  "model": "gpt-oss-120b",
+  "output": "\"bom dia\"",
+  "raw_output": "\"bom dia\"",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 79,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 65,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 341,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 420
+  },
+  "feature": "quotes",
+  "delivered_failures": [
+   "missing good morning"
+  ],
+  "raw_failures": [
+   "missing good morning"
+  ]
+ },
+ {
+  "duration_ms": 283,
+  "finish_reason": "stop",
+  "id": "literal-paragraph",
+  "key": "gpt-oss-120b/1/literal-paragraph",
+  "model": "gpt-oss-120b",
+  "output": "Please add a new paragraph to the contract.",
+  "raw_output": "Please add a new paragraph to the contract.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 100,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 81,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 344,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 444
+  },
+  "feature": "literal",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 390,
+  "finish_reason": "stop",
+  "id": "literal-newline",
+  "key": "gpt-oss-120b/1/literal-newline",
+  "model": "gpt-oss-120b",
+  "output": "The phrase \nappears in the manual.",
+  "raw_output": "The phrase \nappears in the manual.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 258,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 239,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 344,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 602
+  },
+  "feature": "literal",
+  "delivered_failures": [
+   "missing new line",
+   "unexpected line break"
+  ],
+  "raw_failures": [
+   "missing new line",
+   "unexpected line break"
+  ]
+ },
+ {
+  "duration_ms": 401,
+  "finish_reason": "stop",
+  "id": "plain-pt",
+  "key": "gpt-oss-120b/1/plain-pt",
+  "model": "gpt-oss-120b",
+  "output": "I need you to review the contract by Friday.",
+  "raw_output": "I need you to review the contract by Friday.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 67,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 47,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 346,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 413
+  },
+  "feature": "plain",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 399,
+  "finish_reason": "stop",
+  "id": "plain-en-cleanup",
+  "key": "gpt-oss-120b/1/plain-en-cleanup",
+  "model": "gpt-oss-120b",
+  "output": "The deployment is scheduled for tomorrow.",
+  "raw_output": "The deployment is scheduled for tomorrow.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 104,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 87,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 349,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 453
+  },
+  "feature": "plain",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 332,
+  "finish_reason": "stop",
+  "id": "plain-pt-names",
+  "key": "gpt-oss-120b/1/plain-pt-names",
+  "model": "gpt-oss-120b",
+  "output": "Pedro will present the Kubernetes report at the meeting.",
+  "raw_output": "Pedro will present the Kubernetes report at the meeting.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 68,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 48,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 346,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 414
+  },
+  "feature": "plain",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 285,
+  "finish_reason": "stop",
+  "id": "plain-en-numbers",
+  "key": "gpt-oss-120b/1/plain-en-numbers",
+  "model": "gpt-oss-120b",
+  "output": "We have three servers and twelve workers in São Paulo.",
+  "raw_output": "We have three servers and twelve workers in São Paulo.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 90,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 69,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 348,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 438
+  },
+  "feature": "plain",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 2300,
+  "finish_reason": "stop",
+  "id": "self-place-en",
+  "key": "gpt-oss-120b/1/self-place-en",
+  "model": "gpt-oss-120b",
+  "output": "Let's meet at the café.",
+  "raw_output": "Let's meet at the café.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 88,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 72,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 349,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 437
+  },
+  "feature": "self-correction",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 276,
+  "finish_reason": "stop",
+  "id": "self-number-pt",
+  "key": "gpt-oss-120b/1/self-number-pt",
+  "model": "gpt-oss-120b",
+  "output": "Buy two, I mean three boxes of milk.",
+  "raw_output": "Buy two, I mean three boxes of milk.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 59,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 39,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 345,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 404
+  },
+  "feature": "self-correction",
+  "delivered_failures": [
+   "kept two"
+  ],
+  "raw_failures": [
+   "kept two"
+  ]
+ },
+ {
+  "duration_ms": 493,
+  "finish_reason": "stop",
+  "id": "real-typed",
+  "key": "gpt-oss-120b/1/real-typed",
+  "model": "gpt-oss-120b",
+  "output": "Hmm, let's test a few more things... I wanted to do two, no, three tests\n\"let's see if this works\" and that's it.... period.",
+  "raw_output": "Hmm, let's test a few more things... I wanted to do two, no, three tests\n\"let's see if this works\" and that's it.... period.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 398,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 354,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 371,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 769
+  },
+  "feature": "combined",
+  "delivered_failures": [
+   "kept two",
+   "kept period",
+   "wrong ending"
+  ],
+  "raw_failures": [
+   "kept two",
+   "kept period",
+   "wrong ending"
+  ]
+ },
+ {
+  "duration_ms": 533,
+  "finish_reason": "stop",
+  "id": "real-asr",
+  "key": "gpt-oss-120b/1/real-asr",
+  "model": "gpt-oss-120b",
+  "output": "Hum, let's test a few more things. I wanted to do two, no, three tests.\n\"let's see if this works\". And that's a period.",
+  "raw_output": "Hum, let's test a few more things. I wanted to do two, no, three tests.\n\"let's see if this works\". And that's a period.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 456,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 413,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 377,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 833
+  },
+  "feature": "combined",
+  "delivered_failures": [
+   "kept two",
+   "kept period",
+   "wrong ending"
+  ],
+  "raw_failures": [
+   "kept two",
+   "kept period",
+   "wrong ending"
+  ]
+ },
+ {
+  "duration_ms": 480,
+  "finish_reason": "stop",
+  "id": "real-bare",
+  "key": "gpt-oss-120b/1/real-bare",
+  "model": "gpt-oss-120b",
+  "output": "Hmm, let's test a few more things. I wanted to do two, no, three tests\n\"let's see if this works\" and that's a period.",
+  "raw_output": "Hmm, let's test a few more things. I wanted to do two, no, three tests\n\"let's see if this works\" and that's a period.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 501,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 458,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 366,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 867
+  },
+  "feature": "combined",
+  "delivered_failures": [
+   "kept period",
+   "wrong ending"
+  ],
+  "raw_failures": [
+   "kept period",
+   "wrong ending"
+  ]
+ },
+ {
+  "duration_ms": 371,
+  "finish_reason": "stop",
+  "id": "combo-en",
+  "key": "gpt-oss-120b/1/combo-en",
+  "model": "gpt-oss-120b",
+  "output": "Um, send it to Mark. Thanks period",
+  "raw_output": "Um, send it to Mark. Thanks period\n\n",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 260,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 240,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 352,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 612
+  },
+  "feature": "combined",
+  "delivered_failures": [
+   "kept period",
+   "kept um",
+   "expected one blank line"
+  ],
+  "raw_failures": [
+   "kept period",
+   "kept um",
+   "expected one blank line"
+  ]
+ },
+ {
+  "duration_ms": 418,
+  "finish_reason": "stop",
+  "id": "combo-pt",
+  "key": "gpt-oss-120b/1/combo-pt",
+  "model": "gpt-oss-120b",
+  "output": "Hi Ana, the meeting is at two, I mean at three.\nThank you",
+  "raw_output": "Hi Ana, the meeting is at two, I mean at three.\nThank you",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 295,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 269,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 356,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 651
+  },
+  "feature": "combined",
+  "delivered_failures": [
+   "kept two",
+   "kept I mean"
+  ],
+  "raw_failures": [
+   "kept two",
+   "kept I mean"
+  ]
+ },
+ {
+  "duration_ms": 330,
+  "finish_reason": "stop",
+  "id": "self-count-pt",
+  "key": "gpt-oss-120b/1/self-count-pt",
+  "model": "gpt-oss-120b",
+  "output": "I wanted to do two, no, three tests.",
+  "raw_output": "I wanted to do two, no, three tests.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 70,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 49,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 345,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 415
+  },
+  "feature": "self-correction",
+  "delivered_failures": [
+   "kept two"
+  ],
+  "raw_failures": [
+   "kept two"
+  ]
+ },
+ {
+  "duration_ms": 375,
+  "finish_reason": "stop",
+  "id": "self-count-en",
+  "key": "gpt-oss-120b/1/self-count-en",
+  "model": "gpt-oss-120b",
+  "output": "I want to run three tests.",
+  "raw_output": "I want to run three tests.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 48,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 31,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 346,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 394
+  },
+  "feature": "self-correction",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 385,
+  "finish_reason": "stop",
+  "id": "punct-period-pt",
+  "key": "gpt-oss-120b/1/punct-period-pt",
+  "model": "gpt-oss-120b",
+  "output": "We've arrived. Let's start.",
+  "raw_output": "We've arrived. Let's start.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 115,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 99,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 344,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 459
+  },
+  "feature": "punctuation",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 291,
+  "finish_reason": "stop",
+  "id": "punct-question-pt",
+  "key": "gpt-oss-120b/1/punct-question-pt",
+  "model": "gpt-oss-120b",
+  "output": "Hello, how are you?",
+  "raw_output": "Hello, how are you?",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 85,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 69,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 346,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 431
+  },
+  "feature": "punctuation",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 393,
+  "finish_reason": "stop",
+  "id": "punct-en",
+  "key": "gpt-oss-120b/1/punct-en",
+  "model": "gpt-oss-120b",
+  "output": "Dear team, the release is ready. Any questions?",
+  "raw_output": "Dear team, the release is ready. Any questions?",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 94,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 73,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 347,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 441
+  },
+  "feature": "punctuation",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 330,
+  "finish_reason": "stop",
+  "id": "openclose-pt",
+  "key": "gpt-oss-120b/1/openclose-pt",
+  "model": "gpt-oss-120b",
+  "output": "He said \"I am ready\".",
+  "raw_output": "He said \"I am ready\".",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 96,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 79,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 345,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 441
+  },
+  "feature": "quotes",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 421,
+  "finish_reason": "stop",
+  "id": "openclose-en",
+  "key": "gpt-oss-120b/1/openclose-en",
+  "model": "gpt-oss-120b",
+  "output": "She said \"we are done\".",
+  "raw_output": "She said \"we are done\".",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 111,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 94,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 344,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 455
+  },
+  "feature": "quotes",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 280,
+  "finish_reason": "stop",
+  "id": "openclose-whole-pt",
+  "key": "gpt-oss-120b/1/openclose-whole-pt",
+  "model": "gpt-oss-120b",
+  "output": "bom dia",
+  "raw_output": "\"bom dia\"",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 85,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 71,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 344,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 429
+  },
+  "feature": "quotes",
+  "delivered_failures": [
+   "missing good morning",
+   "missing quotes"
+  ],
+  "raw_failures": [
+   "missing good morning"
+  ]
+ },
+ {
+  "duration_ms": 281,
+  "finish_reason": "stop",
+  "id": "literal-period-pt",
+  "key": "gpt-oss-120b/1/literal-period-pt",
+  "model": "gpt-oss-120b",
+  "output": "The bus terminus is at the square.",
+  "raw_output": "The bus terminus is at the square.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 137,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 118,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 344,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 481
+  },
+  "feature": "literal",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 319,
+  "finish_reason": "stop",
+  "id": "literal-period-en",
+  "key": "gpt-oss-120b/1/literal-period-en",
+  "model": "gpt-oss-120b",
+  "output": "The trial period ends on Friday.",
+  "raw_output": "The trial period ends on Friday.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 87,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 70,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 342,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 429
+  },
+  "feature": "literal",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 292,
+  "finish_reason": "stop",
+  "id": "literal-comma-en",
+  "key": "gpt-oss-120b/1/literal-comma-en",
+  "model": "gpt-oss-120b",
+  "output": "Add a comma after the name.",
+  "raw_output": "Add a comma after the name.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 97,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 80,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 342,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 439
+  },
+  "feature": "literal",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 464,
+  "finish_reason": "stop",
+  "id": "literal-no-pt",
+  "key": "gpt-oss-120b/1/literal-no-pt",
+  "model": "gpt-oss-120b",
+  "output": "No, three tests are not enough.",
+  "raw_output": "No, three tests are not enough.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 70,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 52,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 343,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 413
+  },
+  "feature": "literal",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 304,
+  "finish_reason": "stop",
+  "id": "filler-pt",
+  "key": "gpt-oss-120b/1/filler-pt",
+  "model": "gpt-oss-120b",
+  "output": "Well... so, um, we'll talk tomorrow.",
+  "raw_output": "Well... so, um, we'll talk tomorrow.",
+  "repetition": 1,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 141,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 121,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 347,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 488
+  },
+  "feature": "plain",
+  "delivered_failures": [
+   "kept um"
+  ],
+  "raw_failures": [
+   "kept um"
+  ]
+ },
+ {
+  "duration_ms": 519,
+  "finish_reason": "stop",
+  "id": "self-time-en",
+  "key": "gpt-oss-120b/2/self-time-en",
+  "model": "gpt-oss-120b",
+  "output": "The meeting is at 4.",
+  "raw_output": "The meeting is at 4.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 96,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 79,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 348,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 444
+  },
+  "feature": "self-correction",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 361,
+  "finish_reason": "stop",
+  "id": "self-name-en",
+  "key": "gpt-oss-120b/2/self-name-en",
+  "model": "gpt-oss-120b",
+  "output": "Send the report to Mark by Friday.",
+  "raw_output": "Send the report to Mark by Friday.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 82,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 64,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 348,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 430
+  },
+  "feature": "self-correction",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 404,
+  "finish_reason": "stop",
+  "id": "self-multiple-en",
+  "key": "gpt-oss-120b/2/self-multiple-en",
+  "model": "gpt-oss-120b",
+  "output": "We need fifty boxes, delivered on Tuesday.",
+  "raw_output": "We need fifty boxes, delivered on Tuesday.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 107,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 88,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 353,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 460
+  },
+  "feature": "self-correction",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 356,
+  "finish_reason": "stop",
+  "id": "self-name-pt",
+  "key": "gpt-oss-120b/2/self-name-pt",
+  "model": "gpt-oss-120b",
+  "output": "Send the report to Maria tomorrow morning.",
+  "raw_output": "Send the report to Maria tomorrow morning.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 118,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 100,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 354,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 472
+  },
+  "feature": "self-correction",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 298,
+  "finish_reason": "stop",
+  "id": "self-date-pt",
+  "key": "gpt-oss-120b/2/self-date-pt",
+  "model": "gpt-oss-120b",
+  "output": "The meeting will be on Wednesday at four.",
+  "raw_output": "The meeting will be on Wednesday at four.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 131,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 112,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 351,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 482
+  },
+  "feature": "self-correction",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 493,
+  "finish_reason": "stop",
+  "id": "literal-negation",
+  "key": "gpt-oss-120b/2/literal-negation",
+  "model": "gpt-oss-120b",
+  "output": "No, don't send the report to Mark.",
+  "raw_output": "No, don't send the report to Mark.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 79,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 60,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 344,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 423
+  },
+  "feature": "literal",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 371,
+  "finish_reason": "stop",
+  "id": "newline-en",
+  "key": "gpt-oss-120b/2/newline-en",
+  "model": "gpt-oss-120b",
+  "output": "Hello Alice.\nPlease send the report.",
+  "raw_output": "Hello Alice.\nPlease send the report.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 108,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 90,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 346,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 454
+  },
+  "feature": "formatting",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 305,
+  "finish_reason": "stop",
+  "id": "newline-pt",
+  "key": "gpt-oss-120b/2/newline-pt",
+  "model": "gpt-oss-120b",
+  "output": "Hello, Ana.\nSend the report.",
+  "raw_output": "Hello, Ana.\nSend the report.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 143,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 125,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 347,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 490
+  },
+  "feature": "formatting",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 362,
+  "finish_reason": "stop",
+  "id": "paragraph-en",
+  "key": "gpt-oss-120b/2/paragraph-en",
+  "model": "gpt-oss-120b",
+  "output": "The launch is ready.\n\nWe should notify the team.",
+  "raw_output": "The launch is ready.\n\nWe should notify the team.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 188,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 167,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 349,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 537
+  },
+  "feature": "formatting",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 392,
+  "finish_reason": "stop",
+  "id": "paragraph-pt",
+  "key": "gpt-oss-120b/2/paragraph-pt",
+  "model": "gpt-oss-120b",
+  "output": "The launch is ready.\n\nWe need to notify the team.",
+  "raw_output": "The launch is ready.\n\nWe need to notify the team.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 151,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 129,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 351,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 502
+  },
+  "feature": "formatting",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 334,
+  "finish_reason": "stop",
+  "id": "bullets",
+  "key": "gpt-oss-120b/2/bullets",
+  "model": "gpt-oss-120b",
+  "output": "- milk\n- eggs\n- bread",
+  "raw_output": "- milk\n- eggs\n- bread",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 73,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 55,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 345,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 418
+  },
+  "feature": "formatting",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 393,
+  "finish_reason": "stop",
+  "id": "numbered-list",
+  "key": "gpt-oss-120b/2/numbered-list",
+  "model": "gpt-oss-120b",
+  "output": "1. check the logs  \n2. fix the bug  \n3. run the tests",
+  "raw_output": "1. check the logs  \n2. fix the bug  \n3. run the tests",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 122,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 95,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 351,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 473
+  },
+  "feature": "formatting",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 360,
+  "finish_reason": "stop",
+  "id": "quotes-en",
+  "key": "gpt-oss-120b/2/quotes-en",
+  "model": "gpt-oss-120b",
+  "output": "\"hello\"",
+  "raw_output": "\"hello\"",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 87,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 74,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 339,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 426
+  },
+  "feature": "quotes",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 438,
+  "finish_reason": "stop",
+  "id": "quotes-pt",
+  "key": "gpt-oss-120b/2/quotes-pt",
+  "model": "gpt-oss-120b",
+  "output": "\"bom dia\"",
+  "raw_output": "\"bom dia\"",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 79,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 65,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 341,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 420
+  },
+  "feature": "quotes",
+  "delivered_failures": [
+   "missing good morning"
+  ],
+  "raw_failures": [
+   "missing good morning"
+  ]
+ },
+ {
+  "duration_ms": 338,
+  "finish_reason": "stop",
+  "id": "literal-paragraph",
+  "key": "gpt-oss-120b/2/literal-paragraph",
+  "model": "gpt-oss-120b",
+  "output": "Please add a new paragraph to the contract.",
+  "raw_output": "Please add a new paragraph to the contract.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 103,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 84,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 344,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 447
+  },
+  "feature": "literal",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 355,
+  "finish_reason": "stop",
+  "id": "literal-newline",
+  "key": "gpt-oss-120b/2/literal-newline",
+  "model": "gpt-oss-120b",
+  "output": "The phrase new line appears in the manual.",
+  "raw_output": "The phrase new line appears in the manual.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 281,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 262,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 344,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 625
+  },
+  "feature": "literal",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 359,
+  "finish_reason": "stop",
+  "id": "plain-pt",
+  "key": "gpt-oss-120b/2/plain-pt",
+  "model": "gpt-oss-120b",
+  "output": "I need you to review the contract by Friday.",
+  "raw_output": "I need you to review the contract by Friday.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 67,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 47,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 346,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 413
+  },
+  "feature": "plain",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 406,
+  "finish_reason": "stop",
+  "id": "plain-en-cleanup",
+  "key": "gpt-oss-120b/2/plain-en-cleanup",
+  "model": "gpt-oss-120b",
+  "output": "The deployment is scheduled for tomorrow.",
+  "raw_output": "The deployment is scheduled for tomorrow.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 93,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 76,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 349,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 442
+  },
+  "feature": "plain",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 356,
+  "finish_reason": "stop",
+  "id": "plain-pt-names",
+  "key": "gpt-oss-120b/2/plain-pt-names",
+  "model": "gpt-oss-120b",
+  "output": "Pedro will present the Kubernetes report at the meeting.",
+  "raw_output": "Pedro will present the Kubernetes report at the meeting.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 68,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 48,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 346,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 414
+  },
+  "feature": "plain",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 283,
+  "finish_reason": "stop",
+  "id": "plain-en-numbers",
+  "key": "gpt-oss-120b/2/plain-en-numbers",
+  "model": "gpt-oss-120b",
+  "output": "We have 3 servers and 12 workers in São Paulo.",
+  "raw_output": "We have 3 servers and 12 workers in São Paulo.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 128,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 105,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 348,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 476
+  },
+  "feature": "plain",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 419,
+  "finish_reason": "stop",
+  "id": "self-place-en",
+  "key": "gpt-oss-120b/2/self-place-en",
+  "model": "gpt-oss-120b",
+  "output": "Let's meet at the café.",
+  "raw_output": "Let's meet at the café.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 137,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 121,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 349,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 486
+  },
+  "feature": "self-correction",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 320,
+  "finish_reason": "stop",
+  "id": "self-number-pt",
+  "key": "gpt-oss-120b/2/self-number-pt",
+  "model": "gpt-oss-120b",
+  "output": "Buy three boxes of milk.",
+  "raw_output": "Buy three boxes of milk.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 114,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 98,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 345,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 459
+  },
+  "feature": "self-correction",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 477,
+  "finish_reason": "stop",
+  "id": "real-typed",
+  "key": "gpt-oss-120b/2/real-typed",
+  "model": "gpt-oss-120b",
+  "output": "Hmm, let's test a few more things... I wanted to do two, no, three tests\n\"let's see if this works\" and that's it.... period.",
+  "raw_output": "Hmm, let's test a few more things... I wanted to do two, no, three tests\n\"let's see if this works\" and that's it.... period.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 378,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 334,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 371,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 749
+  },
+  "feature": "combined",
+  "delivered_failures": [
+   "kept two",
+   "kept period",
+   "wrong ending"
+  ],
+  "raw_failures": [
+   "kept two",
+   "kept period",
+   "wrong ending"
+  ]
+ },
+ {
+  "duration_ms": 596,
+  "finish_reason": "stop",
+  "id": "real-asr",
+  "key": "gpt-oss-120b/2/real-asr",
+  "model": "gpt-oss-120b",
+  "output": "Hmm, let's test a few more things. I wanted to do two, no, three tests.\n\n\"let's see if this works\"\nAnd that's final.",
+  "raw_output": "Hmm, let's test a few more things. I wanted to do two, no, three tests.\n\n\"let's see if this works\"\nAnd that's final.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 604,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 562,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 377,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 981
+  },
+  "feature": "combined",
+  "delivered_failures": [
+   "kept two",
+   "expected one line break",
+   "wrong ending"
+  ],
+  "raw_failures": [
+   "kept two",
+   "expected one line break",
+   "wrong ending"
+  ]
+ },
+ {
+  "duration_ms": 613,
+  "finish_reason": "stop",
+  "id": "real-bare",
+  "key": "gpt-oss-120b/2/real-bare",
+  "model": "gpt-oss-120b",
+  "output": "Hmm, let's test a few more things. I wanted to do two, no, three tests.\n\"let's see if this works\" and that's a period.",
+  "raw_output": "Hmm, let's test a few more things. I wanted to do two, no, three tests.\n\"let's see if this works\" and that's a period.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 400,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 357,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 366,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 766
+  },
+  "feature": "combined",
+  "delivered_failures": [
+   "kept period",
+   "wrong ending"
+  ],
+  "raw_failures": [
+   "kept period",
+   "wrong ending"
+  ]
+ },
+ {
+  "duration_ms": 489,
+  "finish_reason": "stop",
+  "id": "combo-en",
+  "key": "gpt-oss-120b/2/combo-en",
+  "model": "gpt-oss-120b",
+  "output": "Um, send it to Mark.\n\nThanks period",
+  "raw_output": "Um, send it to Mark.\n\nThanks period",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 499,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 480,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 352,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "total_tokens": 851
+  },
+  "feature": "combined",
+  "delivered_failures": [
+   "kept period",
+   "kept um"
+  ],
+  "raw_failures": [
+   "kept period",
+   "kept um"
+  ]
+ },
+ {
+  "duration_ms": 356,
+  "finish_reason": "stop",
+  "id": "combo-pt",
+  "key": "gpt-oss-120b/2/combo-pt",
+  "model": "gpt-oss-120b",
+  "output": "Hi Ana, the meeting is at two, I mean at three.\nthank you",
+  "raw_output": "Hi Ana, the meeting is at two, I mean at three.\nthank you",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 267,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 241,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 356,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 623
+  },
+  "feature": "combined",
+  "delivered_failures": [
+   "kept two",
+   "kept I mean"
+  ],
+  "raw_failures": [
+   "kept two",
+   "kept I mean"
+  ]
+ },
+ {
+  "duration_ms": 365,
+  "finish_reason": "stop",
+  "id": "self-count-pt",
+  "key": "gpt-oss-120b/2/self-count-pt",
+  "model": "gpt-oss-120b",
+  "output": "I wanted to do two, no, three tests.",
+  "raw_output": "I wanted to do two, no, three tests.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 61,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 40,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 345,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 406
+  },
+  "feature": "self-correction",
+  "delivered_failures": [
+   "kept two"
+  ],
+  "raw_failures": [
+   "kept two"
+  ]
+ },
+ {
+  "duration_ms": 330,
+  "finish_reason": "stop",
+  "id": "self-count-en",
+  "key": "gpt-oss-120b/2/self-count-en",
+  "model": "gpt-oss-120b",
+  "output": "I want to run three tests.",
+  "raw_output": "I want to run three tests.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 61,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 44,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 346,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 407
+  },
+  "feature": "self-correction",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 430,
+  "finish_reason": "stop",
+  "id": "punct-period-pt",
+  "key": "gpt-oss-120b/2/punct-period-pt",
+  "model": "gpt-oss-120b",
+  "output": "We have arrived. Let's start.",
+  "raw_output": "We have arrived. Let's start.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 240,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 223,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 344,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 584
+  },
+  "feature": "punctuation",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 360,
+  "finish_reason": "stop",
+  "id": "punct-question-pt",
+  "key": "gpt-oss-120b/2/punct-question-pt",
+  "model": "gpt-oss-120b",
+  "output": "Hello, everything okay?",
+  "raw_output": "Hello, everything okay?",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 175,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 160,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 346,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 521
+  },
+  "feature": "punctuation",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 374,
+  "finish_reason": "stop",
+  "id": "punct-en",
+  "key": "gpt-oss-120b/2/punct-en",
+  "model": "gpt-oss-120b",
+  "output": "Dear team, the release is ready. Any questions?",
+  "raw_output": "Dear team, the release is ready. Any questions?",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 111,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 90,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 347,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 458
+  },
+  "feature": "punctuation",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 386,
+  "finish_reason": "stop",
+  "id": "openclose-pt",
+  "key": "gpt-oss-120b/2/openclose-pt",
+  "model": "gpt-oss-120b",
+  "output": "He said \"I'm ready\".",
+  "raw_output": "He said \"I'm ready\".",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 229,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 213,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 345,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 574
+  },
+  "feature": "quotes",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 486,
+  "finish_reason": "stop",
+  "id": "openclose-en",
+  "key": "gpt-oss-120b/2/openclose-en",
+  "model": "gpt-oss-120b",
+  "output": "She said \"we are done\".",
+  "raw_output": "She said \"we are done\".",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 465,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 448,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 344,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 809
+  },
+  "feature": "quotes",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 295,
+  "finish_reason": "stop",
+  "id": "openclose-whole-pt",
+  "key": "gpt-oss-120b/2/openclose-whole-pt",
+  "model": "gpt-oss-120b",
+  "output": "good morning",
+  "raw_output": "\"good morning\"",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 131,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 117,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 344,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 475
+  },
+  "feature": "quotes",
+  "delivered_failures": [
+   "missing quotes"
+  ],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 288,
+  "finish_reason": "stop",
+  "id": "literal-period-pt",
+  "key": "gpt-oss-120b/2/literal-period-pt",
+  "model": "gpt-oss-120b",
+  "output": "The bus's final stop is at the square.",
+  "raw_output": "The bus's final stop is at the square.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 82,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 62,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 344,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 426
+  },
+  "feature": "literal",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 288,
+  "finish_reason": "stop",
+  "id": "literal-period-en",
+  "key": "gpt-oss-120b/2/literal-period-en",
+  "model": "gpt-oss-120b",
+  "output": "The trial period ends on Friday.",
+  "raw_output": "The trial period ends on Friday.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 117,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 100,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 342,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 459
+  },
+  "feature": "literal",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 283,
+  "finish_reason": "stop",
+  "id": "literal-comma-en",
+  "key": "gpt-oss-120b/2/literal-comma-en",
+  "model": "gpt-oss-120b",
+  "output": "Add a comma after the name.",
+  "raw_output": "Add a comma after the name.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 102,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 85,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 342,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 444
+  },
+  "feature": "literal",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 471,
+  "finish_reason": "stop",
+  "id": "literal-no-pt",
+  "key": "gpt-oss-120b/2/literal-no-pt",
+  "model": "gpt-oss-120b",
+  "output": "No, three tests are not enough.",
+  "raw_output": "No, three tests are not enough.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 67,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 49,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 343,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 410
+  },
+  "feature": "literal",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 290,
+  "finish_reason": "stop",
+  "id": "filler-pt",
+  "key": "gpt-oss-120b/2/filler-pt",
+  "model": "gpt-oss-120b",
+  "output": "Well... so, um, we'll talk tomorrow.",
+  "raw_output": "Well... so, um, we'll talk tomorrow.",
+  "repetition": 2,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 98,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 78,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 347,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 445
+  },
+  "feature": "plain",
+  "delivered_failures": [
+   "kept um"
+  ],
+  "raw_failures": [
+   "kept um"
+  ]
+ },
+ {
+  "duration_ms": 306,
+  "finish_reason": "stop",
+  "id": "self-time-en",
+  "key": "gpt-oss-120b/3/self-time-en",
+  "model": "gpt-oss-120b",
+  "output": "The meeting is at 4.",
+  "raw_output": "The meeting is at 4.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 96,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 79,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 348,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 444
+  },
+  "feature": "self-correction",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 347,
+  "finish_reason": "stop",
+  "id": "self-name-en",
+  "key": "gpt-oss-120b/3/self-name-en",
+  "model": "gpt-oss-120b",
+  "output": "Send the report to Mark by Friday.",
+  "raw_output": "Send the report to Mark by Friday.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 80,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 62,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 348,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 428
+  },
+  "feature": "self-correction",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 303,
+  "finish_reason": "stop",
+  "id": "self-multiple-en",
+  "key": "gpt-oss-120b/3/self-multiple-en",
+  "model": "gpt-oss-120b",
+  "output": "We need fifty boxes delivered on Tuesday.",
+  "raw_output": "We need fifty boxes delivered on Tuesday.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 129,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 111,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 353,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 482
+  },
+  "feature": "self-correction",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 333,
+  "finish_reason": "stop",
+  "id": "self-name-pt",
+  "key": "gpt-oss-120b/3/self-name-pt",
+  "model": "gpt-oss-120b",
+  "output": "Send the report to Maria tomorrow morning.",
+  "raw_output": "Send the report to Maria tomorrow morning.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 106,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 88,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 354,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 460
+  },
+  "feature": "self-correction",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 458,
+  "finish_reason": "stop",
+  "id": "self-date-pt",
+  "key": "gpt-oss-120b/3/self-date-pt",
+  "model": "gpt-oss-120b",
+  "output": "The meeting will be on Wednesday at four.",
+  "raw_output": "The meeting will be on Wednesday at four.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 163,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 144,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 351,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 514
+  },
+  "feature": "self-correction",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 396,
+  "finish_reason": "stop",
+  "id": "literal-negation",
+  "key": "gpt-oss-120b/3/literal-negation",
+  "model": "gpt-oss-120b",
+  "output": "No, don't send the report to Mark.",
+  "raw_output": "No, don't send the report to Mark.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 114,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 95,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 344,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 458
+  },
+  "feature": "literal",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 375,
+  "finish_reason": "stop",
+  "id": "newline-en",
+  "key": "gpt-oss-120b/3/newline-en",
+  "model": "gpt-oss-120b",
+  "output": "Hello Alice.\nPlease send the report.",
+  "raw_output": "Hello Alice.\nPlease send the report.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 100,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 82,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 346,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 446
+  },
+  "feature": "formatting",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 320,
+  "finish_reason": "stop",
+  "id": "newline-pt",
+  "key": "gpt-oss-120b/3/newline-pt",
+  "model": "gpt-oss-120b",
+  "output": "Hello, Ana.\nSend the report.",
+  "raw_output": "Hello, Ana.\nSend the report.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 118,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 100,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 347,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 465
+  },
+  "feature": "formatting",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 314,
+  "finish_reason": "stop",
+  "id": "paragraph-en",
+  "key": "gpt-oss-120b/3/paragraph-en",
+  "model": "gpt-oss-120b",
+  "output": "The launch is ready.\n\nWe should notify the team.",
+  "raw_output": "The launch is ready.\n\nWe should notify the team.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 131,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 110,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 349,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 480
+  },
+  "feature": "formatting",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 456,
+  "finish_reason": "stop",
+  "id": "paragraph-pt",
+  "key": "gpt-oss-120b/3/paragraph-pt",
+  "model": "gpt-oss-120b",
+  "output": "The launch is ready.\n\nWe need to notify the team.",
+  "raw_output": "The launch is ready.\n\nWe need to notify the team.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 205,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 183,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 351,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 556
+  },
+  "feature": "formatting",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 375,
+  "finish_reason": "stop",
+  "id": "bullets",
+  "key": "gpt-oss-120b/3/bullets",
+  "model": "gpt-oss-120b",
+  "output": "- milk\n- eggs\n- bread",
+  "raw_output": "- milk\n- eggs\n- bread",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 65,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 47,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 345,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 410
+  },
+  "feature": "formatting",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 350,
+  "finish_reason": "stop",
+  "id": "numbered-list",
+  "key": "gpt-oss-120b/3/numbered-list",
+  "model": "gpt-oss-120b",
+  "output": "1. check the logs\n2. fix the bug\n3. run the tests",
+  "raw_output": "1. check the logs\n2. fix the bug\n3. run the tests",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 88,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 61,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 351,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 439
+  },
+  "feature": "formatting",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 382,
+  "finish_reason": "stop",
+  "id": "quotes-en",
+  "key": "gpt-oss-120b/3/quotes-en",
+  "model": "gpt-oss-120b",
+  "output": "\"hello\"",
+  "raw_output": "\"hello\"",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 76,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 63,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 339,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 415
+  },
+  "feature": "quotes",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 366,
+  "finish_reason": "stop",
+  "id": "quotes-pt",
+  "key": "gpt-oss-120b/3/quotes-pt",
+  "model": "gpt-oss-120b",
+  "output": "\"bom dia\"",
+  "raw_output": "\"bom dia\"",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 45,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 31,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 341,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 386
+  },
+  "feature": "quotes",
+  "delivered_failures": [
+   "missing good morning"
+  ],
+  "raw_failures": [
+   "missing good morning"
+  ]
+ },
+ {
+  "duration_ms": 288,
+  "finish_reason": "stop",
+  "id": "literal-paragraph",
+  "key": "gpt-oss-120b/3/literal-paragraph",
+  "model": "gpt-oss-120b",
+  "output": "Please add a new paragraph to the contract.",
+  "raw_output": "Please add a new paragraph to the contract.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 104,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 85,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 344,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 448
+  },
+  "feature": "literal",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 503,
+  "finish_reason": "stop",
+  "id": "literal-newline",
+  "key": "gpt-oss-120b/3/literal-newline",
+  "model": "gpt-oss-120b",
+  "output": "The phrase new line appears in the manual.",
+  "raw_output": "The phrase new line appears in the manual.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 316,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 297,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 344,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 660
+  },
+  "feature": "literal",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 349,
+  "finish_reason": "stop",
+  "id": "plain-pt",
+  "key": "gpt-oss-120b/3/plain-pt",
+  "model": "gpt-oss-120b",
+  "output": "I need you to review the contract by Friday.",
+  "raw_output": "I need you to review the contract by Friday.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 65,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 45,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 346,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 411
+  },
+  "feature": "plain",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 389,
+  "finish_reason": "stop",
+  "id": "plain-en-cleanup",
+  "key": "gpt-oss-120b/3/plain-en-cleanup",
+  "model": "gpt-oss-120b",
+  "output": "The deploy is scheduled for tomorrow.",
+  "raw_output": "The deploy is scheduled for tomorrow.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 104,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 87,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 349,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 453
+  },
+  "feature": "plain",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 351,
+  "finish_reason": "stop",
+  "id": "plain-pt-names",
+  "key": "gpt-oss-120b/3/plain-pt-names",
+  "model": "gpt-oss-120b",
+  "output": "Pedro will present the Kubernetes report at the meeting.",
+  "raw_output": "Pedro will present the Kubernetes report at the meeting.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 77,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 57,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 346,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 423
+  },
+  "feature": "plain",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 398,
+  "finish_reason": "stop",
+  "id": "plain-en-numbers",
+  "key": "gpt-oss-120b/3/plain-en-numbers",
+  "model": "gpt-oss-120b",
+  "output": "We have 3 servers and 12 workers in São Paulo.",
+  "raw_output": "We have 3 servers and 12 workers in São Paulo.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 66,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 43,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 348,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 414
+  },
+  "feature": "plain",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 442,
+  "finish_reason": "stop",
+  "id": "self-place-en",
+  "key": "gpt-oss-120b/3/self-place-en",
+  "model": "gpt-oss-120b",
+  "output": "Let's meet at the café.",
+  "raw_output": "Let's meet at the café.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 114,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 98,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 349,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 463
+  },
+  "feature": "self-correction",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 368,
+  "finish_reason": "stop",
+  "id": "self-number-pt",
+  "key": "gpt-oss-120b/3/self-number-pt",
+  "model": "gpt-oss-120b",
+  "output": "Buy three boxes of milk.",
+  "raw_output": "Buy three boxes of milk.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 164,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 148,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 345,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 509
+  },
+  "feature": "self-correction",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 482,
+  "finish_reason": "stop",
+  "id": "real-typed",
+  "key": "gpt-oss-120b/3/real-typed",
+  "model": "gpt-oss-120b",
+  "output": "Hmm let's test a few more things... I wanted to do two, no, three tests\n\"let's see if this works\" and that's.... period.",
+  "raw_output": "Hmm let's test a few more things... I wanted to do two, no, three tests\n\"let's see if this works\" and that's.... period.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 383,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 341,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 371,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 754
+  },
+  "feature": "combined",
+  "delivered_failures": [
+   "kept two",
+   "kept period",
+   "wrong ending"
+  ],
+  "raw_failures": [
+   "kept two",
+   "kept period",
+   "wrong ending"
+  ]
+ },
+ {
+  "duration_ms": 542,
+  "finish_reason": "stop",
+  "id": "real-asr",
+  "key": "gpt-oss-120b/3/real-asr",
+  "model": "gpt-oss-120b",
+  "output": "Hmm, let's test a few more things. I wanted to do two, no, three tests.\n\n\"let's see if this works\". And that's final.",
+  "raw_output": "Hmm, let's test a few more things. I wanted to do two, no, three tests.\n\n\"let's see if this works\". And that's final.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 498,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 456,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 377,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 875
+  },
+  "feature": "combined",
+  "delivered_failures": [
+   "kept two",
+   "expected one line break",
+   "wrong ending"
+  ],
+  "raw_failures": [
+   "kept two",
+   "expected one line break",
+   "wrong ending"
+  ]
+ },
+ {
+  "duration_ms": 638,
+  "finish_reason": "stop",
+  "id": "real-bare",
+  "key": "gpt-oss-120b/3/real-bare",
+  "model": "gpt-oss-120b",
+  "output": "Hmm, let's test a few more things. I wanted to do two, no, three tests.\n\"let's see if this works\" and that's a period.",
+  "raw_output": "Hmm, let's test a few more things. I wanted to do two, no, three tests.\n\"let's see if this works\" and that's a period.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 484,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 441,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 366,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 850
+  },
+  "feature": "combined",
+  "delivered_failures": [
+   "kept period",
+   "wrong ending"
+  ],
+  "raw_failures": [
+   "kept period",
+   "wrong ending"
+  ]
+ },
+ {
+  "duration_ms": 369,
+  "finish_reason": "stop",
+  "id": "combo-en",
+  "key": "gpt-oss-120b/3/combo-en",
+  "model": "gpt-oss-120b",
+  "output": "Send it to Mark.\n\nThanks.",
+  "raw_output": "Send it to Mark.\n\nThanks.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 148,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 131,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 352,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 500
+  },
+  "feature": "combined",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 365,
+  "finish_reason": "stop",
+  "id": "combo-pt",
+  "key": "gpt-oss-120b/3/combo-pt",
+  "model": "gpt-oss-120b",
+  "output": "Hi Ana, the meeting is at two, I mean, at three.\nThank you",
+  "raw_output": "Hi Ana, the meeting is at two, I mean, at three.\nThank you",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 237,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 210,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 356,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 593
+  },
+  "feature": "combined",
+  "delivered_failures": [
+   "kept two",
+   "kept I mean"
+  ],
+  "raw_failures": [
+   "kept two",
+   "kept I mean"
+  ]
+ },
+ {
+  "duration_ms": 394,
+  "finish_reason": "stop",
+  "id": "self-count-pt",
+  "key": "gpt-oss-120b/3/self-count-pt",
+  "model": "gpt-oss-120b",
+  "output": "I wanted to do two, no, three tests.",
+  "raw_output": "I wanted to do two, no, three tests.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 77,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 56,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 345,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 422
+  },
+  "feature": "self-correction",
+  "delivered_failures": [
+   "kept two"
+  ],
+  "raw_failures": [
+   "kept two"
+  ]
+ },
+ {
+  "duration_ms": 259,
+  "finish_reason": "stop",
+  "id": "self-count-en",
+  "key": "gpt-oss-120b/3/self-count-en",
+  "model": "gpt-oss-120b",
+  "output": "I want to run three tests.",
+  "raw_output": "I want to run three tests.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 48,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 31,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 346,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 394
+  },
+  "feature": "self-correction",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 386,
+  "finish_reason": "stop",
+  "id": "punct-period-pt",
+  "key": "gpt-oss-120b/3/punct-period-pt",
+  "model": "gpt-oss-120b",
+  "output": "We've arrived, period. Let's start, period.",
+  "raw_output": "We've arrived, period. Let's start, period.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 170,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 150,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 344,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 514
+  },
+  "feature": "punctuation",
+  "delivered_failures": [
+   "kept period"
+  ],
+  "raw_failures": [
+   "kept period"
+  ]
+ },
+ {
+  "duration_ms": 383,
+  "finish_reason": "stop",
+  "id": "punct-question-pt",
+  "key": "gpt-oss-120b/3/punct-question-pt",
+  "model": "gpt-oss-120b",
+  "output": "Hello, how are you?",
+  "raw_output": "Hello, how are you?",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 268,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 252,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 346,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 614
+  },
+  "feature": "punctuation",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 449,
+  "finish_reason": "stop",
+  "id": "punct-en",
+  "key": "gpt-oss-120b/3/punct-en",
+  "model": "gpt-oss-120b",
+  "output": "Dear team, the release is ready. Any questions?",
+  "raw_output": "Dear team, the release is ready. Any questions?",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 88,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 67,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 347,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 435
+  },
+  "feature": "punctuation",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 322,
+  "finish_reason": "stop",
+  "id": "openclose-pt",
+  "key": "gpt-oss-120b/3/openclose-pt",
+  "model": "gpt-oss-120b",
+  "output": "He said \"I'm ready\".",
+  "raw_output": "He said \"I'm ready\".",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 136,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 120,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 345,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 481
+  },
+  "feature": "quotes",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 399,
+  "finish_reason": "stop",
+  "id": "openclose-en",
+  "key": "gpt-oss-120b/3/openclose-en",
+  "model": "gpt-oss-120b",
+  "output": "She said \"we are done\".",
+  "raw_output": "She said \"we are done\".",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 305,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 288,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 344,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 649
+  },
+  "feature": "quotes",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 307,
+  "finish_reason": "stop",
+  "id": "openclose-whole-pt",
+  "key": "gpt-oss-120b/3/openclose-whole-pt",
+  "model": "gpt-oss-120b",
+  "output": "good morning",
+  "raw_output": "\"good morning\"",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 140,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 126,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 344,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 484
+  },
+  "feature": "quotes",
+  "delivered_failures": [
+   "missing quotes"
+  ],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 259,
+  "finish_reason": "stop",
+  "id": "literal-period-pt",
+  "key": "gpt-oss-120b/3/literal-period-pt",
+  "model": "gpt-oss-120b",
+  "output": "The bus's final stop is at the square.",
+  "raw_output": "The bus's final stop is at the square.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 87,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 67,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 344,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 431
+  },
+  "feature": "literal",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 381,
+  "finish_reason": "stop",
+  "id": "literal-period-en",
+  "key": "gpt-oss-120b/3/literal-period-en",
+  "model": "gpt-oss-120b",
+  "output": "The trial period ends on Friday.",
+  "raw_output": "The trial period ends on Friday.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 100,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 83,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 342,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 442
+  },
+  "feature": "literal",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 368,
+  "finish_reason": "stop",
+  "id": "literal-comma-en",
+  "key": "gpt-oss-120b/3/literal-comma-en",
+  "model": "gpt-oss-120b",
+  "output": "Add a comma after the name.",
+  "raw_output": "Add a comma after the name.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 233,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 216,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 342,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 575
+  },
+  "feature": "literal",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 374,
+  "finish_reason": "stop",
+  "id": "literal-no-pt",
+  "key": "gpt-oss-120b/3/literal-no-pt",
+  "model": "gpt-oss-120b",
+  "output": "No, three tests are not enough.",
+  "raw_output": "No, three tests are not enough.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 57,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 39,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 343,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 400
+  },
+  "feature": "literal",
+  "delivered_failures": [],
+  "raw_failures": []
+ },
+ {
+  "duration_ms": 316,
+  "finish_reason": "stop",
+  "id": "filler-pt",
+  "key": "gpt-oss-120b/3/filler-pt",
+  "model": "gpt-oss-120b",
+  "output": "Well... so, um, we'll talk tomorrow.",
+  "raw_output": "Well... so, um, we'll talk tomorrow.",
+  "repetition": 3,
+  "response_model": "gpt-oss-120b",
+  "status": "completed",
+  "usage": {
+   "completion_tokens": 141,
+   "completion_tokens_details": {
+    "accepted_prediction_tokens": 0,
+    "reasoning_tokens": 121,
+    "rejected_prediction_tokens": 0
+   },
+   "prompt_tokens": 347,
+   "prompt_tokens_details": {
+    "cached_tokens": 256
+   },
+   "total_tokens": 488
+  },
+  "feature": "plain",
+  "delivered_failures": [
+   "kept um"
+  ],
+  "raw_failures": [
+   "kept um"
+  ]
+ }
+]

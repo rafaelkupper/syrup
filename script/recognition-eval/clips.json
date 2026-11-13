@@ -1,0 +1,224 @@
+[
+  {
+    "id": "pt-01",
+    "wav": "audio/pt-01.wav",
+    "locale": "pt-BR",
+    "reference": "Eu preciso revisar o Kubernetes antes do almoço.",
+    "expectedTerms": [
+      "Kubernetes"
+    ],
+    "group": "target"
+  },
+  {
+    "id": "pt-02",
+    "wav": "audio/pt-02.wav",
+    "locale": "pt-BR",
+    "reference": "A equipe vai migrar o PostgreSQL na segunda feira.",
+    "expectedTerms": [
+      "PostgreSQL"
+    ],
+    "group": "target"
+  },
+  {
+    "id": "pt-03",
+    "wav": "audio/pt-03.wav",
+    "locale": "pt-BR",
+    "reference": "Abra o painel do Grafana para investigar o alerta.",
+    "expectedTerms": [
+      "Grafana"
+    ],
+    "group": "target"
+  },
+  {
+    "id": "pt-04",
+    "wav": "audio/pt-04.wav",
+    "locale": "pt-BR",
+    "reference": "A Mirela publicou um tutorial sobre TypeScript.",
+    "expectedTerms": [
+      "Mirela",
+      "TypeScript"
+    ],
+    "group": "target"
+  },
+  {
+    "id": "pt-05",
+    "wav": "audio/pt-05.wav",
+    "locale": "pt-BR",
+    "reference": "O projeto Zorvex usa o Docker para rodar os testes.",
+    "expectedTerms": [
+      "Zorvex",
+      "Docker"
+    ],
+    "group": "target"
+  },
+  {
+    "id": "pt-06",
+    "wav": "audio/pt-06.wav",
+    "locale": "pt-BR",
+    "reference": "A Nairumi vai conferir o GitHub depois da reunião.",
+    "expectedTerms": [
+      "Nairumi",
+      "GitHub"
+    ],
+    "group": "target"
+  },
+  {
+    "id": "pt-07",
+    "wav": "audio/pt-07.wav",
+    "locale": "pt-BR",
+    "reference": "A janela da cozinha ficou aberta durante a chuva.",
+    "expectedTerms": [],
+    "group": "guard"
+  },
+  {
+    "id": "pt-08",
+    "wav": "audio/pt-08.wav",
+    "locale": "pt-BR",
+    "reference": "Vamos comprar pão fresco amanhã de manhã.",
+    "expectedTerms": [],
+    "group": "guard"
+  },
+  {
+    "id": "pt-09",
+    "wav": "audio/pt-09.wav",
+    "locale": "pt-BR",
+    "reference": "O cachorro dormiu perto da porta azul.",
+    "expectedTerms": [],
+    "group": "guard"
+  },
+  {
+    "id": "pt-10",
+    "wav": "audio/pt-10.wav",
+    "locale": "pt-BR",
+    "reference": "Eu deixei as chaves pequenas sobre a mesa.",
+    "expectedTerms": [],
+    "group": "guard"
+  },
+  {
+    "id": "pt-11",
+    "wav": "audio/pt-11.wav",
+    "locale": "pt-BR",
+    "reference": "A viagem de trem termina perto da montanha.",
+    "expectedTerms": [],
+    "group": "guard"
+  },
+  {
+    "id": "pt-12",
+    "wav": "audio/pt-12.wav",
+    "locale": "pt-BR",
+    "reference": "Ela preparou uma sopa quente para o jantar.",
+    "expectedTerms": [],
+    "group": "guard"
+  },
+  {
+    "id": "en-01",
+    "wav": "audio/en-01.wav",
+    "locale": "en-US",
+    "reference": "Please restart Kubernetes before the morning meeting.",
+    "expectedTerms": [
+      "Kubernetes"
+    ],
+    "group": "target"
+  },
+  {
+    "id": "en-02",
+    "wav": "audio/en-02.wav",
+    "locale": "en-US",
+    "reference": "Our PostgreSQL database needs a backup this evening.",
+    "expectedTerms": [
+      "PostgreSQL"
+    ],
+    "group": "target"
+  },
+  {
+    "id": "en-03",
+    "wav": "audio/en-03.wav",
+    "locale": "en-US",
+    "reference": "Check the Grafana dashboard after lunch.",
+    "expectedTerms": [
+      "Grafana"
+    ],
+    "group": "target"
+  },
+  {
+    "id": "en-04",
+    "wav": "audio/en-04.wav",
+    "locale": "en-US",
+    "reference": "Mirela wrote a short TypeScript example yesterday.",
+    "expectedTerms": [
+      "Mirela",
+      "TypeScript"
+    ],
+    "group": "target"
+  },
+  {
+    "id": "en-05",
+    "wav": "audio/en-05.wav",
+    "locale": "en-US",
+    "reference": "The Zorvex project runs its tests inside Docker.",
+    "expectedTerms": [
+      "Zorvex",
+      "Docker"
+    ],
+    "group": "target"
+  },
+  {
+    "id": "en-06",
+    "wav": "audio/en-06.wav",
+    "locale": "en-US",
+    "reference": "Nairumi will review the GitHub changes on Friday.",
+    "expectedTerms": [
+      "Nairumi",
+      "GitHub"
+    ],
+    "group": "target"
+  },
+  {
+    "id": "en-07",
+    "wav": "audio/en-07.wav",
+    "locale": "en-US",
+    "reference": "The small orange cat slept beside the window.",
+    "expectedTerms": [],
+    "group": "guard"
+  },
+  {
+    "id": "en-08",
+    "wav": "audio/en-08.wav",
+    "locale": "en-US",
+    "reference": "We should bring warm coats for the evening walk.",
+    "expectedTerms": [],
+    "group": "guard"
+  },
+  {
+    "id": "en-09",
+    "wav": "audio/en-09.wav",
+    "locale": "en-US",
+    "reference": "A fresh loaf of bread is cooling on the table.",
+    "expectedTerms": [],
+    "group": "guard"
+  },
+  {
+    "id": "en-10",
+    "wav": "audio/en-10.wav",
+    "locale": "en-US",
+    "reference": "She left a blue umbrella beside the front door.",
+    "expectedTerms": [],
+    "group": "guard"
+  },
+  {
+    "id": "en-11",
+    "wav": "audio/en-11.wav",
+    "locale": "en-US",
+    "reference": "The next train stops near the old stone bridge.",
+    "expectedTerms": [],
+    "group": "guard"
+  },
+  {
+    "id": "en-12",
+    "wav": "audio/en-12.wav",
+    "locale": "en-US",
+    "reference": "Please water the garden before breakfast tomorrow.",
+    "expectedTerms": [],
+    "group": "guard"
+  }
+]
