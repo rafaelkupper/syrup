@@ -139,7 +139,7 @@ def main():
     (output / "appcast.xml").write_bytes(current_feed)
     run("xcodegen", cwd=ROOT)
     archive = output / "Syrup.xcarchive"
-    run("xcodebuild", "-scheme", "Syrup", "-configuration", "Release", "-destination", "generic/platform=macOS", "ARCHS=arm64 x86_64", "ONLY_ACTIVE_ARCH=NO", "-archivePath", archive, "archive", "OTHER_CODE_SIGN_FLAGS=--timestamp", "CODE_SIGN_IDENTITY=Developer ID Application", f"DEVELOPMENT_TEAM={args.team_id}", f"SYRUP_UPDATE_FEED_URL={args.feed_url}", f"SYRUP_UPDATE_PUBLIC_KEY={args.public_key}", cwd=ROOT)
+    run("xcodebuild", "-scheme", "Syrup", "-configuration", "Release", "-destination", "generic/platform=macOS", "ARCHS=arm64 x86_64", "ONLY_ACTIVE_ARCH=NO", "-archivePath", archive, "archive", "OTHER_CODE_SIGN_FLAGS=--timestamp", "SYRUP_CODE_SIGN_IDENTITY=Developer ID Application", f"SYRUP_DEVELOPMENT_TEAM={args.team_id}", f"SYRUP_UPDATE_FEED_URL={args.feed_url}", f"SYRUP_UPDATE_PUBLIC_KEY={args.public_key}", cwd=ROOT)
     options = output / "ExportOptions.plist"
     options.write_bytes(plistlib.dumps(dict(method="developer-id", signingStyle="manual", signingCertificate="Developer ID Application", teamID=args.team_id)))
     exported = output / "exported"

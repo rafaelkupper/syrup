@@ -24,7 +24,7 @@ script/release.sh \
 
 The feed must already exist, even if it has no releases. Preparation archives a universal Developer ID build, submits it for notarization, requires Accepted, staples the app, and verifies the extracted ZIP. It checks nested signatures against the supplied team and validates the appcast signature against the supplied public key. It refuses an existing output directory or a build number already in the live feed. Nothing is published.
 
-The command passes `SYRUP_UPDATE_FEED_URL`, `SYRUP_UPDATE_PUBLIC_KEY`, `DEVELOPMENT_TEAM`, and `CODE_SIGN_IDENTITY` to `xcodebuild`. These values are not stored in the source manifest. The review receipt records the publisher configuration and artifact hashes.
+The command passes `SYRUP_UPDATE_FEED_URL`, `SYRUP_UPDATE_PUBLIC_KEY`, `SYRUP_DEVELOPMENT_TEAM`, and `SYRUP_CODE_SIGN_IDENTITY` to `xcodebuild`. The two signing variables apply to the app target only; overriding `CODE_SIGN_IDENTITY` directly also reaches Swift package resource bundles and fails the archive. These values are not stored in the source manifest. The review receipt records the publisher configuration and artifact hashes.
 
 ## Publish the reviewed artifacts
 

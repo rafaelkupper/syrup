@@ -11,7 +11,7 @@ xcodegen
 xcodebuild -scheme Syrup -configuration Debug build
 ```
 
-Debug builds use ad-hoc signing by default and need no distribution certificate. Supply your own stable signing identity and team to preserve TCC grants across rebuilds. A compilation check does not establish permission behavior.
+Debug builds use ad-hoc signing by default and need no distribution certificate. Pass `SYRUP_CODE_SIGN_IDENTITY` and `SYRUP_DEVELOPMENT_TEAM` to `xcodebuild` with your own stable signing identity and team to preserve TCC grants across rebuilds. A compilation check does not establish permission behavior.
 
 Open the built Debug `Syrup.app` for manual checks. The app appears in the menu bar and has no Dock icon. `script/launch_syrup_with_env.sh` can launch the newest Debug build with ignored `.env` endpoint settings; it terminates the running Syrup process first. Use it only when intentionally replacing that process.
 

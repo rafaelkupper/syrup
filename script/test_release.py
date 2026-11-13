@@ -55,7 +55,8 @@ class PublisherConfigurationTests(unittest.TestCase):
                 feedURL=args[4], releaseRepo=args[6], teamID=args[8], publicKey=args[10]))
             self.assertEqual(plistlib.loads((output / "ExportOptions.plist").read_bytes())["teamID"], args[8])
             archive = next(command for command in commands if "archive" in command)
-            self.assertIn("DEVELOPMENT_TEAM=" + args[8], archive)
+            self.assertIn("SYRUP_DEVELOPMENT_TEAM=" + args[8], archive)
+            self.assertIn("SYRUP_CODE_SIGN_IDENTITY=Developer ID Application", archive)
             self.assertIn("SYRUP_UPDATE_FEED_URL=" + args[4], archive)
             self.assertIn("SYRUP_UPDATE_PUBLIC_KEY=" + args[10], archive)
             for command in commands:
