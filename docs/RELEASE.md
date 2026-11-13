@@ -2,7 +2,7 @@
 
 Syrup releases are built from `project.yml`. Regenerate the Xcode project rather than editing `Syrup.xcodeproj` directly.
 
-The source version is 1.0/build 13. The source tree does not select a publisher, signing team, or update server. Follow [UPDATES.md](UPDATES.md) to supply your own distribution settings, prepare a notarized release, review the artifacts, and publish an authorized update.
+The source version is 1.0/build 14. The source tree does not select a publisher, signing team, or update server. Follow [UPDATES.md](UPDATES.md) to supply your own distribution settings, prepare a notarized release, review the artifacts, and publish an authorized update.
 
 ## Verification and records
 
