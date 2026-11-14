@@ -17,16 +17,6 @@ final class AppState {
 
     static let minimumHold: Duration = .milliseconds(300)
 
-    /// A finished result whose clipboard write failed, kept so Copy Result can deliver it later.
-    /// `output` is the exact result that history keeps; `delivered` is the sentence-fitted text.
-    struct PendingClipboardResult {
-        let output: String
-        let delivered: String
-        let transcript: String
-        let transformation: DictationRecord.TransformationSnapshot
-        let provider: TranslationProvider
-    }
-
     /// A finished transformation on its way out. History keeps `output`, so Copy Last and revisions
     /// see the exact result; the clipboard and editor receive `fitted.text`.
     struct CompletedOutput {
@@ -35,9 +25,6 @@ final class AppState {
         let transcript: String
         let configuration: RunConfiguration
     }
-
-    private var pendingPasteID: UUID?
-    var pendingClipboardResult: PendingClipboardResult?
 
     private(set) var pipelineState: PipelineState = .idle {
         willSet {
@@ -97,6 +84,7 @@ final class AppState {
     @ObservationIgnored let processActivity: any ProcessActivityControlling
     @ObservationIgnored let outputVolume: OutputVolumeChain
     @ObservationIgnored let status: StatusIndicator
+    @ObservationIgnored let results: ResultActions
     /// Run tasks that have not returned yet, keyed by run ID. See `launch`.
     @ObservationIgnored private var runTasks: [UUID: Task<Void, Never>] = [:]
     @ObservationIgnored let streamingTypistFactory: () -> any StreamingTyping
@@ -170,7 +158,7 @@ final class AppState {
         self.frontmostApplication = frontmostApplication
         self.selectionReader = selectionReader
         self.streamingTypistFactory = streamingTypistFactory
-        self.delivery = DeliveryCoordinator(
+        let delivery = DeliveryCoordinator(
             autoPaster: autoPaster,
             feedback: feedback,
             metrics: metrics,
@@ -180,7 +168,7 @@ final class AppState {
             captureDeliveryTarget: captureDeliveryTarget,
             frontmostApplication: frontmostApplication
         )
-        self.status = StatusIndicator(
+        let status = StatusIndicator(
             settings: settings,
             feedback: feedback,
             recordingCue: recordingCue,
@@ -188,6 +176,18 @@ final class AppState {
             flashSleeper: feedbackFlashSleeper,
             errorResetDelayNanoseconds: errorResetDelayNanoseconds,
             errorResetSleeper: errorResetSleeper
+        )
+        self.delivery = delivery
+        self.status = status
+        self.results = ResultActions(
+            history: history,
+            settings: settings,
+            pasteboard: pasteboard,
+            autoPaster: autoPaster,
+            delivery: delivery,
+            status: status,
+            captureDeliveryTarget: captureDeliveryTarget,
+            frontmostApplication: frontmostApplication
         )
         self.maximumRecordingDurationNanoseconds = maximumRecordingDurationNanoseconds
         self.recordingDurationSleeper = recordingDurationSleeper
@@ -198,6 +198,7 @@ final class AppState {
         self.outputVolume = OutputVolumeChain(ducker: outputDucker)
 
         status.source = self
+        results.host = self
         if let appFeedback = feedback as? AppFeedback {
             appFeedback.actionHandler = self
         }
@@ -325,7 +326,7 @@ final class AppState {
     /// Revises the newest successful result, like Copy Last: a failed retry of an older revision keeps
     /// that older base in history, and it must not become what the next revision works on.
     func startRevision() {
-        guard pipelineState.acceptsNewRun, let baseOutput = lastSuccessfulResult else { return }
+        guard pipelineState.acceptsNewRun, let baseOutput = results.lastSuccessfulResult else { return }
         startRevisionRun(configuration: RunConfigurationBuilder.revision(
             of: settings.runConfiguration(workflowID: nil), base: baseOutput
         ))
@@ -363,155 +364,24 @@ final class AppState {
 
     // MARK: - Results
 
-    var lastResult: String? {
-        history.records.first { record in
-            guard record.output != nil else { return false }
-            if case .success = record.outcome { return true }
-            if case .failed = record.outcome,
-               case .revision = record.transformation {
-                return true
-            }
-            return false
-        }?.output
+    var lastResult: String? { results.lastResult }
+    var transcriptFallback: String? { results.transcriptFallback }
+    var canCopyTranscriptFallback: Bool { results.canCopyTranscriptFallback }
+    var canCopyLastResult: Bool { results.canCopyLastResult }
+    var canCopyPendingResult: Bool { results.canCopyPendingResult }
+
+    func copyPendingResult() { results.copyPendingResult() }
+    func copyTranscriptFallback(recordID: UUID? = nil) { results.copyTranscriptFallback(recordID: recordID) }
+    func copyHistoryRecord(recordID: UUID) { results.copyHistoryRecord(recordID: recordID) }
+    func copyLastResult() { results.copyLastResult() }
+    func pasteLastResult() async { await results.pasteLastResult() }
+
+    func showIdleAfterCopy() {
+        pipelineState = .idle
     }
 
-    private var lastSuccessfulResult: String? {
-        history.records.first { record in
-            guard record.output != nil else { return false }
-            if case .success = record.outcome { return true }
-            return false
-        }?.output ?? lastResult
-    }
-
-    var transcriptFallback: String? {
-        guard let record = history.records.first,
-              record.canUseTranscriptFallback else {
-            return nil
-        }
-        return record.transcript
-    }
-
-    var canCopyTranscriptFallback: Bool {
-        transcriptFallback != nil && pipelineState.acceptsNewRun
-    }
-
-    var canCopyLastResult: Bool {
-        lastSuccessfulResult != nil && pipelineState.acceptsNewRun
-    }
-
-    var canCopyPendingResult: Bool {
-        pendingClipboardResult != nil && pipelineState.acceptsNewRun
-    }
-
-    func copyPendingResult() {
-        guard canCopyPendingResult, let result = pendingClipboardResult else { return }
-        copyToClipboard(result.delivered) {
-            appendRecord(
-                transcript: result.transcript,
-                output: result.output,
-                transformation: result.transformation,
-                outcome: .success,
-                provider: result.provider
-            )
-            pendingClipboardResult = nil
-        }
-    }
-
-    func copyTranscriptFallback(recordID: UUID? = nil) {
-        guard pipelineState.acceptsNewRun,
-              let record = recordID.flatMap({ id in history.records.first { $0.id == id } }) ?? (recordID == nil ? history.records.first : nil),
-              record.canUseTranscriptFallback else {
-            return
-        }
-
-        copyToClipboard(record.transcript) {
-            appendRecord(
-                transcript: record.transcript,
-                output: record.transcript,
-                transformation: record.transformation,
-                outcome: .success,
-                provider: record.provider
-            )
-        }
-    }
-
-    func copyHistoryRecord(recordID: UUID) {
-        guard pipelineState.acceptsNewRun,
-              let record = history.records.first(where: { $0.id == recordID }),
-              record.canCopyFromHistory else {
-            return
-        }
-        copyToClipboard(record.output ?? record.transcript)
-    }
-
-    func copyLastResult() {
-        guard canCopyLastResult, let text = lastSuccessfulResult else { return }
-        copyToClipboard(text)
-    }
-
-    /// The one path for explicit copy actions: write, record, and confirm, or show why it failed.
-    private func copyToClipboard(_ text: String, afterWrite: () -> Void = {}) {
-        do {
-            try pasteboard.write(text)
-            afterWrite()
-            status.cancelErrorReset()
-            pipelineState = .idle
-            status.showSuccess()
-        } catch {
-            presentError(error)
-            status.scheduleErrorReset(for: UUID())
-        }
-    }
-
-    /// Pastes the last result where automatic paste would. Accessibility serves only opt-in automatic
-    /// paste, so with automatic paste off this copies the result, like Copy Last.
-    func pasteLastResult() async {
-        guard settings.autoPasteEnabled else {
-            copyLastResult()
-            return
-        }
-        guard canCopyLastResult, let text = lastSuccessfulResult else { return }
-        let pasteID = UUID()
-        pendingPasteID = pasteID
-        defer { if pendingPasteID == pasteID { pendingPasteID = nil } }
-        let pinsTarget = settings.pinDeliveryTarget
-        let usesSpacing = settings.autoPasteEnabled && settings.smartSpacingEnabled
-        let fitsSentence = settings.matchesSentenceAtCaret && autoPaster.isTrusted
-        let target = (pinsTarget || usesSpacing || fitsSentence) ? await captureDeliveryTarget(frontmostApplication(false).processID) : nil
-        guard pendingPasteID == pasteID, canCopyLastResult, !Task.isCancelled else { return }
-        var context: CaretContext?
-        if fitsSentence, let target {
-            context = await target.caretContext(readsSentence: true)
-            guard pendingPasteID == pasteID, canCopyLastResult, !Task.isCancelled else { return }
-        }
-        let delivered = context.map {
-            SentenceFit.apply(text, context: $0, protectedTerms: settings.glossaryList.terms.map(\.term))
-        } ?? text
-        do {
-            try pasteboard.write(delivered)
-            // The copy succeeded, so an error still on screen no longer applies, as with Copy Last.
-            status.cancelErrorReset()
-            if case .error = pipelineState { pipelineState = .idle }
-            // Whenever it copied without pasting, the copied flash shows, every time: the notice for
-            // missing Accessibility appears only once per launch.
-            if pinsTarget, target == nil {
-                delivery.notifyNoCapturedTarget()
-                status.showSuccess()
-                return
-            }
-            let pasted = try await delivery.pasteCompletedText(delivered, contextTarget: usesSpacing ? target : nil,
-                                                               usesSpacing: usesSpacing, knownContext: context, canContinue: { [weak self] in
-                self?.pendingPasteID == pasteID && self?.canCopyLastResult == true
-            }, targetIsCurrent: {
-                guard pinsTarget else { return true }
-                return await target?.isCurrent() == true
-            })
-            if pasted == false { status.showSuccess() }
-        } catch is CancellationError {
-        } catch {
-            presentError(error)
-            status.scheduleErrorReset(for: UUID())
-        }
+    func clearErrorAfterCopy() {
+        if case .error = pipelineState { pipelineState = .idle }
     }
 
     // MARK: - Starting runs
@@ -837,7 +707,7 @@ final class AppState {
     }
 
     private func clearRunTracking() {
-        pendingPasteID = nil
+        results.cancelPendingPaste()
         guard let run = activeRun else { return }
         run.cancelPauseTransformation()
         run.preparedTransformer?.cancel()
@@ -891,7 +761,7 @@ final class AppState {
 
     /// Shows an error. When the active run appended a failed history record, the notification offers
     /// that record's transcript and retry actions; it never matches an older record by its message.
-    private func presentError(_ error: Error) {
+    func presentError(_ error: Error) {
         status.cancelSuccess()
         let message = userMessage(for: error)
         pipelineState = .error(message)
@@ -936,3 +806,5 @@ final class AppState {
 extension AppState: AppFeedbackActionHandling {}
 
 extension AppState: StatusIndicatorSource {}
+
+extension AppState: ResultActionsHost {}

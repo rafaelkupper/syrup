@@ -117,9 +117,9 @@ extension AppState {
         metrics.begin(.clipboardWrite, runID: runID)
         do {
             try pasteboard.write(completed.fitted.text)
-            pendingClipboardResult = nil
+            results.pendingClipboardResult = nil
         } catch {
-            pendingClipboardResult = PendingClipboardResult(
+            results.pendingClipboardResult = ResultActions.PendingClipboardResult(
                 output: completed.output,
                 delivered: completed.fitted.text,
                 transcript: completed.transcript,

@@ -94,10 +94,12 @@ For each owner: break one rule on purpose, run the named suite, record the faili
 | --- | --- | --- | --- |
 | `OutputVolumeChain` | A change no longer waits for the previous one (`await previous?.value` removed) | None: survived. `OutputDucker` is an actor, and the fake holds the first write inside it, so a later change still queues behind it. Equivalent under these fakes; recorded, not chased with a timing-dependent test. | Yes |
 | `OutputVolumeChain` | `pending` no longer records the queued change | `crashRecoveryRestoresThroughTheChainThatPendingWorkAwaits`, `quittingWaitsForACancelledRunsVolumeRestore`, `slowVolumeChangesNeverDelayDeliveryButPrecedeTheSuccessSound` | Yes |
-| `StatusIndicator` | The flash flag no longer re-applies the cue | All five cue-sequence tests except the cancelled run's, plus `aCancelledRunAppliesHiddenOnce`, `cueMirrorsSuccessfulRunLifecycle`, `disabledLiveTranscriptKeepsCueButSkipsPartials` | Yes |
+| `StatusIndicator` | The flash flag no longer re-applies the cue | All six cue-sequence tests in `StatusDisplayCharacterizationTests`, plus `cueMirrorsSuccessfulRunLifecycle` and `disabledLiveTranscriptKeepsCueButSkipsPartials` | Yes |
 | `StatusIndicator` | The flash flag is `@ObservationIgnored` | `menuBarObserversHearTheSuccessFlashEnd` | Yes |
 | `StatusIndicator` | The error reset never clears | `aFailedRunShowsItsErrorUntilTheResetClearsIt`, `aFailedCopyShowsItsErrorUntilTheResetClearsIt`, `errorAutoReturnsToIdle` | Yes |
-| `ResultActions` | | | |
+| `ResultActions` | `cancelPendingPaste()` does nothing, so a run no longer stops a waiting Paste Last | `aRunThatStartsAndEndsWhilePasteLastWaitsCancelsIt` (no older test caught it) | Yes |
+| `ResultActions` | Paste Last's `canContinue` ignores newer requests | `aNewerPasteLastSupersedesOneStillWaiting`, `aRunThatStartsAndEndsWhilePasteLastWaitsCancelsIt` | Yes |
+| `ResultActions` | `pendingClipboardResult` is `@ObservationIgnored` | `copyResultAgainObserversHearAFailedClipboardWrite` | Yes |
 | `SpeechReadiness` | | | |
 | `RecordingFiler` | | | |
 
@@ -115,3 +117,4 @@ For each owner: break one rule on purpose, run the named suite, record the faili
 - Step 1: 16 characterization tests pass on the unchanged code; full run 863 tests, 858 passed and 5 skipped by their environment gates (Apple model smoke, real mishearing probes, release timing), as in the baseline. Per-test results are compared with this run after every step, from the `.xcresult` bundles.
 - Step 2: `OutputVolumeChain` extracted. Full run identical to step 1.
 - Step 3: `StatusIndicator` extracted. Full run identical to step 1.
+- Step 4: `ResultActions` extracted. The moved code was diffed against the old section: apart from the host calls listed under Owners, the only addition is `cancelPendingPaste()`. Full run identical to step 1.
