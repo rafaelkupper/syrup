@@ -7,9 +7,15 @@ typealias FeedbackFlashSleeper = @Sendable (UInt64) async throws -> Void
 typealias RecordingDurationSleeper = @Sendable (UInt64) async throws -> Void
 typealias AutoPasteSleeper = @Sendable (UInt64) async throws -> Void
 
-/// Owns the pipeline state and orchestrates each run: which events start or stop it
-/// (`PipelineTransitions`), recording and transcription, transformation, and committing the result.
-/// How committed text reaches the editor lives in `DeliveryCoordinator`.
+/// Owns the pipeline state and the active run, and orchestrates each run: which events start or stop
+/// it (`PipelineTransitions`), recording and transcription, transformation, and committing the result.
+/// Each other concern has its own owner, which `AppState` composes and calls:
+/// - `StatusIndicator`: the menu bar icon, the recording cue, the success flash, and the error reset.
+/// - `ResultActions`: Copy and Paste Last, and the result kept after a failed clipboard write.
+/// - `DeliveryCoordinator`: how committed text reaches the editor.
+/// - `SpeechReadiness`: speech locales and models for the workflows a person can start.
+/// - `RecordingFiler`: the opt-in learning archive's entries for voice runs.
+/// - `OutputVolumeChain`: lowering and restoring other audio while recording.
 @MainActor
 @Observable
 final class AppState {
@@ -25,6 +31,8 @@ final class AppState {
         let transcript: String
         let configuration: RunConfiguration
     }
+
+    // MARK: - Pipeline state
 
     private(set) var pipelineState: PipelineState = .idle {
         willSet {
@@ -48,6 +56,8 @@ final class AppState {
     /// Set while the onboarding's try-it page is open, so its first result lands there and not in Syrup's own window.
     var holdsPasteForOnboarding = false
 
+    // MARK: - Hotkeys
+
     /// A hold-mode recording that a Fn double-tap keeps open after release, so releasing a key will not finish it.
     var isFnRecordingLatched = false
 
@@ -59,20 +69,30 @@ final class AppState {
             hotkeyController?.setListening(isHotkeyPaused == false)
         }
     }
+    @ObservationIgnored private var hotkeyController: HotkeyController?
+
+    // MARK: - Owners
+
+    @ObservationIgnored let status: StatusIndicator
+    @ObservationIgnored let results: ResultActions
+    @ObservationIgnored let delivery: DeliveryCoordinator
+    @ObservationIgnored let speech: SpeechReadiness
+    @ObservationIgnored let outputVolume: OutputVolumeChain
+
+    // MARK: - Services
+
     let settings: AppSettings
     let transcriberAssetManager: TranscriberAssetManager
     let history: HistoryStore
     let autoPaster: any AutoPasting
+    let usageStats: UsageStatsStore
     @ObservationIgnored let keychainStore: KeychainStore
-
     @ObservationIgnored let audioRecorder: any AudioRecording
     @ObservationIgnored let transcriber: any Transcriber
-    let usageStats: UsageStatsStore
     @ObservationIgnored let transformerProvider: any TransformerSnapshotting
     @ObservationIgnored let pasteboard: any PasteboardWriting
     @ObservationIgnored let feedback: any AppFeedbackProviding
     @ObservationIgnored let metrics: any PipelineMetricsRecording
-    @ObservationIgnored let delivery: DeliveryCoordinator
     @ObservationIgnored let captureDeliveryTarget: @MainActor (pid_t?) async -> DeliveryTarget?
     @ObservationIgnored let frontmostApplication: @MainActor (Bool) -> (bundleID: String?, processID: pid_t?)
     @ObservationIgnored let selectionReader: any SelectionReading
@@ -80,19 +100,18 @@ final class AppState {
     @ObservationIgnored let recordingDurationSleeper: RecordingDurationSleeper
     @ObservationIgnored let recordingClock: any RecordingClock
     @ObservationIgnored let processActivity: any ProcessActivityControlling
-    @ObservationIgnored let outputVolume: OutputVolumeChain
-    @ObservationIgnored let status: StatusIndicator
-    @ObservationIgnored let results: ResultActions
-    @ObservationIgnored let speech: SpeechReadiness
-    /// Run tasks that have not returned yet, keyed by run ID. See `launch`.
-    @ObservationIgnored private var runTasks: [UUID: Task<Void, Never>] = [:]
     @ObservationIgnored let streamingTypistFactory: () -> any StreamingTyping
+    @ObservationIgnored let recordingCue: (any RecordingCuePresenting)?
+
+    // MARK: - Run tracking
+
     @ObservationIgnored var activeRun: PipelineRun?
-    @ObservationIgnored var foregroundActivityChanged: ((Bool) -> Void)?
     var activeRunID: UUID? { activeRun?.id }
     private var isRevisionRun: Bool { activeRun?.configuration.purpose.isRevision == true }
-    @ObservationIgnored private var hotkeyController: HotkeyController?
-    @ObservationIgnored let recordingCue: (any RecordingCuePresenting)?
+    /// Run tasks that have not returned yet, keyed by run ID. See `launch`.
+    @ObservationIgnored private var runTasks: [UUID: Task<Void, Never>] = [:]
+    @ObservationIgnored var foregroundActivityChanged: ((Bool) -> Void)?
+    /// Once-per-launch notices from the selection read at a run's start (`resolveRunContext`).
     @ObservationIgnored private var didNotifyEmptySelectionContext = false
     @ObservationIgnored private var didNotifyUntrustedSelectionContext = false
     @ObservationIgnored private var didRequestSelectionAccessibilityTrust = false
