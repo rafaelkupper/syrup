@@ -24,7 +24,9 @@ final class SpeechModelManager: SpeechModelProviding {
     @ObservationIgnored private let fileManager: FileManager
     @ObservationIgnored private var machine: SpeechModelMachine
     /// The task of the job the machine is running, from its start to its finish. Jobs run one at a
-    /// time, in the machine's order.
+    /// time, in the machine's order. One task per job: it asks the machine whether the job still
+    /// runs and starts the work without a suspension in between, so no click can come between the
+    /// check and the work.
     @ObservationIgnored private var runningTask: Task<Void, Never>?
     /// A folder this model is taking over from; see `replace`.
     @ObservationIgnored private var replacedDirectory: URL?
@@ -108,21 +110,28 @@ final class SpeechModelManager: SpeechModelProviding {
         }
     }
 
-    private func send(_ event: SpeechModelMachine.Event) {
+    /// Returns every effect the event led to.
+    @discardableResult
+    private func send(_ event: SpeechModelMachine.Event) -> [SpeechModelMachine.Effect] {
         var events = [event]
+        var handled: [SpeechModelMachine.Effect] = []
         while events.isEmpty == false {
-            for effect in machine.handle(events.removeFirst()) {
+            let effects = machine.handle(events.removeFirst())
+            handled += effects
+            for effect in effects {
                 switch effect {
                 case .start(let job):
                     runningTask = Task {
                         await operations.willBeginJob()
-                        send(.began(job))
-                    }
-                case .perform(let job):
-                    runningTask = Task {
+                        // Sent even when this task was cancelled: the machine waits for it to skip or
+                        // run the job, and nothing else would move it on.
+                        guard send(.began(job)).contains(.perform(job)) else { return }
                         let outcome = await run(job)
                         send(.finished(job, outcome))
                     }
+                case .perform:
+                    // Run by the job's own task, right after `.began`.
+                    break
                 case .cancelRunningDownload:
                     runningTask?.cancel()
                 case .removeReplacedDirectory:
@@ -134,6 +143,7 @@ final class SpeechModelManager: SpeechModelProviding {
         }
         if machine.running == nil { runningTask = nil }
         if state != machine.state { state = machine.state }
+        return handled
     }
 
     private func run(_ job: SpeechModelMachine.Job) async -> SpeechModelMachine.Outcome {

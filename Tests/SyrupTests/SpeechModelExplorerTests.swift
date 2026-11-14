@@ -27,8 +27,9 @@ struct SpeechModelExplorerTests {
         /// Whether the executing job's task has begun and the machine let it run.
         var performing = false
         var landed = false
-        /// A Delete was accepted and its removal has not started yet.
-        var deletePending = false
+        /// Deletes accepted whose removal has not started yet. Each Delete queues one removal, and each
+        /// removal runs once.
+        var deletesPending = 0
         /// How many times the real fakes would have waited for a command so far: once as each job
         /// begins, once as its work starts, and once after a download lands. Not part of the state.
         var waits = 0
@@ -161,11 +162,27 @@ struct SpeechModelExplorerTests {
             world.performing = false
             effects = machine.handle(.finished(job, step == .succeed ? .succeeded : .failed))
         }
-        // A removal accepted by this step carries a generation newer than any before it.
-        if ([machine.running].compactMap { $0 } + machine.queue).contains(where: { $0.operation == .removal && $0.generation > before.generation }) {
-            world.deletePending = true
+        // Delete, and Retry after a failed removal, must each queue a removal of their own, which
+        // carries the generation they set. Checked from the step, not inferred from the queue, so a
+        // machine that dropped one would be caught.
+        let removes = step == .delete || (step == .retry && before.failure == .removal && {
+            if case .failed = before.state { return true } else { return false }
+        }())
+        if removes {
+            let queued = ([machine.running].compactMap { $0 } + machine.queue).contains {
+                $0.operation == .removal && $0.generation == machine.generation && $0.generation > before.generation
+            }
+            if queued == false { problems.append("\(step) did not queue a removal") }
+            world.deletesPending += 1
         }
         problems += apply(&machine, &world, effects: effects)
+        // The older folder of a handover goes on Delete and on a Cancel that stopped a download, and
+        // is gone whenever the model is on disk by the machine's account. Checked against the steps,
+        // not the machine's own flag.
+        let cancelled: Bool = if step == .cancel, case .downloading = before.state { true } else { false }
+        if (step == .delete || cancelled), world.replacedOnDisk {
+            problems.append("the older folder is still there after \(step)")
+        }
         if step == .retry, case .failed = before.state, before.failure == .removal {
             let started = [machine.running].compactMap { $0 } + machine.queue
             if started.contains(where: { $0.generation == machine.generation && $0.operation != .removal }) {
@@ -193,8 +210,8 @@ struct SpeechModelExplorerTests {
             case .perform(let job):
                 if world.executing != job || world.performing { problems.append("performed \(job.operation) that had not begun") }
                 if job.operation != .removal, job.generation != machine.generation { problems.append("performed a stale \(job.operation)") }
-                if job.operation == .download, world.deletePending { problems.append("a download started before an accepted Delete ran") }
-                if job.operation == .removal { world.deletePending = false }
+                if job.operation == .download, world.deletesPending > 0 { problems.append("a download started before an accepted Delete ran") }
+                if job.operation == .removal { world.deletesPending -= 1 }
                 world.performing = true
                 world.waits += 1
             case .cancelRunningDownload:
@@ -216,8 +233,14 @@ struct SpeechModelExplorerTests {
         if world.replacedOnDisk != machine.handoverPending {
             problems.append("older folder on disk is \(world.replacedOnDisk) while the handover pending is \(machine.handoverPending)")
         }
+        switch machine.state {
+        case .downloaded, .loading, .ready:
+            if world.replacedOnDisk { problems.append("\(machine.state) with the older folder still there") }
+        default:
+            break
+        }
         guard machine.isIdle else { return problems }
-        if world.deletePending { problems.append("idle with an accepted Delete that never ran") }
+        if world.deletesPending > 0 { problems.append("idle with an accepted Delete that never ran") }
         switch machine.state {
         case .downloaded, .ready:
             if world.modelOnDisk == false { problems.append("idle and \(machine.state) without the model on disk") }
@@ -241,7 +264,7 @@ struct SpeechModelExplorerTests {
         return [
             "\(machine.state)", "\(String(describing: machine.failure))", job(machine.running),
             machine.queue.map { job($0) }.joined(separator: ","), "\(machine.handoverPending)",
-            "\(node.world.modelOnDisk)", "\(node.world.replacedOnDisk)", "\(node.world.performing)", "\(node.world.landed)", "\(node.world.deletePending)",
+            "\(node.world.modelOnDisk)", "\(node.world.replacedOnDisk)", "\(node.world.performing)", "\(node.world.landed)", "\(node.world.deletesPending)",
         ].joined(separator: "|")
     }
 }

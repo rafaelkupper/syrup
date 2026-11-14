@@ -74,6 +74,63 @@ struct SpeechModelRegressionTests {
         #expect(fixture.modelIsOnDisk == false)
     }
 
+    /// A click must never come between the manager deciding that a job still runs and the job's work
+    /// starting, or the job does its work after the click made it stale. The fakes here run on the
+    /// main actor, as clicks do, so the check and the start of the work happen in one turn unless the
+    /// manager schedules something between them. Attempts yield zero to five times before clicking,
+    /// so the click lands at each point of the job's start. (With fakes off the main actor, a click can also come while the call travels to the
+    /// fake, after the work has already been committed to, in every version; that is not this bug.)
+    @Test(arguments: ["load", "download", "loadAfterDownload"])
+    func aJobOvertakenAfterItBeganDoesNoWork(_ kind: String) async throws {
+        var stale = 0
+        for attempt in 0..<120 {
+            let yields = attempt % 6
+            let fixture = try RegressionFixture(modelOnDisk: kind == "load", operationsOnMainActor: true)
+            defer { fixture.clean() }
+            switch kind {
+            case "load":
+                fixture.manager.loadIfDownloaded()
+                for _ in 0..<yields { await Task.yield() }
+                fixture.calls.append("click")
+                fixture.manager.remove()
+            case "download":
+                fixture.manager.download()
+                for _ in 0..<yields { await Task.yield() }
+                fixture.calls.append("click")
+                fixture.manager.cancelDownload()
+            default:
+                fixture.manager.download()
+                await eventually { fixture.calls.values.contains("download") }
+                for _ in 0..<yields { await Task.yield() }
+                fixture.calls.append("click")
+                fixture.manager.remove()
+            }
+            await fixture.manager.waitUntilIdle()
+            let calls = fixture.calls.values
+            guard let click = calls.firstIndex(of: "click") else { continue }
+            let late = kind == "download" ? "download" : "load"
+            if calls[(click + 1)...].contains(late) { stale += 1 }
+        }
+        #expect(stale == 0, "\(stale) of 120 \(kind) jobs did their work after a click made them stale")
+    }
+
+    /// The handover from an older folder when the model is already on disk deletes the older folder
+    /// at once and downloads nothing. (The conformance test replays this start only through the
+    /// machine, since it explores the same states as a model on disk without a handover.)
+    @Test func replacingWithTheModelAlreadyOnDiskDeletesTheOlderFolderAtOnce() async throws {
+        let fixture = try RegressionFixture(modelOnDisk: true)
+        defer { fixture.clean() }
+        let older = fixture.root.appending(path: SpeechEngine.retiredParakeetV3Folder, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: older, withIntermediateDirectories: true)
+
+        fixture.manager.replace(older)
+
+        #expect(FileManager.default.fileExists(atPath: older.path(percentEncoded: false)) == false)
+        #expect(fixture.manager.state == .downloaded)
+        await fixture.manager.waitUntilIdle()
+        #expect(fixture.calls.values.isEmpty)
+    }
+
     /// A cancelled download that is slow to stop reports progress after the next download started:
     /// the next download's bar must not move. Its own report does move it.
     @Test func lateProgressFromACancelledDownloadDoesNotMoveTheNextOne() async throws {
@@ -138,26 +195,51 @@ final class RegressionFixture {
 
     var modelIsOnDisk: Bool { Self.isComplete(manager.directory) }
 
-    init(modelOnDisk: Bool, holdsAfterLanding: Bool = false) throws {
+    /// `operationsOnMainActor`: the download and load start on the main actor, so no click can come
+    /// between the manager calling them and their first line.
+    init(modelOnDisk: Bool, holdsAfterLanding: Bool = false, operationsOnMainActor: Bool = false) throws {
         let root = FileManager.default.temporaryDirectory.appending(path: testDomainName("SpeechModelRegression"), directoryHint: .isDirectory)
         self.root = root
         let directory = root.appending(path: SpeechEngine.parakeetUltra.modelFolder ?? "model", directoryHint: .isDirectory)
         if modelOnDisk { try Self.writeModel(at: directory) }
         let calls = calls, landed = landed, release = release
+        let downloadWork: @Sendable (URL) async throws -> Void = { directory in
+            try Self.writeModel(at: directory)
+            landed.fire()
+            if holdsAfterLanding { await release.wait() }
+        }
+        let loadWork: @Sendable (URL) async throws -> Void = { directory in
+            guard Self.isComplete(directory) else { throw CocoaError(.fileReadNoSuchFile) }
+        }
+        // Each logs its call as its first line, so on the main actor the log is written in the same
+        // turn as the call.
+        let download: @Sendable (URL, @escaping @Sendable (Double) -> Void) async throws -> Void
+        let load: @Sendable (URL) async throws -> Void
+        if operationsOnMainActor {
+            download = { @MainActor (directory: URL, _: @escaping @Sendable (Double) -> Void) async throws in
+                calls.append("download")
+                try await downloadWork(directory)
+            }
+            load = { @MainActor (directory: URL) async throws in
+                calls.append("load")
+                try await loadWork(directory)
+            }
+        } else {
+            download = { directory, _ in
+                calls.append("download")
+                try await downloadWork(directory)
+            }
+            load = { directory in
+                calls.append("load")
+                try await loadWork(directory)
+            }
+        }
         manager = SpeechModelManager(
             engine: .parakeetUltra,
             operations: .init(
                 modelsExist: { Self.isComplete($0) },
-                download: { directory, _ in
-                    calls.append("download")
-                    try Self.writeModel(at: directory)
-                    landed.fire()
-                    if holdsAfterLanding { await release.wait() }
-                },
-                load: { directory in
-                    calls.append("load")
-                    guard Self.isComplete(directory) else { throw CocoaError(.fileReadNoSuchFile) }
-                },
+                download: download,
+                load: load,
                 unload: { calls.append("unload") }
             ),
             isSupported: true,
