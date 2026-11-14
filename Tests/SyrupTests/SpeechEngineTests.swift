@@ -4,6 +4,11 @@ import Testing
 
 @MainActor
 struct SpeechEngineTests {
+    /// Core keeps its own copy of Canary's languages, because it cannot see Transcription.
+    @Test func canaryLanguagesMatchTheModel() {
+        #expect(SpeechEngine.canaryLanguageCodes == CanaryModel.languages)
+    }
+
     @Test(arguments: ["pt-BR", "pt_BR", "pt-PT", "en-US", "uk-UA", "bg-BG", "mt-MT"])
     func parakeetSupportsTheModelCardLanguages(localeID: String) {
         #expect(SpeechEngine.parakeetUltra.supports(localeID: localeID))

@@ -1,5 +1,4 @@
 import AppKit
-import AVFoundation
 import Foundation
 import Observation
 import OSLog
