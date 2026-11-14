@@ -105,7 +105,7 @@ final class HistoryStore: HistoryRecording {
 
         do {
             let data = try Data(contentsOf: fileURL)
-            let decodedRecords = try JSONDecoder().decode([DictationRecord].self, from: data)
+            let decodedRecords = try JSONDecoder().decode([LossyDictationRecord].self, from: data).compactMap(\.record)
             records = Array(decodedRecords.prefix(capacity))
         } catch {
             logger.error("history_load_failed code=\((error as NSError).code, privacy: .public)")

@@ -6,6 +6,21 @@ import Testing
 /// A pinned editor that loses focus falls back to the clipboard.
 @MainActor
 struct DeliveryTargetPinningTests {
+    @Test func switchingAppsDuringTheFocusReadFailsTheCheck() async {
+        var frontmost: pid_t? = 42
+        let switched = await DeliveryTarget.focusStillHeld(
+            by: 42, frontmost: { frontmost },
+            focusMatches: { await MainActor.run { frontmost = 7 }; return true }
+        )
+        #expect(switched == false)
+
+        frontmost = 42
+        #expect(await DeliveryTarget.focusStillHeld(by: 42, frontmost: { frontmost }, focusMatches: { true }))
+        #expect(await DeliveryTarget.focusStillHeld(by: 42, frontmost: { frontmost }, focusMatches: { false }) == false)
+        frontmost = 7
+        #expect(await DeliveryTarget.focusStillHeld(by: 42, frontmost: { frontmost }, focusMatches: { true }) == false)
+    }
+
     @Test func editorChangeDuringPasteDelayFallsBackToClipboard() async {
         let settings = fixtureSettings()
         settings.autoPasteEnabled = true

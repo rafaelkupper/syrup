@@ -16,6 +16,16 @@ struct PauseTransformationPolicyTests {
         #expect(!EndpointPolicy.isLoopback(try #require(URL(string: value))))
     }
 
+    @Test func anAttemptIsUsedOnlyWithTheSameInputAndTheFinalInstruction() {
+        let attempt = (input: "bom dia", instruction: "Translate to English.")
+        #expect(PauseTransformation.attemptMatches(attempt, input: "bom dia", instruction: "Translate to English."))
+        // Made before the selection was read: the final instruction carries the context.
+        #expect(PauseTransformation.attemptMatches(
+            attempt, input: "bom dia", instruction: "Translate to English.\n\nContext — selected"
+        ) == false)
+        #expect(PauseTransformation.attemptMatches(attempt, input: "bom dia!", instruction: "Translate to English.") == false)
+    }
+
     @Test func equalityIsByteExact() {
         #expect("é" == "e\u{301}")
         #expect(!PauseTransformation.sameInput("é", "e\u{301}"))

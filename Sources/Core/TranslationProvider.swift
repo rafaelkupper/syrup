@@ -42,3 +42,12 @@ enum TranslationProvider: String, CaseIterable, Identifiable, Sendable, Codable 
         }
     }
 }
+
+extension KeyedDecodingContainer {
+    /// A provider this build does not know (added by a newer build) decodes as nil, the default
+    /// provider, instead of failing the whole workflow list or history file.
+    func decodeProviderIfPresent(forKey key: Key) throws -> TranslationProvider? {
+        guard let raw = try decodeIfPresent(String.self, forKey: key) else { return nil }
+        return TranslationProvider(rawValue: raw)
+    }
+}

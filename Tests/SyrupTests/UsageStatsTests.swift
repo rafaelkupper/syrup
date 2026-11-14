@@ -144,7 +144,7 @@ struct UsageStatsStoreTests {
         #expect((attributes[.posixPermissions] as? NSNumber)?.intValue == 0o600)
         #expect(UsageStatsStore(fileURL: url).stats == store.stats)
 
-        store.deleteAll()
+        await store.deleteAll()
         #expect(store.stats.isEmpty)
         await store.flush()
         #expect(UsageStatsStore(fileURL: url).stats.isEmpty)
@@ -157,10 +157,30 @@ struct UsageStatsStoreTests {
         for index in 0..<50 {
             store.record(words: index, seconds: 1, fixes: 0, appBundleID: "com.a")
         }
-        store.deleteAll()
+        await store.deleteAll()
         await store.flush()
         #expect(FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) == false)
         #expect(UsageStatsStore(fileURL: url).stats.isEmpty)
+    }
+
+    @Test func aFailedDeleteShowsTheStatsStillOnDiskAndSaysSo() async throws {
+        let url = temporaryFile()
+        let directory = url.deletingLastPathComponent().path(percentEncoded: false)
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory)
+            try? FileManager.default.removeItem(atPath: directory)
+        }
+        let store = UsageStatsStore(fileURL: url)
+        store.record(words: 7, seconds: 3, fixes: 0, appBundleID: "com.a")
+        await store.flush()
+        try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: directory)
+
+        let deleted = await store.deleteAll()
+
+        #expect(deleted == false)
+        #expect(store.stats.isEmpty == false)
+        #expect(store.stats == UsageStatsStore(fileURL: url).stats)
+        #expect(store.deletionError != nil)
     }
 
     @Test func aDamagedFileStartsEmptyInsteadOfFailing() throws {

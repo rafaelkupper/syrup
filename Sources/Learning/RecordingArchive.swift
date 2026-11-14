@@ -35,6 +35,13 @@ protocol RecordingArchiving: AnyObject, Sendable {
     /// IDs whose files could not be removed yet. New entries are refused while this is non-empty.
     func unresolvedDeletions() async -> Set<UUID>
     func deleteAll() async throws
+    /// Recordings whose files are still on disk, analyzed or not, counted by name. Used to tell the
+    /// truth after learning is turned off and a cleanup failed.
+    func storedRecordingCount() async -> Int
+}
+
+extension RecordingArchiving {
+    func storedRecordingCount() async -> Int { 0 }
 }
 
 actor RecordingArchive: RecordingArchiving {
@@ -232,6 +239,15 @@ actor RecordingArchive: RecordingArchiving {
         for id in awaitingDeletion {
             removeEntry(id: id)
         }
+    }
+
+    /// `async` so it, not the protocol's default, is chosen when called on the actor directly.
+    func storedRecordingCount() async -> Int {
+        let urls = (try? fileManager.contentsOfDirectory(
+            at: storageDirectory, includingPropertiesForKeys: nil
+        )) ?? []
+        return Set(urls.filter { ["wav", "json"].contains($0.pathExtension.lowercased()) }
+            .map { $0.deletingPathExtension().lastPathComponent }).count
     }
 
     func deleteAll() throws {

@@ -87,10 +87,7 @@ struct Workflow: Identifiable, Equatable, Sendable, Codable {
         name = try container.decode(String.self, forKey: .name)
         kind = try container.decode(WorkflowKind.self, forKey: .kind)
         dictationLocaleID = try container.decode(String.self, forKey: .dictationLocaleID)
-        translationProvider = try container.decodeIfPresent(
-            TranslationProvider.self,
-            forKey: .translationProvider
-        )
+        translationProvider = try container.decodeProviderIfPresent(forKey: .translationProvider)
         input = try container.decodeIfPresent(WorkflowInput.self, forKey: .input) ?? .voice
         includeSelectionContext = try container.decodeIfPresent(
             Bool.self,

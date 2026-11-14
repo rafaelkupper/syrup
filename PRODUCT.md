@@ -54,7 +54,7 @@ Recipe starts from this Mac's language and creates the first workflow. Choosing 
 | Handle self-corrections | Translate voice runs: "at 3, no wait, 4" becomes "at 4", and hesitation sounds are dropped. Not with Apple On-Device | Off |
 | Follow formatting commands | Translate voice runs: new line, new paragraph, make a list, numbered list, in quotes, open quote and close quote, period, comma, question mark, exclamation mark, in English and Portuguese. Not with Apple On-Device | Off |
 | Keep usage stats | Word counts, speaking time, and app names for Home, on this Mac only | On |
-| Translation provider | OpenAI-compatible endpoint (base URL, model, API key), Apple On-Device, or Codex CLI (path, model) | OpenAI-compatible |
+| Translation provider | OpenAI-compatible endpoint (base URL, model, API key), Apple On-Device, Codex CLI (path, model from the account's list), or Claude Code when installed (path, model, account folder) | OpenAI-compatible |
 | Workflows | Voice or Selected text input; Transcribe, Translate, Polish, Reply Draft, Summarize, Prompt Writer, selection templates, or custom one-shot instruction | Translate (Voice) |
 | Per-app routing | Choose a workflow automatically for each application with the primary shortcut | No routes |
 | Personal glossary | Exact spellings with optional mishearing hints, sent with every transformation | Empty |
@@ -78,7 +78,7 @@ They are advanced features, segmented by model:
 
 - **Apple On-Device:** off, and the toggles are disabled with the cue "Apple's on-device model can't do these reliably, so they're off." On 2026-11-09 it handled plain translation in 12 of 12 runs but resolved self-corrections in 12 of 21 and line breaks or paragraphs in none of 12, and once invented a sentence. The stored settings stay as they were for workflows on other providers.
 - **OpenAI-compatible:** opt-in, off by default, with a warning that they need a capable model and the recommendation "We recommend gpt-oss-120b on Cerebras." With that model configured, the editor says so instead. In the same test, `gpt-oss-120b` and `qwen-3.8-27b` on Cerebras both passed 17 of 18 formatting runs and 19 of 21 self-correction runs; Qwen twice turned "quarta-feira" into Thursday, so the recommendation stays `gpt-oss-120b`.
-- **Codex CLI:** opt-in, with no warning.
+- **Codex CLI and Claude Code:** opt-in, with no warning.
 
 Quotation marks the speaker asked for with "in quotes" or "entre aspas" reach the result. Syrup still removes quotation marks a model wraps around a whole result unasked.
 
@@ -114,6 +114,7 @@ Dictation language is explicit, not auto-detected: on-device transcription runs 
 - As a privacy-conscious user, I point the LLM endpoint at my local Ollama/LM Studio server and nothing leaves my machine.
 - As a privacy-conscious user, I choose Apple On-Device and keep both transcription and transformation offline. It rewrites my own words on sensitive topics instead of refusing them.
 - As a ChatGPT/Codex subscriber, I switch translation to the local Codex CLI and avoid managing a separate API key.
+- As a Claude subscriber with Claude Code installed, I pick it as the writing provider the same way, with no API key.
 - As a power user, I bind a second hotkey to a Polish workflow that cleans my dictated Portuguese without translating it.
 - As a user replying to an email, I attach the selected message to a Voice workflow and dictate the reply I want without storing the message in Syrup history.
 - As a user working from existing text, I run Summarize Selection without activating the microphone.
@@ -183,7 +184,7 @@ The Delivery tab offers **Match the sentence at the cursor**, off by default. Wh
 
 ## Start writing during a pause
 
-Models offers **Start writing during a pause**, off by default. When you go quiet for 300 ms while still recording, Syrup transcribes what it has heard so far and starts the transformation in the background. At release it uses that result only when the final transcript is identical; otherwise it runs as usual, so the delivered text never depends on the early start. It applies to voice dictation with Apple speech and a provider that keeps text on this Mac: Apple On-Device, or an OpenAI-compatible server on localhost or a loopback address. Cloud endpoints and Codex CLI never start early, because that would send an unfinished transcript off the Mac. Revise, Transcribe, selected text, and downloaded speech models work as before. When no voice workflow can use it, the toggle is turned off and can't be changed, and a note says it only works with Apple On-Device models or a server on this Mac, and names a workflow whose speech model is in the way. Your choice is kept for when a workflow qualifies again. Otherwise a note names the workflows it reaches and says why the others don't. The audio copy it needs stays in memory, holds at most 90 seconds, and is discarded when recording ends.
+Models offers **Start writing during a pause**, off by default. When you go quiet for 300 ms while still recording, Syrup transcribes what it has heard so far and starts the transformation in the background. At release it uses that result only when the final transcript is identical; otherwise it runs as usual, so the delivered text never depends on the early start. It applies to voice dictation with Apple speech and a provider that keeps text on this Mac: Apple On-Device, or an OpenAI-compatible server on localhost or a loopback address. Cloud endpoints, Codex CLI, and Claude Code never start early, because that would send an unfinished transcript off the Mac. Revise, Transcribe, selected text, and downloaded speech models work as before. When no voice workflow can use it, the toggle is turned off and can't be changed, and a note says it only works with Apple On-Device models or a server on this Mac, and names a workflow whose speech model is in the way. Your choice is kept for when a workflow qualifies again. Otherwise a note names the workflows it reaches and says why the others don't. The audio copy it needs stays in memory, holds at most 90 seconds, and is discarded when recording ends.
 
 ## Check how dictation hears your terms
 

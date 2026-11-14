@@ -379,17 +379,21 @@ final class StreamingTypist: StreamingTyping {
     }
 
     nonisolated private static func postStep(_ step: TypingStep) -> Bool {
+        guard let (keyDown, keyUp) = events(for: step) else { return false }
+        keyDown.post(tap: .cghidEventTap)
+        keyUp.post(tap: .cghidEventTap)
+        return true
+    }
+
+    /// Flags are always set explicitly. An event made from the session source otherwise carries the
+    /// modifiers held down right now, so a Command-S pressed mid-stream would turn typed text into a
+    /// shortcut or drop it, and the editor would no longer match the clipboard.
+    nonisolated static func events(for step: TypingStep) -> (CGEvent, CGEvent)? {
         let source = CGEventSource(stateID: .combinedSessionState)
-        guard let keyDown = CGEvent(
-            keyboardEventSource: source,
-            virtualKey: step == .lineBreak ? CGKeyCode(kVK_Return) : 0,
-            keyDown: true
-        ), let keyUp = CGEvent(
-            keyboardEventSource: source,
-            virtualKey: step == .lineBreak ? CGKeyCode(kVK_Return) : 0,
-            keyDown: false
-        ) else {
-            return false
+        let virtualKey = step == .lineBreak ? CGKeyCode(kVK_Return) : 0
+        guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: virtualKey, keyDown: true),
+              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: virtualKey, keyDown: false) else {
+            return nil
         }
 
         switch step {
@@ -397,21 +401,15 @@ final class StreamingTypist: StreamingTyping {
             keyDown.flags = .maskShift
             keyUp.flags = .maskShift
         case .text(let text):
+            keyDown.flags = []
+            keyUp.flags = []
             let utf16 = Array(text.utf16)
             utf16.withUnsafeBufferPointer { buffer in
-                keyDown.keyboardSetUnicodeString(
-                    stringLength: buffer.count,
-                    unicodeString: buffer.baseAddress
-                )
-                keyUp.keyboardSetUnicodeString(
-                    stringLength: buffer.count,
-                    unicodeString: buffer.baseAddress
-                )
+                keyDown.keyboardSetUnicodeString(stringLength: buffer.count, unicodeString: buffer.baseAddress)
+                keyUp.keyboardSetUnicodeString(stringLength: buffer.count, unicodeString: buffer.baseAddress)
             }
         }
-        keyDown.post(tap: .cghidEventTap)
-        keyUp.post(tap: .cghidEventTap)
-        return true
+        return (keyDown, keyUp)
     }
 }
 

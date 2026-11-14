@@ -43,7 +43,7 @@ struct ClaudeCLITransformerTests {
         #expect(resolved.model == "haiku")
         #expect(resolved.processEnvironment == [
             "HOME": "/Users/fixture", "USER": "fixture", "LOGNAME": "fixture",
-            "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+            "PATH": CommandLocator.childPath(for: executable),
             "DISABLE_AUTOUPDATER": "1", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
             "CLAUDE_CONFIG_DIR": ClaudeCLIConfiguration.plainPath(folder),
         ])
@@ -191,9 +191,8 @@ struct CodexModelChoiceTests {
 
     @Test func theAccountDefaultLeavesTheModelFlagOut() {
         let directory = URL(filePath: "/tmp/fixture")
-        let output = URL(filePath: "/tmp/fixture/out.txt")
-        #expect(CodexCLITransformer.arguments(workingDirectory: directory, model: "", outputFile: output).contains("--model") == false)
-        let chosen = CodexCLITransformer.arguments(workingDirectory: directory, model: "gpt-a", outputFile: output)
+        #expect(CodexCLITransformer.arguments(workingDirectory: directory, model: "").contains("--model") == false)
+        let chosen = CodexCLITransformer.arguments(workingDirectory: directory, model: "gpt-a")
         let index = chosen.firstIndex(of: "--model")
         #expect(index.map { chosen[$0 + 1] } == "gpt-a")
     }

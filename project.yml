@@ -12,10 +12,10 @@ packages:
     exactVersion: 0.18.0
   KeyboardShortcuts:
     url: https://github.com/sindresorhus/KeyboardShortcuts
-    from: 2.0.0
+    exactVersion: 2.4.0
   WhisperKit:
     url: https://github.com/argmaxinc/WhisperKit
-    from: 1.1.0
+    exactVersion: 1.1.0
 targets:
   Syrup:
     type: application

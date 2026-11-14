@@ -36,7 +36,10 @@ struct CodexCLITransformerTests {
         #expect(configuration.executableURL == configuredCodex)
         #expect(configuration.model == "gpt-5.4-mini")
         #expect(configuration.authFileURL == fixture.home.appending(path: ".codex/auth.json"))
-        #expect(configuration.processEnvironment == ["HOME": fixture.home.path(percentEncoded: false)])
+        #expect(configuration.processEnvironment == [
+            "HOME": fixture.home.path(percentEncoded: false),
+            "PATH": CommandLocator.childPath(for: configuredCodex),
+        ])
     }
 
     @Test
@@ -112,9 +115,9 @@ struct CodexCLITransformerTests {
         let call = try #require(calls.first)
         #expect(call.executableURL == configuration.executableURL)
         let directory = try #require(call.arguments.firstIndex(of: "--cd").map { call.arguments[$0 + 1] })
-        let output = try #require(call.arguments.firstIndex(of: "--output-last-message").map { call.arguments[$0 + 1] })
         #expect(directory.contains("SyrupCodex."))
-        #expect(output == URL(filePath: directory).appending(path: "last-message.txt").path(percentEncoded: false))
+        // The result comes back on stdout; Codex is never asked to write it to a file.
+        #expect(call.arguments.contains("--output-last-message") == false)
         // Pinned in full: Codex gets no tools, no approvals, no web, and the prompt only on stdin.
         #expect(call.arguments == [
             "exec", "--ephemeral", "--skip-git-repo-check", "--ignore-user-config",
@@ -134,10 +137,12 @@ struct CodexCLITransformerTests {
             "-c", "features.hooks=false",
             "--cd", directory,
             "--model", "gpt-5.4-mini",
-            "--output-last-message", output,
             "-",
         ])
-        #expect(call.environment == ["HOME": fixture.home.path(percentEncoded: false)])
+        #expect(call.environment == [
+            "HOME": fixture.home.path(percentEncoded: false),
+            "PATH": CommandLocator.childPath(for: configuration.executableURL),
+        ])
         #expect(call.timeout == 60)
 
         let stdin = String(decoding: call.stdin, as: UTF8.self)
@@ -164,6 +169,7 @@ struct CodexCLITransformerTests {
         #expect(call.environment == [
             "HOME": fixture.home.path(percentEncoded: false),
             "CODEX_HOME": codexHome.path(percentEncoded: false),
+            "PATH": CommandLocator.childPath(for: configuration.executableURL),
         ])
     }
 
@@ -407,7 +413,8 @@ struct CodexCLITransformerTests {
 
         #expect(result.exitCode == 0)
         #expect(result.stdout.count == outputSize)
-        #expect(result.stderr.count == outputSize)
+        // Stderr is drained in full while the process runs; only its end is kept.
+        #expect(result.stderr.count == ProcessCommandRunner.stderrLimit)
     }
 
     @Test
@@ -548,11 +555,9 @@ actor RecordingCommandRunner: CommandRunning {
 
         switch behavior {
         case .writeOutput(let output):
-            try output.write(to: outputURL(in: arguments), atomically: true, encoding: .utf8)
-            return CommandResult(exitCode: 0, stdout: Data(), stderr: Data())
+            return CommandResult(exitCode: 0, stdout: Data(output.utf8), stderr: Data())
         case .writeOutputWithStderr(let output, let stderr):
-            try output.write(to: outputURL(in: arguments), atomically: true, encoding: .utf8)
-            return CommandResult(exitCode: 0, stdout: Data(), stderr: Data(stderr.utf8))
+            return CommandResult(exitCode: 0, stdout: Data(output.utf8), stderr: Data(stderr.utf8))
         case .stdout(let stdout):
             return CommandResult(exitCode: 0, stdout: Data(stdout.utf8), stderr: Data())
         case .missingOutput(let exitCode, let stderr):
@@ -560,13 +565,5 @@ actor RecordingCommandRunner: CommandRunning {
         case .failure(let error):
             throw error
         }
-    }
-
-    private func outputURL(in arguments: [String]) throws -> URL {
-        guard let index = arguments.firstIndex(of: "--output-last-message"),
-              arguments.indices.contains(arguments.index(after: index)) else {
-            throw TranslationError.invalidResponse
-        }
-        return URL(filePath: arguments[arguments.index(after: index)])
     }
 }

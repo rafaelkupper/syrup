@@ -7,10 +7,12 @@ struct PrivacySettingsPane: View {
     @Bindable var settings: AppSettings
     @Bindable var history: HistoryStore
     let usageStats: UsageStatsStore
+    let recordingArchive: (any RecordingArchiving)?
     @Bindable var navigation: SettingsNavigation
     let permissions: PermissionStatusModel
     let autoPaster: any AutoPasting
     let onPermissionAction: () -> Void
+    @State private var leftoverRecordings = 0
 
     var body: some View {
         Form {
@@ -30,6 +32,9 @@ struct PrivacySettingsPane: View {
             keptSection
         }
         .formStyle(.grouped)
+        .task(id: settings.glossaryLearningEnabled) {
+            leftoverRecordings = await recordingArchive?.storedRecordingCount() ?? 0
+        }
     }
 
     private var leavingSection: some View {
@@ -110,7 +115,7 @@ struct PrivacySettingsPane: View {
                                 detail: "Word counts, speed, streaks, and top apps are deleted from this Mac. This can't be undone.",
                                 confirmTitle: "Delete Stats"
                             ) else { return }
-                            usageStats.deleteAll()
+                            Task { await usageStats.deleteAll() }
                         }
                     }
                     Toggle("Keep usage stats", isOn: $settings.keepsUsageStats)
@@ -120,6 +125,10 @@ struct PrivacySettingsPane: View {
                 Text("Keep usage stats")
                 Text("Counts and app names for Home, never your words")
             }
+            if let message = usageStats.deletionError {
+                Text(message)
+                    .foregroundStyle(.red)
+            }
 
             LabeledContent {
                 Button("Show in Glossary") {
@@ -127,9 +136,20 @@ struct PrivacySettingsPane: View {
                 }
             } label: {
                 Text("Recordings for glossary learning")
-                Text(settings.glossaryLearningEnabled ? "On. Kept on this Mac until compared, at most 50 for 7 days." : "Off. Nothing is kept.")
+                Text(Self.learningRecordingsDescription(
+                    isEnabled: settings.glossaryLearningEnabled, leftover: leftoverRecordings
+                ))
             }
         }
+    }
+
+    /// "Nothing is kept" only when nothing is: a cleanup that failed at launch leaves files behind
+    /// until a later launch removes them.
+    static func learningRecordingsDescription(isEnabled: Bool, leftover: Int) -> String {
+        if isEnabled { return "On. Kept on this Mac until compared, at most 50 for 7 days." }
+        guard leftover > 0 else { return "Off. Nothing is kept." }
+        let count = leftover == 1 ? "1 recording" : "\(leftover) recordings"
+        return "Off, but \(count) from before could not be deleted yet. Syrup tries again at each launch, or delete them in Glossary."
     }
 
     private var persistHistoryBinding: Binding<Bool> {

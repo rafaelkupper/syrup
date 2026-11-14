@@ -26,6 +26,11 @@ enum TranslationError: Error, Equatable, Sendable {
     case claudeEmptyOutput
     case claudeFailed(Int)
     case claudeTimedOut
+    /// The CLI's launcher could not find its interpreter (exit 127), as with an npm install whose
+    /// `node` is not where Syrup looks.
+    case cliCouldNotStart(TranslationProvider)
+    /// The CLI printed far more than any rewrite, and was stopped.
+    case cliOutputTooLarge(TranslationProvider)
     case onDeviceUnavailable(String)
     case onDeviceGuardrail
     case onDeviceContextExceeded

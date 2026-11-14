@@ -17,7 +17,7 @@ struct ClaudeCLIConfiguration: Equatable, Sendable {
             "HOME": Self.plainPath(homeDirectory),
             "USER": userName,
             "LOGNAME": userName,
-            "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+            "PATH": CommandLocator.childPath(for: executableURL),
             "DISABLE_AUTOUPDATER": "1",
             "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
         ]
@@ -180,6 +180,8 @@ struct ClaudeCLITransformer: TextTransformer {
             )
         } catch CommandRunnerError.timedOut {
             throw TranslationError.claudeTimedOut
+        } catch CommandRunnerError.outputTooLarge {
+            throw TranslationError.cliOutputTooLarge(.claudeCLI)
         }
 
         let stdout = String(decoding: result.stdout, as: UTF8.self)
@@ -204,6 +206,9 @@ struct ClaudeCLITransformer: TextTransformer {
         if lowercased.contains("usage limit") || lowercased.contains("rate limit")
             || lowercased.contains("limit reached") || lowercased.contains("out of extra usage") {
             return .claudeUsageLimit
+        }
+        if exitCode == CommandLocator.interpreterNotFoundExitCode {
+            return .cliCouldNotStart(.claudeCLI)
         }
         return .claudeFailed(Int(exitCode))
     }

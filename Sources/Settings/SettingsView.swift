@@ -78,6 +78,7 @@ struct SettingsView: View {
                     settings: settings,
                     history: history,
                     usageStats: state.usageStats,
+                    recordingArchive: state.recordingArchive,
                     navigation: navigation,
                     permissions: permissions,
                     autoPaster: autoPaster,

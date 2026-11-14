@@ -70,3 +70,27 @@ struct DictationRecord: Identifiable, Equatable, Sendable, Codable {
         canRetry && provider != nil
     }
 }
+
+extension DictationRecord {
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        finishedAt = try container.decode(Date.self, forKey: .finishedAt)
+        transcript = try container.decode(String.self, forKey: .transcript)
+        output = try container.decodeIfPresent(String.self, forKey: .output)
+        transformation = try container.decode(TransformationSnapshot.self, forKey: .transformation)
+        outcome = try container.decode(Outcome.self, forKey: .outcome)
+        provider = try container.decodeProviderIfPresent(forKey: .provider)
+        duration = try container.decodeIfPresent(TimeInterval.self, forKey: .duration)
+    }
+}
+
+/// Decodes one history record, or nil when this build cannot read it, so one record never costs
+/// the whole file.
+struct LossyDictationRecord: Decodable {
+    let record: DictationRecord?
+
+    init(from decoder: any Decoder) throws {
+        record = try? DictationRecord(from: decoder)
+    }
+}

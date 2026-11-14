@@ -235,6 +235,8 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
         return OpenAICompatibleTranslationResult(text: text, usage: response.usage)
     }
 
+    static let responseBodyLimit = 8 * 1_024 * 1_024
+
     private func readResponseBody(_ bytes: URLSession.AsyncBytes) async throws -> Data {
         try await withOperationTimeout(
             .milliseconds(Int64(timeoutInterval * 1_000)), error: TranslationError.timedOut
@@ -243,6 +245,8 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
             for try await byte in bytes {
                 try Task.checkCancellation()
                 data.append(byte)
+                // A chat response is kilobytes; a server streaming without end is stopped here.
+                guard data.count <= Self.responseBodyLimit else { throw TranslationError.invalidResponse }
             }
             return data
         }
@@ -354,7 +358,7 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
                     eventContinuation.finish()
                     return
                 }
-                guard parser.didReceiveDone else {
+                guard parser.didReceiveDone || parser.didReceiveStop else {
                     throw TranslationError.cannotConnect(endpointHost)
                 }
                 eventContinuation.finish()

@@ -95,9 +95,12 @@ struct AppStateRevisionTests {
             adjustment: "warmer",
             instruction: expectedInstruction
         ))
+        // Recordings are filed after delivery, each run on its own task, so wait for them and don't
+        // depend on which of the two finished first.
+        await state.waitForPendingWork()
         let archiveSnapshot = await archive.snapshot()
         #expect(archiveSnapshot.begunEntryIDs.count == 2)
-        #expect(archiveSnapshot.commits.map(\.appleTranscript) == ["shorter", "warmer"])
+        #expect(archiveSnapshot.commits.map(\.appleTranscript).sorted() == ["shorter", "warmer"])
         #expect(archiveSnapshot.discardedEntryIDs.isEmpty)
     }
 

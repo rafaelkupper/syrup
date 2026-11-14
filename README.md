@@ -107,6 +107,7 @@ On 200 real Brazilian Portuguese recordings, Parakeet Ultra got 4.2% of words wr
 | OpenAI-compatible | Any endpoint that speaks the OpenAI chat API: OpenAI, OpenRouter, Cerebras, or a local Ollama or LM Studio server | Base URL, model name, and an API key if the server wants one |
 | Apple On-Device | On the Mac, with Apple Intelligence | A Mac with Apple Intelligence turned on |
 | Codex CLI | Through your local Codex CLI and ChatGPT plan | The Codex CLI installed and signed in. Slower than the others |
+| Claude Code | Through your local Claude Code and Claude plan, with its tools turned off | Claude Code installed and signed in. Listed only when it's installed. Slower than the others |
 
 Point the OpenAI-compatible provider at a local server, or choose Apple On-Device, and nothing you say leaves the Mac.
 

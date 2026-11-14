@@ -47,6 +47,25 @@ struct SpeechModelManagerTests {
         #expect(fixture.log.calls == ["download", "download", "load"])
     }
 
+    @Test func retryAfterALoadFailureLoadsAgainInsteadOfDownloading() async throws {
+        let fixture = try Fixture(onDisk: true, failingLoads: 1)
+        fixture.manager.loadIfDownloaded()
+        await waitFor(.failed("The model couldn't load."), in: fixture.manager)
+        fixture.manager.retry()
+        await waitFor(.ready, in: fixture.manager)
+        #expect(fixture.log.calls == ["load", "load"])
+    }
+
+    @Test func retryAfterADownloadFailureDownloadsAgain() async throws {
+        let fixture = try Fixture(onDisk: false, failingDownloads: 1)
+        await fixture.gate.open()
+        fixture.manager.download()
+        await waitFor(.failed("Download failed."), in: fixture.manager)
+        fixture.manager.retry()
+        await waitFor(.ready, in: fixture.manager)
+        #expect(fixture.log.calls == ["download", "download", "load"])
+    }
+
     @Test func removeUnloadsAndDeletesTheModel() async throws {
         let fixture = try Fixture(onDisk: true)
         fixture.manager.loadIfDownloaded()
@@ -142,7 +161,7 @@ private final class Fixture {
     /// Records "reported" once the fake download has made all its progress reports.
     let progressLog: CallLog
 
-    init(onDisk: Bool, isSupported: Bool = true, progress: [Double] = [], failingDownloads: Int = 0) throws {
+    init(onDisk: Bool, isSupported: Bool = true, progress: [Double] = [], failingDownloads: Int = 0, failingLoads: Int = 0) throws {
         let root = FileManager.default.temporaryDirectory.appending(path: testDomainName("SpeechModelManagerTests"), directoryHint: .isDirectory)
         let log = CallLog(), gate = Gate()
         self.root = root
@@ -152,6 +171,7 @@ private final class Fixture {
         let progressLog = CallLog()
         self.progressLog = progressLog
         let failures = Mutex(failingDownloads)
+        let loadFailures = Mutex(failingLoads)
         manager = SpeechModelManager(
             engine: .parakeetUltra,
             operations: .init(
@@ -170,7 +190,15 @@ private final class Fixture {
                     await gate.wait()
                     onDiskFlag.withLock { $0 = true }
                 },
-                load: { _ in log.record("load") },
+                load: { _ in
+                    log.record("load")
+                    if loadFailures.withLock({ count in
+                        count -= 1
+                        return count >= 0
+                    }) {
+                        throw CocoaError(.fileReadCorruptFile)
+                    }
+                },
                 unload: { log.record("unload") }
             ),
             isSupported: isSupported,

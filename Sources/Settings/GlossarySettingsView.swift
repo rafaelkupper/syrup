@@ -39,6 +39,7 @@ struct GlossarySettingsView: View {
     @Environment(MishearingSuggestionModel.self) private var suggestions
     @State private var pendingRecordingCount = 0
     @State private var recordingDeletionFailed = false
+    @State private var leftoverRecordingCount = 0
     @State private var isConfirmingModelRemoval = false
     @State private var selectedTermID: UUID?
     @State private var termDrafts: [UUID: String] = [:]
@@ -110,6 +111,9 @@ struct GlossarySettingsView: View {
             for await count in await recordingArchive.pendingEntryCounts() {
                 pendingRecordingCount = count
             }
+        }
+        .task(id: settings.glossaryLearningEnabled) {
+            leftoverRecordingCount = await recordingArchive?.storedRecordingCount() ?? 0
         }
         .task(id: navigation.glossaryFocusRequest) {
             await Task.yield()
@@ -291,7 +295,10 @@ struct GlossarySettingsView: View {
             if settings.glossaryLearningEnabled {
                 recognitionModelRow
                 pendingRecordingsRow
-            } else if whisperModelManager.state == .ready {
+            } else if leftoverRecordingCount > 0 {
+                leftoverRecordingsRow
+            }
+            if settings.glossaryLearningEnabled == false, whisperModelManager.state == .ready {
                 // Learning is off but the 626 MB model is still on disk —
                 // keep the removal path reachable without re-enabling.
                 recognitionModelRow
@@ -371,6 +378,22 @@ struct GlossarySettingsView: View {
                     }
                 }
             }
+        }
+    }
+
+    /// Learning is off, but a cleanup that failed left recordings on disk.
+    @ViewBuilder
+    private var leftoverRecordingsRow: some View {
+        LabeledContent {
+            Button("Delete Now", role: .destructive) { clearPendingRecordings() }
+        } label: {
+            Text("Recordings left from before")
+            Text(leftoverRecordingCount == 1 ? "1 recording could not be deleted yet" : "\(leftoverRecordingCount) recordings could not be deleted yet")
+        }
+        if recordingDeletionFailed {
+            Text("Some recordings could not be deleted. Syrup tries again at the next cleanup.")
+                .font(.caption)
+                .foregroundStyle(.red)
         }
     }
 
@@ -464,6 +487,7 @@ struct GlossarySettingsView: View {
             } catch {
                 recordingDeletionFailed = true
             }
+            leftoverRecordingCount = await recordingArchive?.storedRecordingCount() ?? 0
         }
     }
 

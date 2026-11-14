@@ -72,6 +72,20 @@ final class SpeechModelManager: SpeechModelProviding {
         }
     }
 
+    /// Retry after a failure. A model that downloaded but failed to load is loaded again; downloading
+    /// it again would fetch it into staging and then fail to move it onto the copy already there.
+    func retry() {
+        guard case .failed = state else { return }
+        guard operations.modelsExist(directory) else {
+            download()
+            return
+        }
+        generation += 1
+        let generation = generation
+        state = .loading
+        Task { await load(generation: generation) }
+    }
+
     func loadIfDownloaded() {
         guard state == .downloaded else { return }
         generation += 1

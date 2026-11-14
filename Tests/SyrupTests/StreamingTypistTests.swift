@@ -4,6 +4,14 @@ import Testing
 
 @MainActor
 struct StreamingTypistTests {
+    @Test func typedTextCarriesNoHeldModifiers() throws {
+        let (down, up) = try #require(StreamingTypist.events(for: .text("Olá")))
+        #expect(down.flags == [])
+        #expect(up.flags == [])
+        let (breakDown, _) = try #require(StreamingTypist.events(for: .lineBreak))
+        #expect(breakDown.flags == .maskShift)
+    }
+
     @Test(arguments: [1, 200])
     func requestedQuotesSurviveIncrementalAndForcedFlush(sizeThreshold: Int) async throws {
         let poster = StreamingEventPosterSpy()

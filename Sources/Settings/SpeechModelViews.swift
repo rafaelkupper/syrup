@@ -38,7 +38,7 @@ struct SpeechModelControls: View {
                 Text(message)
                     .foregroundStyle(.red)
                 Button("Retry") {
-                    model.download()
+                    model.retry()
                 }
                 Button("Delete", role: .destructive) {
                     model.remove()

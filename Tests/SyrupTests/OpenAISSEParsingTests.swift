@@ -8,6 +8,21 @@ import Testing
 /// Server-sent event parsing for streamed OpenAI-compatible replies.
 @MainActor
 struct OpenAISSEParsingTests {
+    @Test func aStopFinishReasonMarksTheAnswerCompleteWithoutDone() throws {
+        var parser = OpenAISSEParser()
+        let events = try parser.append(
+            #"data: {"choices":[{"delta":{"content":"Hi"},"finish_reason":null}]}"# + "\n\n"
+            + #"data: {"choices":[{"delta":{},"finish_reason":"stop"}]}"# + "\n\n"
+        )
+        #expect(events == [.delta("Hi")])
+        #expect(parser.didReceiveStop)
+        #expect(parser.didReceiveDone == false)
+
+        var interrupted = OpenAISSEParser()
+        _ = try interrupted.append(#"data: {"choices":[{"delta":{"content":"Hi"}}]}"# + "\n\n")
+        #expect(interrupted.didReceiveStop == false)
+    }
+
     @Test func sseAcceptsCRLFLikeLF() throws {
         let payload = #"data: {"choices":[{"delta":{"content":"hello"}}]}"#
         var control = OpenAISSEParser()

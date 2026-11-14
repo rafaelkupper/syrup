@@ -116,6 +116,10 @@ func userMessage(for error: Error) -> String {
             return "Claude Code failed (exit \(exitCode))"
         case .claudeTimedOut:
             return "Claude Code timed out"
+        case .cliOutputTooLarge(let provider):
+            return "\(provider.displayName) returned far more text than expected and was stopped"
+        case .cliCouldNotStart(let provider):
+            return "\(provider.displayName) couldn't start (exit 127) - its launcher can't find what it runs on. Set the path to a working install in Settings"
         case .onDeviceUnavailable(let reason):
             return reason
         case .onDeviceGuardrail:

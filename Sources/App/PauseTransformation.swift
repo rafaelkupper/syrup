@@ -19,6 +19,9 @@ enum PauseTransformation {
 @MainActor
 final class PauseTransformationAttempt {
     let input: String
+    /// The instruction the attempt was sent with. A pass can start before the run's selection context
+    /// is read, so its output is used only when this matches the run's final instruction.
+    let instruction: String
     struct Output: Sendable {
         let text: String
         let duration: Duration
@@ -29,6 +32,7 @@ final class PauseTransformationAttempt {
     init(input: String, instruction: String, provider: TranslationProvider,
          snapshot: TransformerSnapshot, clock: any RecordingClock) {
         self.input = input
+        self.instruction = instruction
         task = Task {
             let transformer = await snapshot.transformer(instruction: instruction)
             do {
@@ -139,5 +143,16 @@ final class PauseAudioCapture: @unchecked Sendable {
             destination.advanced(by: frameOffset * stride).copyMemory(
                 from: samples, byteCount: Int(source.frameLength) * stride)
         }
+    }
+}
+
+extension PauseTransformation {
+    /// An attempt is used only for the same input and the same instruction. A pass can begin while the
+    /// selection is still being read, before the run's final instruction exists; its output was made
+    /// without the context and must not be delivered.
+    static func attemptMatches(
+        _ attempt: (input: String, instruction: String), input: String, instruction: String
+    ) -> Bool {
+        sameInput(attempt.input, input) && attempt.instruction == instruction
     }
 }

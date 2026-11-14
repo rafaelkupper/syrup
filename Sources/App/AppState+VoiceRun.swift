@@ -478,7 +478,9 @@ extension AppState {
                 run.pauseCheckTask = nil
                 let input = PauseTransformation.input(transcript, corrections: run.configuration.corrections)
                 guard !input.isEmpty, let snapshot = run.providerSnapshot else { return }
-                if let previous = run.pauseAttempt, PauseTransformation.sameInput(previous.input, input) { return }
+                if let previous = run.pauseAttempt, PauseTransformation.attemptMatches(
+                    (previous.input, previous.instruction), input: input, instruction: run.transformationInstruction
+                ) { return }
                 run.pauseAttempt?.task.cancel()
                 run.pauseAttemptCount += 1
                 run.pauseAttempt = PauseTransformationAttempt(input: input, instruction: run.transformationInstruction,
@@ -495,7 +497,9 @@ extension AppState {
             run.pauseOutcome = PauseTransformationOutcome.none
             return nil
         }
-        guard PauseTransformation.sameInput(attempt.input, input) else {
+        guard PauseTransformation.attemptMatches(
+            (attempt.input, attempt.instruction), input: input, instruction: run.transformationInstruction
+        ) else {
             attempt.task.cancel()
             run.pauseOutcome = .miss
             return nil

@@ -45,11 +45,31 @@ final class DeliveryTarget: @unchecked Sendable {
     @MainActor
     func isCurrent() async -> Bool {
         if let checkCurrent { return checkCurrent() }
-        guard element != nil, NSWorkspace.shared.frontmostApplication?.processIdentifier == processID else { return false }
-        return await Task.detached(priority: .userInitiated) { [self] in
-            guard let element, let focused = Self.focusedElement(processID: processID) else { return false }
-            return CFEqual(element, focused)
-        }.value
+        guard element != nil else { return false }
+        return await Self.focusStillHeld(
+            by: processID,
+            frontmost: { NSWorkspace.shared.frontmostApplication?.processIdentifier },
+            focusMatches: { [self] in
+                await Task.detached(priority: .userInitiated) { [self] in
+                    guard let element, let focused = Self.focusedElement(processID: processID) else { return false }
+                    return CFEqual(element, focused)
+                }.value
+            }
+        )
+    }
+
+    /// The app in front is checked on both sides of the focus read. Someone can switch apps while the
+    /// read is pending, and the old app still reports its old field as focused, so a check made only
+    /// before the read would let a paste land in the new app.
+    @MainActor
+    static func focusStillHeld(
+        by processID: pid_t,
+        frontmost: @MainActor () -> pid_t?,
+        focusMatches: @Sendable () async -> Bool
+    ) async -> Bool {
+        guard frontmost() == processID else { return false }
+        guard await focusMatches() else { return false }
+        return frontmost() == processID
     }
 
     @MainActor

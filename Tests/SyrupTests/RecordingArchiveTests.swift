@@ -7,6 +7,26 @@ import Testing
 @MainActor
 struct RecordingArchiveTests {
     @Test
+    func storedCountIncludesRecordingsLeftOnDiskAndIgnoresOtherFiles() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let archive = RecordingArchive(storageDirectory: directory)
+        #expect(await archive.storedRecordingCount() == 0)
+        let id = UUID()
+        _ = try await archive.beginEntry(id: id)
+        await archive.commitEntry(id: id, localeID: "pt-BR", appleTranscript: "deploy")
+        try Data().write(to: directory.appending(path: "\(UUID().uuidString).wav"))
+        try Data().write(to: directory.appending(path: ".DS_Store"))
+
+        #expect(await archive.storedRecordingCount() == 2)
+        // Through the protocol, as Settings calls it, the archive's own count is used too.
+        let asProtocol: any RecordingArchiving = archive
+        #expect(await asProtocol.storedRecordingCount() == 2)
+        try await archive.deleteAll()
+        #expect(await archive.storedRecordingCount() == 0)
+    }
+
+    @Test
     func beginAndCommitCreateProtectedAudioAndSidecarFiles() async throws {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
