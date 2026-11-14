@@ -102,7 +102,7 @@ struct SpeechModelRegressionTests {
                 // Held after landing, then let go, so the follow-up load starts a known number of
                 // turns before the click.
                 fixture.manager.download()
-                await fixture.landed.wait()
+                await eventually { fixture.landed.isFired }
                 fixture.releaseDownload()
                 for _ in 0..<yields { await Task.yield() }
                 fixture.calls.append("click")
@@ -118,8 +118,8 @@ struct SpeechModelRegressionTests {
     }
 
     /// The handover from an older folder when the model is already on disk deletes the older folder
-    /// at once and downloads nothing. (The conformance test replays this start only through the
-    /// machine, since it explores the same states as a model on disk without a handover.)
+    /// at once and downloads nothing. (The conformance test does not replay this start, since it
+    /// explores the same states as a model on disk without a handover; the explorer covers it.)
     @Test func replacingWithTheModelAlreadyOnDiskDeletesTheOlderFolderAtOnce() async throws {
         let fixture = try RegressionFixture(modelOnDisk: true)
         defer { fixture.clean() }
@@ -280,6 +280,7 @@ final class CallRecord: Sendable {
 /// Fires once; waiting after it fired returns at once. Waiting is not cut short by cancellation.
 final class Signal: Sendable {
     private let state = Mutex<(fired: Bool, waiters: [CheckedContinuation<Void, Never>])>((false, []))
+    var isFired: Bool { state.withLock { $0.fired } }
 
     func fire() {
         let waiters = state.withLock { state -> [CheckedContinuation<Void, Never>] in

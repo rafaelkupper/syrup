@@ -130,6 +130,8 @@ struct SpeechModelExplorerTests {
     static func perform(_ step: Step, _ machine: inout SpeechModelMachine, _ world: inout World) -> [String] {
         var problems: [String] = []
         let before = machine
+        let olderFolderBefore = world.replacedOnDisk
+        var finishedCurrentDownload = false
         let effects: [SpeechModelMachine.Effect]
         switch step {
         case .download: effects = machine.handle(.download)
@@ -160,6 +162,7 @@ struct SpeechModelExplorerTests {
             if job.operation == .removal, step == .succeed || step == .failRemovingModel { world.modelOnDisk = false }
             world.executing = nil
             world.performing = false
+            finishedCurrentDownload = step == .succeed && job.operation == .download && job.generation == before.generation
             effects = machine.handle(.finished(job, step == .succeed ? .succeeded : .failed))
         }
         // Delete, and Retry after a failed removal, must each queue a removal of their own, which
@@ -182,6 +185,11 @@ struct SpeechModelExplorerTests {
         let cancelled: Bool = if step == .cancel, case .downloading = before.state { true } else { false }
         if (step == .delete || cancelled), world.replacedOnDisk {
             problems.append("the older folder is still there after \(step)")
+        }
+        // And it goes only then, or once the model is on disk: never after a failed or stale download,
+        // so a handover whose download failed is tried again at the next launch.
+        if olderFolderBefore, world.replacedOnDisk == false, step != .delete, cancelled == false, finishedCurrentDownload == false {
+            problems.append("the older folder went after \(step)")
         }
         if step == .retry, case .failed = before.state, before.failure == .removal {
             let started = [machine.running].compactMap { $0 } + machine.queue
