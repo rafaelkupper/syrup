@@ -157,7 +157,8 @@ struct RecoveryReliabilityTests {
         await settle(state)
         #expect(state.pipelineState == .idle)
         #expect(pasteboard.writes == ["Complete fixture output"])
-        #expect(RecoveryURLProtocol.requests.withLock { $0 } == [false, true])
+        // The connection test sends the streamed request a run sends; this server answers both in JSON.
+        #expect(RecoveryURLProtocol.requests.withLock { $0 } == [true, true])
     }
 
     @Test
@@ -279,7 +280,7 @@ struct RecoveryReliabilityTests {
         let settings = settings()
         settings.updateWorkflow(id: settings.activeWorkflow.id) { $0.input = .selection }
         let history = HistoryStore(persistenceEnabled: true, storageDirectory: directory)
-        await settings.privacyOptIns(history: history).setPersistHistory(true)
+        await settings.attachedOptIns(history: history).setPersistHistory(true)
         let transformer = FakeTextTransformer(.success("Transformed fixture output"))
         let pasteboard = RecoverablePasteboard()
         let state = AppState.fixture(

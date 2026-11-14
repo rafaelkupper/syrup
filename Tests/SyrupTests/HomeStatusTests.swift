@@ -79,6 +79,8 @@ struct HomeStatusTests {
         #expect(HomeStatus.destination(provider: .openAICompatible, baseURL: local, resolvedHost: "api.example.com")
             == "api.example.com (development override)")
         #expect(HomeStatus.destination(provider: .appleOnDevice, baseURL: local, resolvedHost: "api.example.com") == nil)
+        // Runs trim the saved URL, so a stray space is not an override.
+        #expect(HomeStatus.destination(provider: .openAICompatible, baseURL: " " + local + "\n", resolvedHost: "localhost") == "localhost")
     }
 
     @Test

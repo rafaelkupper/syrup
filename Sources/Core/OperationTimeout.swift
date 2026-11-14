@@ -2,12 +2,14 @@ import Foundation
 
 /// Does not wait indefinitely for a framework operation that ignores cancellation.
 /// The owner still cancels the underlying framework session in its error handler.
+/// The operation runs detached, off the caller's actor, so synchronous work in it never blocks
+/// a main-actor caller.
 func withOperationTimeout<Value: Sendable>(
     _ timeout: Duration, error timeoutError: any Error,
     operation: @escaping @Sendable () async throws -> Value
 ) async throws -> Value {
     let (stream, continuation) = AsyncThrowingStream<Value, any Error>.makeStream()
-    let worker = Task {
+    let worker = Task.detached(priority: Task.currentPriority) {
         do {
             continuation.yield(try await operation())
             continuation.finish()

@@ -18,6 +18,9 @@ final class SpeechModelManager: SpeechModelProviding {
     @ObservationIgnored private let fileManager: FileManager
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var downloadTask: Task<Void, Never>?
+    /// The latest download or removal. The next one waits for it: a cancelled download can take a
+    /// while to stop, and both use the same staging folder.
+    @ObservationIgnored private var lastOperation: Task<Void, Never>?
     /// A folder this model is taking over from; see `replace`.
     @ObservationIgnored private var replacedDirectory: URL?
 
@@ -59,7 +62,10 @@ final class SpeechModelManager: SpeechModelProviding {
         let generation = generation
         state = .downloading(0)
         let directory = directory
-        downloadTask = Task {
+        let previous = lastOperation
+        let task = Task {
+            await previous?.value
+            guard generation == self.generation else { return }
             do {
                 try protectStorageDirectory()
                 try await operations.download(directory) { fraction in
@@ -72,10 +78,13 @@ final class SpeechModelManager: SpeechModelProviding {
                 if generation == self.generation { state = .failed("Download failed.") }
             }
         }
+        downloadTask = task
+        lastOperation = task
     }
 
     /// Stops a download in progress. Files that finished stay in the staging folder, so the next
-    /// download can keep them. A handover this download was making (see `replace`) ends too.
+    /// download can keep them; it starts once this one has stopped. A handover this download was
+    /// making (see `replace`) ends too.
     func cancelDownload() {
         guard case .downloading = state else { return }
         generation += 1
@@ -123,14 +132,12 @@ final class SpeechModelManager: SpeechModelProviding {
     }
 
     /// Deletes the model, its unfinished download, and any folder it was replacing. A download in
-    /// progress is cancelled first and allowed to stop before its folders are removed.
+    /// progress is cancelled first, and the folders go once it has stopped.
     func remove() {
-        var stoppingDownload: Task<Void, Never>?
         switch state {
         case .loading:
             return
         case .downloading:
-            stoppingDownload = downloadTask
             cancelDownload()
         case .unsupported, .notDownloaded, .downloaded, .ready, .failed:
             break
@@ -139,8 +146,9 @@ final class SpeechModelManager: SpeechModelProviding {
         generation += 1
         let generation = generation
         removeReplacedDirectory()
-        Task {
-            await stoppingDownload?.value
+        let previous = lastOperation
+        lastOperation = Task {
+            await previous?.value
             await operations.unload()
             guard generation == self.generation else { return }
             for folder in [directory, Self.stagingDirectory(for: directory)]

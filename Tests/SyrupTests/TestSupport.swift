@@ -29,7 +29,7 @@ func testDomainName(_ prefix: String) -> String {
     "\(TestRun.domainNamespace).\(TestRun.token).\(prefix).\(UUID().uuidString)"
 }
 
-/// What tests use instead of `TestDefaults(suiteName:)`: the same API, kept in memory, so a test
+/// What tests use instead of `UserDefaults(suiteName:)`: the same API, kept in memory, so a test
 /// never writes a preference file. cfprefsd saves a real domain up to about 10 seconds after the
 /// test process ends, so files deleted when a run finishes could come back (a round-6 review saw 449
 /// do so), and removing even an unused domain leaves an empty file. Instances with the same suite
@@ -76,23 +76,19 @@ final class TestDefaults: UserDefaults {
     override func synchronize() -> Bool { true }
 }
 
-/// A history store whose persistence is already on, so `PrivacyOptIns.setPersistHistory(true)`
-/// succeeds without writing anything. Its folder is never created.
 @MainActor
 extension AppSettings {
-    /// The opt-in owner around the stores a test gives it.
-    func privacyOptIns(
+    /// The settings' opt-in owner, attached to the stores a test gives it.
+    func attachedOptIns(
         history: HistoryStore = HistoryStore(), recordingArchive: (any RecordingArchiving)? = nil
     ) -> PrivacyOptIns {
-        PrivacyOptIns(settings: self, history: history, recordingArchive: recordingArchive)
-    }
-
-    /// For a test that only needs the flag: there are no recordings to delete.
-    func setGlossaryLearningForTesting(_ isEnabled: Bool) {
-        privacyOptIns().setGlossaryLearning(isEnabled)
+        privacyOptIns.attach(history: history, recordingArchive: recordingArchive)
+        return privacyOptIns
     }
 }
 
+/// A history store whose persistence is already on, so `PrivacyOptIns.setPersistHistory(true)`
+/// succeeds without writing anything. Its folder is never created.
 @MainActor
 func enabledHistoryStore() -> HistoryStore {
     HistoryStore(
@@ -538,8 +534,14 @@ struct FakeStreamingTextTransformer: StreamingTextTransformer {
 @MainActor
 final class SpyPasteboard: PasteboardWriting {
     private(set) var writes: [String] = []
+    /// Writes that fail before one succeeds; a failed write records nothing.
+    var failuresRemaining = 0
 
     func write(_ string: String) throws {
+        if failuresRemaining > 0 {
+            failuresRemaining -= 1
+            throw ClipboardError.writeFailed
+        }
         writes.append(string)
     }
 }

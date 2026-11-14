@@ -115,10 +115,10 @@ struct AppSettingsTests {
         settings.lowerOtherAudioWhileRecording = true
         settings.autoPasteEnabled = true
         settings.streamingDeliveryEnabled = true
-        await settings.privacyOptIns(history: enabledHistoryStore()).setPersistHistory(true)
+        await settings.attachedOptIns(history: enabledHistoryStore()).setPersistHistory(true)
         settings.showRecordingCue = false
         settings.includeCommonTechTerms = false
-        settings.setGlossaryLearningForTesting(true)
+        settings.privacyOptIns.setGlossaryLearning(true)
         settings.showLiveTranscript = false
         settings.maximumRecordingDurationSeconds = 180
         settings.selectedMicrophoneID = "input-device-uid"
@@ -175,7 +175,7 @@ struct AppSettingsTests {
             defaultMicrophoneIDProvider: { "" }
         )
         let archive = SpyRecordingArchive()
-        let optIns = settings.privacyOptIns(recordingArchive: archive)
+        let optIns = settings.attachedOptIns(recordingArchive: archive)
 
         await optIns.setGlossaryLearning(true).value
         #expect(await archive.snapshot().deleteAllCount == 0)
@@ -190,10 +190,10 @@ struct AppSettingsTests {
         let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer { userDefaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
-        settings.setGlossaryLearningForTesting(true)
+        settings.privacyOptIns.setGlossaryLearning(true)
         let archive = deletionFails ? SpyRecordingArchive(deleteAllError: .deleteAllFailed(code: 513)) : SpyRecordingArchive()
 
-        let deletion = settings.privacyOptIns(recordingArchive: archive).setGlossaryLearning(false)
+        let deletion = settings.attachedOptIns(recordingArchive: archive).setGlossaryLearning(false)
         #expect(settings.glossaryLearningEnabled == false)
         await deletion.value
 
@@ -227,7 +227,7 @@ struct AppSettingsTests {
         defer { userDefaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
         let archive = SpyRecordingArchive(holdsFirstDeleteAllThenFails: true)
-        let optIns = settings.privacyOptIns(recordingArchive: archive)
+        let optIns = settings.attachedOptIns(recordingArchive: archive)
         optIns.setGlossaryLearning(true)
 
         let first = optIns.setGlossaryLearning(false)
@@ -242,6 +242,31 @@ struct AppSettingsTests {
         #expect(settings.glossaryLearningEnabled == false)
     }
 
+    /// One owner per settings: before the app attaches its stores nothing has been kept, so turning
+    /// learning off deletes nothing; afterwards it deletes from the archive attached last.
+    @Test
+    func eachSettingsHasOneOptInOwnerThatEmptiesTheAttachedStores() async throws {
+        let suiteName = testDomainName("SyrupTests")
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
+        defer { userDefaults.removePersistentDomain(forName: suiteName) }
+        let settings = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
+        #expect(settings.privacyOptIns === settings.privacyOptIns)
+        let archive = SpyRecordingArchive(), history = HistoryStore()
+
+        settings.privacyOptIns.setGlossaryLearning(true)
+        await settings.privacyOptIns.setGlossaryLearning(false).value
+        #expect(await archive.snapshot().deleteAllCount == 0)
+
+        let earlier = SpyRecordingArchive()
+        settings.privacyOptIns.attach(history: HistoryStore(), recordingArchive: earlier)
+        settings.privacyOptIns.attach(history: history, recordingArchive: archive)
+        settings.privacyOptIns.setGlossaryLearning(true)
+        await settings.privacyOptIns.setGlossaryLearning(false).value
+        #expect(await archive.snapshot().deleteAllCount == 1)
+        #expect(await earlier.snapshot().deleteAllCount == 0)
+        #expect(settings.glossaryLearningEnabled == false)
+    }
+
     /// Off, then on again before the deletion started: nothing is deleted, so a recording made after
     /// turning learning back on survives.
     @Test
@@ -251,7 +276,7 @@ struct AppSettingsTests {
         defer { userDefaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
         let archive = SpyRecordingArchive()
-        let optIns = settings.privacyOptIns(recordingArchive: archive)
+        let optIns = settings.attachedOptIns(recordingArchive: archive)
         optIns.setGlossaryLearning(true)
 
         let off = optIns.setGlossaryLearning(false)

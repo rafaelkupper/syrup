@@ -36,6 +36,7 @@ final class SpeechModelCatalog {
     }
 
     static func live(storageDirectory: URL? = nil) -> SpeechModelCatalog {
+        FluidAudioLogging.silence()
         let ultra = ParakeetEngine(model: .ultra)
         let redux = ParakeetEngine(model: .redux)
         let nemotron = StreamingSpeechEngine(backend: NemotronBackend())
@@ -110,6 +111,8 @@ final class SpeechModelCatalog {
         guard modelsExist(directory) == false else { return }
         let staging = SpeechModelManager.stagingDirectory(for: directory)
         try await download(staging, progress)
+        // A cancelled download that finished anyway is not moved into place; the next one keeps it.
+        try Task.checkCancellation()
         let fileManager = FileManager.default
         if fileManager.fileExists(atPath: directory.path(percentEncoded: false)) {
             try fileManager.removeItem(at: directory)

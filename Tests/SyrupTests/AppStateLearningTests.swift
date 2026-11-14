@@ -9,7 +9,7 @@ struct AppStateLearningTests {
     @Test
     func learningEnabledArchivesSuccessfulVoiceRun() async throws {
         let settings = makeTestSettings()
-        settings.setGlossaryLearningForTesting(true)
+        settings.privacyOptIns.setGlossaryLearning(true)
         let archive = SpyRecordingArchive()
         let pasteboard = SpyPasteboard()
         let state = makeState(
@@ -36,13 +36,13 @@ struct AppStateLearningTests {
     @Test
     func turningLearningOnMidRunDoesNotRecordThatRun() async throws {
         let settings = makeTestSettings()
-        settings.setGlossaryLearningForTesting(false)
+        settings.privacyOptIns.setGlossaryLearning(false)
         let archive = SpyRecordingArchive()
         let pasteboard = SpyPasteboard()
         let state = makeState(settings: settings, pasteboard: pasteboard, recordingArchive: archive)
 
         state.triggerPressed()
-        settings.setGlossaryLearningForTesting(true)
+        settings.privacyOptIns.setGlossaryLearning(true)
         state.triggerReleased()
         await expectPasteboardWrites(pasteboard, ["Good morning, how are you?"])
         await state.waitForPendingWork()
@@ -53,7 +53,7 @@ struct AppStateLearningTests {
     @Test
     func cancelledLearningRunDiscardsRecording() async throws {
         let settings = makeTestSettings()
-        settings.setGlossaryLearningForTesting(true)
+        settings.privacyOptIns.setGlossaryLearning(true)
         let archive = SpyRecordingArchive()
         let transcriber = FakeTranscriber(.suspended)
         let state = makeState(
@@ -77,7 +77,7 @@ struct AppStateLearningTests {
     @Test
     func archiveFinalizationDoesNotDelayDeliveryAndHonorsOptOut() async throws {
         let settings = makeTestSettings()
-        settings.setGlossaryLearningForTesting(true)
+        settings.privacyOptIns.setGlossaryLearning(true)
         let recorder = FakeRecorder()
         recorder.finishesStreamOnStop = false
         let archive = SpyRecordingArchive()
@@ -92,7 +92,7 @@ struct AppStateLearningTests {
         await expectState(state, .idle)
         #expect(await archive.snapshot().commits.isEmpty)
 
-        settings.setGlossaryLearningForTesting(false)
+        settings.privacyOptIns.setGlossaryLearning(false)
         recorder.finishesStreamOnStop = true
         recorder.stop()
         await expectArchiveDiscardCount(archive, 1)
@@ -123,7 +123,7 @@ struct AppStateLearningTests {
     @Test
     func failedLearningRunNeverPublishesRecording() async throws {
         let settings = makeTestSettings()
-        settings.setGlossaryLearningForTesting(true)
+        settings.privacyOptIns.setGlossaryLearning(true)
         let archive = SpyRecordingArchive()
         let state = makeState(
             settings: settings,
@@ -145,7 +145,7 @@ struct AppStateLearningTests {
     @Test
     func emptyTranscriptLearningRunLeavesNoRecording() async throws {
         let settings = makeTestSettings()
-        settings.setGlossaryLearningForTesting(true)
+        settings.privacyOptIns.setGlossaryLearning(true)
         let archive = SpyRecordingArchive()
         let state = makeState(
             settings: settings,
@@ -167,7 +167,7 @@ struct AppStateLearningTests {
     @Test
     func disablingLearningDuringActiveRunPreventsCommit() async throws {
         let settings = makeTestSettings()
-        settings.setGlossaryLearningForTesting(true)
+        settings.privacyOptIns.setGlossaryLearning(true)
         let archive = SpyRecordingArchive()
         let transcriber = FakeTranscriber(.suspended)
         let pasteboard = SpyPasteboard()
@@ -180,7 +180,7 @@ struct AppStateLearningTests {
 
         state.triggerPressed()
         await transcriber.waitForCall()
-        await state.privacyOptIns.setGlossaryLearning(false).value
+        await state.settings.privacyOptIns.setGlossaryLearning(false).value
         state.triggerReleased()
         await transcriber.succeed("bom dia, tudo bem?")
         await expectPasteboardWrites(pasteboard, ["Good morning, how are you?"])

@@ -159,6 +159,55 @@ struct SpeechModelManagerTests {
         #expect(fixture.log.calls == ["download", "download cancelled"])
     }
 
+    /// A cancelled download that is slow to stop: it holds on until the next download starts, or
+    /// 300 ms. The next download must wait for it, since both use the same staging folder.
+    @Test func aNewDownloadWaitsForACancelledOneToStop() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: testDomainName("SpeechModelOverlap"), directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let downloads = OverlapLog()
+        let secondStarted = AsyncStream<Void>.makeStream()
+        let manager = SpeechModelManager(
+            engine: .parakeetUltra,
+            operations: .init(
+                modelsExist: { _ in false },
+                download: { _, _ in
+                    let call = downloads.begin()
+                    defer { downloads.end() }
+                    guard call == 1 else {
+                        secondStarted.continuation.yield()
+                        return
+                    }
+                    do {
+                        try await Task.sleep(for: .seconds(3_600))
+                    } catch {
+                        // A task of its own, which the download's cancellation does not reach, as a
+                        // real downloader finishing a file write is not cut short.
+                        await Task {
+                            await withTaskGroup(of: Void.self) { group in
+                                group.addTask { for await _ in secondStarted.stream { return } }
+                                group.addTask { try? await Task.sleep(for: .milliseconds(300)) }
+                                await group.next()
+                                group.cancelAll()
+                            }
+                        }.value
+                        throw error
+                    }
+                },
+                load: { _ in },
+                unload: {}
+            ),
+            isSupported: true,
+            storageDirectory: root
+        )
+        manager.download()
+        await eventually { downloads.calls == 1 }
+        manager.cancelDownload()
+        manager.download()
+        await waitFor(.ready, in: manager)
+        #expect(downloads.calls == 2)
+        #expect(downloads.mostAtOnce == 1)
+    }
+
     @Test func deleteWhileDownloadingCancelsTheDownloadThenRemovesWhatItFetched() async throws {
         let fixture = try Fixture(onDisk: false, downloadsWaitForCancel: true)
         let staging = SpeechModelManager.stagingDirectory(for: fixture.manager.directory)
@@ -221,6 +270,26 @@ struct SpeechModelManagerTests {
     private func waitFor(_ expected: SpeechModelState, in manager: SpeechModelManager) async {
         await eventually { manager.state == expected }
         #expect(manager.state == expected)
+    }
+}
+
+/// Counts downloads and the most that ran at the same time.
+private final class OverlapLog: Sendable {
+    private let state = Mutex((calls: 0, running: 0, mostAtOnce: 0))
+    var calls: Int { state.withLock { $0.calls } }
+    var mostAtOnce: Int { state.withLock { $0.mostAtOnce } }
+
+    func begin() -> Int {
+        state.withLock {
+            $0.calls += 1
+            $0.running += 1
+            $0.mostAtOnce = max($0.mostAtOnce, $0.running)
+            return $0.calls
+        }
+    }
+
+    func end() {
+        state.withLock { $0.running -= 1 }
     }
 }
 

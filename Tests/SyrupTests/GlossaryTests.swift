@@ -223,6 +223,24 @@ struct GlossaryTests {
         #expect(userDefaults.data(forKey: "workflowListV3.unreadable.unrelated-key-prefix-check") != nil)
     }
 
+    /// Backups left by an earlier build, beside the current blob's own: finding its backup already
+    /// there still removes the others.
+    @Test
+    func olderBackupsGoEvenWhenTheCurrentOneAlreadyExists() throws {
+        let suiteName = testDomainName("SyrupTests")
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
+        defer { userDefaults.removePersistentDomain(forName: suiteName) }
+        let current = Data([0xFF]), older = Data([0xFE])
+        userDefaults.set(current, forKey: "glossaryV1")
+        userDefaults.set(current, forKey: AppSettings.unusableBlobBackupKey(for: current, key: "glossaryV1"))
+        userDefaults.set(older, forKey: AppSettings.unusableBlobBackupKey(for: older, key: "glossaryV1"))
+
+        _ = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
+
+        let backups = userDefaults.dictionaryRepresentation().keys.filter { $0.hasPrefix("glossaryV1.unreadable.") }
+        #expect(backups == [AppSettings.unusableBlobBackupKey(for: current, key: "glossaryV1")])
+    }
+
     /// A newer build's blob is not copied: it stays where it is and is never overwritten.
     @Test
     func aNewerBlobGetsNoBackup() throws {

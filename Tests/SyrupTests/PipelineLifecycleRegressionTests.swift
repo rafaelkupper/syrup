@@ -8,7 +8,7 @@ struct PipelineLifecycleRegressionTests {
     private func settings(learning: Bool = false) -> (AppSettings, String) {
         let name = testDomainName("SyrupReview")
         let settings = AppSettings(userDefaults: TestDefaults(suiteName: name)!, defaultMicrophoneIDProvider: { "" })
-        settings.setGlossaryLearningForTesting(learning)
+        settings.privacyOptIns.setGlossaryLearning(learning)
         settings.showRecordingCue = false
         settings.playSounds = false
         return (settings, name)

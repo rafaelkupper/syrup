@@ -23,6 +23,8 @@ enum HotkeyMode: String, CaseIterable, Identifiable, Sendable {
 @Observable
 final class AppSettings {
     @ObservationIgnored private let userDefaults: UserDefaults
+    /// The only way to change `persistHistory` and `glossaryLearningEnabled`.
+    @ObservationIgnored private(set) lazy var privacyOptIns = PrivacyOptIns(settings: self)
 
     var hotkeyMode: HotkeyMode {
         didSet {
@@ -612,7 +614,9 @@ final class AppSettings {
     /// key named by its digest, before the first edit replaces it. The copy is idempotent across launches.
     /// A newer build's blob is left alone: it stays in place, and `persistVersioned` never overwrites it.
     /// Only the newest backup per key is kept, since a backup holds user content (glossary terms,
-    /// workflow instructions) that would otherwise outlive the person deleting it from Settings.
+    /// workflow instructions) that would otherwise outlive the person deleting it from Settings: the
+    /// current blob's backup is the newest, so writing it, or finding it already there, removes the
+    /// key's others.
     static func preserveUnusableBlob(
         _ data: Data, forKey key: String, currentVersion: Int, name: String, in userDefaults: UserDefaults
     ) {
@@ -620,11 +624,11 @@ final class AppSettings {
             return
         }
         let backupKey = unusableBlobBackupKey(for: data, key: key)
-        guard userDefaults.data(forKey: backupKey) == nil else { return }
         for older in userDefaults.dictionaryRepresentation().keys
         where older.hasPrefix(key + ".unreadable.") && older != backupKey {
             userDefaults.removeObject(forKey: older)
         }
+        guard userDefaults.data(forKey: backupKey) == nil else { return }
         userDefaults.set(data, forKey: backupKey)
         logger.notice("settings_blob_preserved blob=\(name, privacy: .public)")
     }
@@ -683,28 +687,36 @@ final class AppSettings {
     }
 }
 
-/// The only way to change the two privacy opt-ins. It holds what their opt-outs must delete, the
-/// history store and the recording archive the app keeps, fixed when the app starts, so no caller
-/// can turn one off without deleting what it kept. `AppSettings` lets only this file set them.
+/// The only way to change the two privacy opt-ins. Each `AppSettings` makes exactly one, and only
+/// this file can set the two settings or make another, so there is one supersession counter and no
+/// second owner without the stores. `AppState` attaches the stores the opt-outs must empty, the
+/// app's history store and recording archive, when it starts. Before that, nothing has been kept,
+/// so a change has nothing to delete.
 @MainActor
 final class PrivacyOptIns {
-    let settings: AppSettings
-    private let history: HistoryStore
-    /// Nil only for an app that keeps no recordings, which then has nothing to delete.
-    private let recordingArchive: (any RecordingArchiving)?
+    private unowned let settings: AppSettings
+    private var stores: (history: HistoryStore, recordingArchive: (any RecordingArchiving)?)?
     /// Counts learning changes, so an older opt-out cannot act after a newer choice.
     private var glossaryLearningChange = 0
 
-    init(settings: AppSettings, history: HistoryStore, recordingArchive: (any RecordingArchiving)?) {
+    fileprivate init(settings: AppSettings) {
         self.settings = settings
-        self.history = history
-        self.recordingArchive = recordingArchive
+    }
+
+    /// Called by `AppState` when it starts, with the stores it keeps. Another `AppState` on the same
+    /// settings, which tests build to stand in for a relaunch, replaces them: the opt-outs always empty
+    /// the stores of the app that is running.
+    func attach(history: HistoryStore, recordingArchive: (any RecordingArchiving)?) {
+        stores = (history, recordingArchive)
     }
 
     /// Keep history. The store acts first: turning it off deletes the file, and the setting follows
     /// only if that worked, so it never claims an opt-out it didn't honor.
     func setPersistHistory(_ isEnabled: Bool) async {
-        if await history.setPersistenceEnabled(isEnabled) { settings.persistHistory = isEnabled }
+        if let history = stores?.history {
+            guard await history.setPersistenceEnabled(isEnabled) else { return }
+        }
+        settings.persistHistory = isEnabled
     }
 
     /// Glossary learning. The setting changes at once, and turning it off deletes every pending
@@ -717,7 +729,7 @@ final class PrivacyOptIns {
         glossaryLearningChange += 1
         let change = glossaryLearningChange
         settings.glossaryLearningEnabled = isEnabled
-        guard isEnabled == false, let recordingArchive else { return Task {} }
+        guard isEnabled == false, let recordingArchive = stores?.recordingArchive else { return Task {} }
         return Task {
             guard glossaryLearningChange == change else { return }
             do {

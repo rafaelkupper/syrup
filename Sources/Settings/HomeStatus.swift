@@ -172,7 +172,8 @@ enum HomeStatus {
     /// build's development environment is overriding it, and the label says so.
     static func destination(provider: TranslationProvider, baseURL: String, resolvedHost: String?) -> String? {
         let saved = destination(provider: provider, baseURL: baseURL)
-        guard provider == .openAICompatible, let resolvedHost, resolvedHost != URL(string: baseURL)?.host() else {
+        let savedHost = URL(string: baseURL.trimmingCharacters(in: .whitespacesAndNewlines))?.host()
+        guard provider == .openAICompatible, let resolvedHost, resolvedHost != savedHost else {
             return saved
         }
         return "\(resolvedHost) (development override)"
@@ -187,7 +188,7 @@ enum HomeStatus {
         case .claudeCLI:
             "Anthropic, through Claude Code"
         case .openAICompatible:
-            URL(string: baseURL)?.host() ?? "Your OpenAI-compatible endpoint"
+            URL(string: baseURL.trimmingCharacters(in: .whitespacesAndNewlines))?.host() ?? "Your OpenAI-compatible endpoint"
         }
     }
 

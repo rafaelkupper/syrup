@@ -375,6 +375,26 @@ struct AppStateDeliveryTests {
         #expect(feedback.successSoundCount == 2)
     }
 
+    /// A failed write leaves an error on screen; the next Paste Last that copies clears it and shows
+    /// the copied checkmark instead.
+    @Test func pasteLastThatCopiesClearsAnErrorOnScreen() async {
+        let history = HistoryStore()
+        history.append(successfulRecord(output: "last success"))
+        let settings = makeTestSettings()
+        settings.autoPasteEnabled = true
+        let clipboard = SpyPasteboard()
+        clipboard.failuresRemaining = 1
+        let paster = SpyAutoPaster(isTrusted: false, pasteError: AutoPasteError.notTrusted)
+        let state = makeState(settings: settings, pasteboard: clipboard, history: history,
+                              autoPaster: paster, captureDeliveryTarget: { _ in nil })
+        await state.pasteLastResult()
+        #expect(state.pipelineState.isError)
+        await state.pasteLastResult()
+        #expect(state.pipelineState == .idle)
+        #expect(state.menuBarSymbol == AppState.menuBarSymbol(for: .idle, showingSuccess: true))
+        #expect(clipboard.writes == ["last success"])
+    }
+
     @Test func withAutomaticPasteOffPasteLastOnlyCopies() async {
         let history = HistoryStore()
         history.append(successfulRecord(output: "last success"))

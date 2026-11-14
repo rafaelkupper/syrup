@@ -2,8 +2,10 @@
 # Folder boundaries are conventions inside one target, so this check keeps them from eroding:
 # engine SDKs stay behind their seams, model code never imports UI frameworks, Core uses no type
 # from another folder, and only App/ composition code sees App/ types.
-# It is grep-based: comments and string literals are stripped first, so it can still miss a
-# reference built some other way. SYRUP_BOUNDARY_ROOT points it at another tree for its own tests.
+# It is grep-based: one-line string literals and comments are stripped first, so it can still miss
+# a reference built some other way. It does not understand multi-line or raw (#"..."#) strings,
+# block comments spanning lines, or nested type declarations, which can hide a name or flag one.
+# SYRUP_BOUNDARY_ROOT points it at another tree for its own tests.
 set -eu
 cd "${SYRUP_BOUNDARY_ROOT:-$(dirname "$0")/..}"
 status=0
@@ -43,9 +45,10 @@ never_in() {
     done
 }
 
-# Swift source with line comments, block comments on one line, and string literals removed.
+# Swift source with string literals, line comments, and block comments on one line removed. Strings
+# go first, so the `//` in a URL literal does not cut off the rest of its line.
 code_only() {
-    sed -E -e 's#//.*$##' -e 's#/\*.*\*/##g' -e 's/"([^"\\]|\\.)*"//g' "$1"
+    sed -E -e 's/"([^"\\]|\\.)*"//g' -e 's#//.*$##' -e 's#/\*.*\*/##g' "$1"
 }
 
 # Top-level type and free-function names declared under a folder.

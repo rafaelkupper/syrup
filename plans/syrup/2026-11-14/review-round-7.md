@@ -48,3 +48,5 @@ Branch `review-round-7`, from `main` at `4aa03c4`. Rafael on 2026-11-14: "Yes an
   - Mutation check: with the engine's session guard and the drain-loop cancellation check removed, `aCancelledRunCannotFeedItsLastSamplesToTheNextRun` and `aCallFromAnEarlierSessionIsRefused` fail.
   - First full run: 822 of 825 passed. The three failures were expectations that a run showing nothing sends a non-streamed request; updated, since every run now streams.
   - Found in my own review of the diff: a cancelled caller of the streamed `transform` got the partial text back; it now throws `CancellationError`, with a test.
+  - `script/ci_test.sh` passed on the final tree: boundary check, production build, 826 tests in 114 suites, no source warnings. That run's host-domain file came back after the exit sweep, as documented; the next run removes it.
+  - Committed as `d01646a` on `review-round-7` and fast-forwarded the local `main`; not pushed. The round-8 three-delegate review (Astra, Fable, Muse) started on `d01646a`.

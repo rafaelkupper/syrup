@@ -38,8 +38,6 @@ actor ParakeetEngine {
 
     init(model: Model) {
         self.model = model
-        AppLogger.mirrorsToConsole = false
-        AppLogger.minimumLevel = .fault
     }
 
     static func modelDirectory(in root: URL, model: Model) -> URL {
@@ -83,5 +81,14 @@ actor ParakeetEngine {
         var state = TdtDecoderState.make(decoderLayers: await manager.decoderLayerCount)
         let language = languageCode.flatMap(Language.init(rawValue:))
         return try await manager.transcribe(samples, decoderState: &state, language: language).text
+    }
+}
+
+/// FluidAudio's own logging can include transcript text, so it is turned down to faults, and off
+/// the console, before any FluidAudio engine exists: `SpeechModelCatalog.live` does it first.
+enum FluidAudioLogging {
+    static func silence() {
+        AppLogger.mirrorsToConsole = false
+        AppLogger.minimumLevel = .fault
     }
 }

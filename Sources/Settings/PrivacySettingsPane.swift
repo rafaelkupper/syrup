@@ -8,7 +8,6 @@ struct PrivacySettingsPane: View {
     @Bindable var history: HistoryStore
     let usageStats: UsageStatsStore
     let recordingArchive: (any RecordingArchiving)?
-    let privacyOptIns: PrivacyOptIns
     @Bindable var navigation: SettingsNavigation
     let permissions: PermissionStatusModel
     let autoPaster: any AutoPasting
@@ -169,7 +168,7 @@ struct PrivacySettingsPane: View {
         Binding {
             settings.persistHistory
         } set: { isEnabled in
-            Task { await privacyOptIns.setPersistHistory(isEnabled) }
+            Task { await settings.privacyOptIns.setPersistHistory(isEnabled) }
         }
     }
 

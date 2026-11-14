@@ -337,7 +337,7 @@ private final class Harness {
         self.clipboard = clipboard
         self.feedback = feedback
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
-        settings.setGlossaryLearningForTesting(archive != nil)
+        settings.privacyOptIns.setGlossaryLearning(archive != nil)
         settings.workflowList = WorkflowList(workflows: [Workflow(
             id: UUID(), name: "Dictate", kind: kind, dictationLocaleID: locale,
             translationProvider: nil, speechEngine: engine

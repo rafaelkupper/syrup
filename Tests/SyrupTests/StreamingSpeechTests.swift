@@ -203,6 +203,17 @@ struct StreamingSpeechTests {
         #expect(ParakeetUnifiedBackend.modelsExist(at: unified))
     }
 
+    /// FluidAudio's logging can carry transcript text. Building the catalog silences it, whichever
+    /// engine would have been built first.
+    @Test func buildingTheCatalogSilencesFluidAudioLogging() {
+        AppLogger.mirrorsToConsole = true
+        AppLogger.minimumLevel = .debug
+        let root = FileManager.default.temporaryDirectory.appending(path: testDomainName("Catalog"), directoryHint: .isDirectory)
+        _ = SpeechModelCatalog.live(storageDirectory: root)
+        #expect(AppLogger.mirrorsToConsole == false)
+        #expect(AppLogger.minimumLevel == .fault)
+    }
+
     @Test func modelFoldersMatchFluidAudio() {
         #expect(SpeechEngine.nemotronStreaming.modelFolder == Repo.nemotronMultilingual.folderName)
         #expect(SpeechEngine.parakeetUnifiedEN.modelFolder == Repo.parakeetUnified.folderName)

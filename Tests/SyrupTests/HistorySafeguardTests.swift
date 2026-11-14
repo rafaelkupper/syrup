@@ -14,7 +14,7 @@ struct HistorySafeguardTests {
         }
         let settings = fixtureSettings()
         let history = HistoryStore(persistenceEnabled: true, storageDirectory: directory)
-        await settings.privacyOptIns(history: history).setPersistHistory(true)
+        await settings.attachedOptIns(history: history).setPersistHistory(true)
         history.append(record("retained"))
         await history.flush()
         try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: directory.path)
@@ -23,7 +23,7 @@ struct HistorySafeguardTests {
         await history.flush()
         try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: directory.path)
         let state = appState(settings: settings, history: history)
-        await state.privacyOptIns.setPersistHistory(false)
+        await state.settings.privacyOptIns.setPersistHistory(false)
         #expect(settings.persistHistory)
         #expect(history.persistenceError != nil)
         #expect(FileManager.default.fileExists(atPath: directory.appending(path: "history.json").path))

@@ -34,7 +34,6 @@ struct GlossarySettingsView: View {
     @Bindable var settings: AppSettings
     @Bindable var navigation: SettingsNavigation
     let recordingArchive: (any RecordingArchiving)?
-    let privacyOptIns: PrivacyOptIns
     @Bindable var whisperModelManager: WhisperModelManager
     let learningCoordinator: GlossaryLearningCoordinator?
     @Environment(MishearingSuggestionModel.self) private var suggestions
@@ -451,7 +450,7 @@ struct GlossarySettingsView: View {
         Binding {
             settings.glossaryLearningEnabled
         } set: { isEnabled in
-            privacyOptIns.setGlossaryLearning(isEnabled)
+            settings.privacyOptIns.setGlossaryLearning(isEnabled)
             if isEnabled == false, whisperModelManager.state == .ready {
                 isConfirmingModelRemoval = true
             }

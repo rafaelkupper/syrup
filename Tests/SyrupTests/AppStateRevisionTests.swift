@@ -49,7 +49,7 @@ struct AppStateRevisionTests {
     @Test
     func successfulRevisionBecomesTheBaseForTheNextRevision() async throws {
         let settings = makeTestSettings()
-        settings.setGlossaryLearningForTesting(true)
+        settings.privacyOptIns.setGlossaryLearning(true)
         settings.addGlossaryTerm(GlossaryTerm(term: "Syrup", mishearings: ["sirup"]))
         let history = HistoryStore()
         history.append(successfulRecord(output: "Original result"))

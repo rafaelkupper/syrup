@@ -229,7 +229,7 @@ struct GlossaryLearningCoordinatorTests {
         let defaults = TestDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
-        settings.setGlossaryLearningForTesting(enabled)
+        settings.privacyOptIns.setGlossaryLearning(enabled)
         return settings
     }
 

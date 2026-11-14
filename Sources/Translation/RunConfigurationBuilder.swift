@@ -87,7 +87,8 @@ enum RunConfigurationBuilder {
     /// A retry of a failed record with `provider`, always with the current glossary. The instruction is
     /// composed again from the parts the record kept: target and tone, the custom workflow's own
     /// instruction, or the spoken adjustment. Only a custom record from an older build, which kept just
-    /// the rendered text, has its glossary block swapped in place. Returns the configuration and the
+    /// the rendered text, has its parts recovered from it first (`PromptBuilder.customPrompt(fromLegacy:)`).
+    /// The configuration's snapshot records what the retry sends. Returns the configuration and the
     /// text to transform, or nil when a revision record lost its captured base.
     static func retry(
         transformation: TransformationSnapshot, transcript: String, output: String?,

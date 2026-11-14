@@ -76,6 +76,66 @@ struct OpenAICompatibleTransformerTests {
         #expect(DripURLProtocol.streamFlags.withLock { $0 } == [true])
     }
 
+    /// A stream that keeps sending reasoning without ever answering is stopped at ten times the
+    /// inactivity timeout, though every chunk resets that timeout.
+    @Test
+    func aStreamThatNeverFinishesStopsAtTheOverallLimit() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [EndlessReasoningURLProtocol.self]
+        let transformer = OpenAICompatibleTransformer(
+            configuration: try Self.configuration(), session: URLSession(configuration: configuration),
+            timeoutInterval: 0.2
+        )
+        let clock = ContinuousClock(), started = clock.now
+        await #expect(throws: TranslationError.timedOut) {
+            _ = try await transformer.transform("hello", instruction: "Polish it.")
+        }
+        let elapsed = started.duration(to: clock.now)
+        #expect(elapsed >= .seconds(1.9) && elapsed < .seconds(5))
+    }
+
+    /// Some models accept only their default temperature. The request is sent once more without it,
+    /// streamed or not, and nothing else is retried.
+    @Test(arguments: [true, false])
+    func aModelThatRejectsTemperatureIsAskedAgainWithoutIt(streamed: Bool) async throws {
+        let sent = Mutex<[(temperature: Double?, stream: Bool)]>([])
+        let session = Self.stubbedSession { request in
+            let body = try Self.jsonBody(from: request)
+            let temperature = body["temperature"] as? Double, stream = body["stream"] as? Bool ?? false
+            sent.withLock { $0.append((temperature, stream)) }
+            if temperature != nil {
+                return Self.response(statusCode: 400, body: #"{"error":{"message":"Only the default (1) value is supported.","type":"invalid_request_error","param":"temperature","code":"unsupported_value"}}"#)
+            }
+            let (response, data) = Self.response(statusCode: 200, body: #"{"choices":[{"message":{"role":"assistant","content":"Hello"}}]}"#)
+            return (HTTPURLResponse(url: response.url!, statusCode: 200, httpVersion: nil,
+                                    headerFields: ["Content-Type": "application/json"])!, data)
+        }
+        defer { StubURLProtocol.reset() }
+        let transformer = OpenAICompatibleTransformer(configuration: try Self.configuration(), session: session)
+        let output = streamed
+            ? try await transformer.transform("hello", instruction: "Polish it.")
+            : try await transformer.transformWithUsage("hello", instruction: "Polish it.").text
+        #expect(output == "Hello")
+        let requests = sent.withLock { $0 }
+        #expect(requests.map(\.temperature) == [0.3, nil])
+        #expect(requests.allSatisfy { $0.stream == streamed })
+    }
+
+    @Test
+    func anotherRejectedParameterIsNotRetried() async throws {
+        let requests = Mutex(0)
+        let session = Self.stubbedSession { _ in
+            requests.withLock { $0 += 1 }
+            return Self.response(statusCode: 400, body: #"{"error":{"param":"model","code":"unsupported_value"}}"#)
+        }
+        defer { StubURLProtocol.reset() }
+        let transformer = OpenAICompatibleTransformer(configuration: try Self.configuration(), session: session)
+        await #expect(throws: TranslationError.httpStatus(400)) {
+            _ = try await transformer.transform("hello", instruction: "Polish it.")
+        }
+        #expect(requests.withLock { $0 } == 1)
+    }
+
     /// Cancelling the caller ends the stream early; that must not return the part that arrived.
     @Test
     func aCancelledTransformThrowsInsteadOfReturningPartOfTheAnswer() async throws {
@@ -942,6 +1002,27 @@ final class DripURLProtocol: URLProtocol, @unchecked Sendable {
             client?.urlProtocol(self, didLoad: Data((#"data: {"choices":[{"delta":{"content":"\#(word)"}}]}"# + "\n\n").utf8))
         }
         client?.urlProtocol(self, didLoad: Data("data: [DONE]\n\n".utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+}
+
+/// Streams a reasoning chunk every 100 ms for 3 seconds and never answers.
+final class EndlessReasoningURLProtocol: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        let url = request.url ?? URL(string: "https://example.com")!
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil,
+                                                              headerFields: ["Content-Type": "text/event-stream"])!,
+                            cacheStoragePolicy: .notAllowed)
+        let chunk = Data((#"data: {"choices":[{"delta":{"reasoning_content":"still thinking"}}]}"# + "\n\n").utf8)
+        for _ in 0..<30 {
+            client?.urlProtocol(self, didLoad: chunk)
+            Thread.sleep(forTimeInterval: 0.1)
+        }
         client?.urlProtocolDidFinishLoading(self)
     }
 

@@ -110,7 +110,8 @@ struct ProcessCommandRunner: CommandRunning {
                     throw CommandRunnerError.timedOut
                 }
 
-                let result = try await group.next() ?? CommandResult(exitCode: 0, stdout: Data(), stderr: Data())
+                // Both children return or throw, so the group always has a first result.
+                guard let result = try await group.next() else { throw CancellationError() }
                 group.cancelAll()
                 return result
             }
@@ -484,21 +485,22 @@ private actor RunningProcessBox {
 
     private var process: Process?
     private var terminationReason: TerminationReason?
+    private var escalation: Task<Void, Never>?
 
     func set(_ process: Process) {
         self.process = process
     }
 
-    func requestTermination(reason: TerminationReason, after graceNanoseconds: UInt64) async {
+    func requestTermination(reason: TerminationReason, after graceNanoseconds: UInt64) {
         if terminationReason == nil {
             terminationReason = reason
         }
 
-        await enforceTerminationIfRequested(after: graceNanoseconds)
+        enforceTerminationIfRequested(after: graceNanoseconds)
     }
 
-    func enforceTerminationIfRequested(after graceNanoseconds: UInt64) async {
-        guard terminationReason != nil else { return }
+    func enforceTerminationIfRequested(after graceNanoseconds: UInt64) {
+        guard terminationReason != nil, escalation == nil else { return }
         guard let process, process.isRunning else { return }
 
         // `Process` starts the CLI as the leader of its own process group, and the helpers it starts
@@ -507,15 +509,15 @@ private actor RunningProcessBox {
         let group = process.processIdentifier
         kill(-group, SIGTERM)
 
-        do {
-            try await Task.sleep(nanoseconds: graceNanoseconds)
-        } catch {
-            return
+        // The SIGKILL waits in a task of its own that nothing cancels. The caller is often the
+        // timeout race, which is cancelled as soon as the CLI exits on SIGTERM; a wait it owned
+        // would end there, and a helper that ignored SIGTERM would keep running. The group, and its
+        // ID, live on while any helper does. A helper that starts its own group or session is out
+        // of reach.
+        escalation = Task.detached {
+            try? await Task.sleep(nanoseconds: graceNanoseconds)
+            kill(-group, SIGKILL)
         }
-
-        // Also when the CLI itself has exited: helpers that ignored SIGTERM keep the group, and its
-        // ID, alive. A helper that starts its own group or session is out of reach.
-        kill(-group, SIGKILL)
     }
 
     func throwIfTerminationRequested() throws {

@@ -259,7 +259,7 @@ struct PipelineRunTests {
     @Test func quittingWaitsForACancelledRecordingToBeDiscarded() async throws {
         let (settings, defaults) = try settings()
         defer { defaults.removePersistentDomain(forName: suite) }
-        settings.setGlossaryLearningForTesting(true)
+        settings.privacyOptIns.setGlossaryLearning(true)
         let archive = HeldDiscardArchive()
         let recorder = FakeRecorder()
         let state = AppState.fixture(

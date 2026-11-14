@@ -49,6 +49,29 @@ struct CommandRunnerTests {
         #expect(kill(helper, 0) != 0)
     }
 
+    /// The CLI exits on SIGTERM at once, which ends the timeout race; its helper ignores SIGTERM.
+    /// The SIGKILL after the grace period must still reach the helper. The grace is longer than the
+    /// runner's wait for the output pipes (`drainGrace`, 500 ms), as the real 2 s one is: a shorter
+    /// one would send the SIGKILL while that wait still held the cancelled caller.
+    @MainActor @Test func aHelperThatIgnoresSIGTERMIsKilledAfterTheGracePeriod() async throws {
+        let runner = ProcessCommandRunner(killGraceNanoseconds: 1_000_000_000)
+        let pidFile = FileManager.default.temporaryDirectory.appending(path: "SyrupStubbornHelper.\(UUID()).pid")
+        defer { try? FileManager.default.removeItem(at: pidFile) }
+        let helper = #"/bin/sh -c 'trap "" TERM; echo $$ > "$PIDFILE"; exec /bin/sleep 30' &"#
+        await #expect(throws: CommandRunnerError.timedOut) {
+            _ = try await runner.run(
+                executableURL: URL(filePath: "/bin/sh"),
+                arguments: ["-c", helper + #" while [ ! -s "$PIDFILE" ]; do :; done; /bin/sleep 30"#], stdin: Data(),
+                environment: ["PATH": "/usr/bin:/bin", "PIDFILE": pidFile.path(percentEncoded: false)], timeout: 0.3
+            )
+        }
+        let pid = try #require(Int32(String(decoding: try Data(contentsOf: pidFile), as: UTF8.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines)))
+        await eventually("The helper that ignored SIGTERM is still running") { kill(pid, 0) != 0 }
+        #expect(kill(pid, 0) != 0)
+        if kill(pid, 0) == 0 { kill(pid, SIGKILL) }  // Only when the test failed, so nothing is left running.
+    }
+
     @Test func runawayOutputIsStoppedAtTheLimit() async throws {
         await #expect(throws: CommandRunnerError.outputTooLarge) {
             _ = try await sh("/usr/bin/yes", timeout: 20)

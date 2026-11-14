@@ -153,6 +153,49 @@ struct StreamingTransformerTests {
         await #expect(throws: Never.self) { try await task.value }
     }
 
+    /// Chunks with no text, repeated by a buggy server, must not hold a run open: only the chunk with
+    /// reasoning text after them resets the deadline.
+    @Test
+    func chunksWithoutTextDoNotResetTheInactivityDeadline() async {
+        let bytes = AsyncThrowingStream<UInt8, any Error>.makeStream()
+        let lines = AsyncStream<Void>.makeStream()
+        var lineIterator = lines.stream.makeAsyncIterator()
+        let sleeper = ManualStreamingInactivitySleeper()
+        let task = Task {
+            try await OpenAICompatibleTransformer.consumeSSE(
+                bytes: bytes.stream,
+                endpointHost: "example.com",
+                inactivityTimeout: .seconds(30),
+                inactivitySleeper: { duration in
+                    try await sleeper.sleep(for: duration)
+                },
+                lineObserver: {
+                    lines.continuation.yield()
+                },
+                onDelta: { _ in }
+            )
+        }
+
+        await sleeper.waitForCallCount(1)
+        for empty in [
+            #"data: {}"#, #"data: {"usage":{"total_tokens":3}}"#, #"data: {"choices":[{"delta":{}}]}"#,
+            #"data: {"choices":[{"delta":{"role":"assistant"}}]}"#, #"data: {"choices":[{"delta":{"content":""}}]}"#,
+        ] {
+            yield(empty + "\n", to: bytes.continuation)
+            _ = await lineIterator.next()
+        }
+        yield(#"data: {"choices":[{"delta":{"reasoning_content":"Thinking"}}]}"# + "\n", to: bytes.continuation)
+        _ = await lineIterator.next()
+        await sleeper.waitForCallCount(2)
+        await Task { @MainActor in }.value
+        #expect(await sleeper.callCount == 2)
+
+        await sleeper.resumeLatest()
+        await #expect(throws: TranslationError.timedOut) { try await task.value }
+        bytes.continuation.finish()
+        lines.continuation.finish()
+    }
+
     @Test
     func doneStopsConsumptionBeforeBufferedTransportFailure() async throws {
         let bytes = AsyncThrowingStream<UInt8, any Error>.makeStream()
