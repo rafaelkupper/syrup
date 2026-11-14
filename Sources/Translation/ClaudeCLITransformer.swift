@@ -186,7 +186,7 @@ struct ClaudeCLITransformer: TextTransformer {
 
         let stdout = String(decoding: result.stdout, as: UTF8.self)
         guard result.exitCode == 0 else {
-            throw Self.failure(exitCode: result.exitCode, output: stdout + "\n" + String(decoding: result.stderr, as: UTF8.self))
+            throw Self.failure(exitCode: result.exitCode, output: Self.errorText(stdout: stdout, stderr: result.stderr))
         }
         let normalized = ModelOutputNormalizer.normalize(
             stdout,
@@ -194,6 +194,15 @@ struct ClaudeCLITransformer: TextTransformer {
         )
         guard normalized.isEmpty == false else { throw TranslationError.claudeEmptyOutput }
         return normalized
+    }
+
+    /// What a failed run's message is matched against. In print mode Claude writes its own errors to
+    /// stdout as one line ("Not logged in · Please run /login", checked with Claude Code 2.x), not to
+    /// stderr, so stdout is needed; only its last line is used, so model text printed before a
+    /// failure, which may mention a "rate limit" or "/login", is never taken for Claude's error.
+    static func errorText(stdout: String, stderr: Data) -> String {
+        let lastLine = stdout.split(whereSeparator: \.isNewline).last { $0.contains { !$0.isWhitespace } } ?? ""
+        return String(lastLine) + "\n" + String(decoding: stderr, as: UTF8.self)
     }
 
     /// Claude reports a missing sign-in and plan limits as text with a non-zero exit.

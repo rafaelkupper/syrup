@@ -125,15 +125,15 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
                     throw TranslationError.invalidResponse
                 }
                 if [400, 422, 501].contains(httpResponse.statusCode) {
-                    let data = try await readResponseBody(bytes)
+                    let data = try await readResponseBodyWithTimeout(bytes)
                     if Self.isStreamingUnsupported(data) {
                         throw StreamingTransformError.requiresAtomicFallback
                     }
                 }
-                try validate(httpResponse)
+                try Self.validate(httpResponse)
 
                 if httpResponse.mimeType?.lowercased() == "application/json" {
-                    let data = try await readResponseBody(bytes)
+                    let data = try await readResponseBodyWithTimeout(bytes)
                     let result = try Self.decodeCompletion(
                         data,
                         keepsWrapperQuotes: ModelOutputNormalizer.requestsQuotes(input: text, instruction: instruction)
@@ -144,7 +144,6 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
                     return
                 }
 
-                let timeout = Duration.milliseconds(Int64(timeoutInterval * 1_000))
                 try await Self.consumeSSE(
                     bytes: bytes,
                     endpointHost: endpointHost,
@@ -175,18 +174,21 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
             streaming: false
         )
 
+        let keepsWrapperQuotes = ModelOutputNormalizer.requestsQuotes(input: text, instruction: instruction)
         do {
-            let (data, response) = try await session.data(for: request)
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw TranslationError.invalidResponse
+            // One deadline covers the reply's headers and its body together. The body goes through the
+            // bounded reader, not `data(for:)`, so a runaway body stops at the limit instead of being
+            // held in memory whole.
+            return try await withOperationTimeout(timeout, error: TranslationError.timedOut) { [session] in
+                let (bytes, response) = try await session.bytes(for: request)
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    throw TranslationError.invalidResponse
+                }
+
+                try Self.validate(httpResponse)
+                let data = try await Self.readResponseBody(bytes)
+                return try Self.decodeCompletion(data, keepsWrapperQuotes: keepsWrapperQuotes)
             }
-
-            try validate(httpResponse)
-
-            return try Self.decodeCompletion(
-                data,
-                keepsWrapperQuotes: ModelOutputNormalizer.requestsQuotes(input: text, instruction: instruction)
-            )
         } catch let error as TranslationError {
             throw error
         } catch let error as URLError {
@@ -221,6 +223,7 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
         switch reason {
         case "length": throw TranslationError.outputLimitReached
         case "content_filter": throw TranslationError.responseFiltered
+        case "error": throw TranslationError.providerReportedError
         default: break
         }
     }
@@ -235,20 +238,27 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
         return OpenAICompatibleTranslationResult(text: text, usage: response.usage)
     }
 
+    /// The most a reply may send, streamed or not. A chat answer is kilobytes; a streamed one carries
+    /// a few hundred bytes of framing per delta, so this still leaves room for long answers while
+    /// stopping a server or a looping model that never ends.
     static let responseBodyLimit = 8 * 1_024 * 1_024
 
-    private func readResponseBody(_ bytes: URLSession.AsyncBytes) async throws -> Data {
-        try await withOperationTimeout(
-            .milliseconds(Int64(timeoutInterval * 1_000)), error: TranslationError.timedOut
-        ) {
-            var data = Data()
-            for try await byte in bytes {
-                try Task.checkCancellation()
-                data.append(byte)
-                // A chat response is kilobytes; a server streaming without end is stopped here.
-                guard data.count <= Self.responseBodyLimit else { throw TranslationError.invalidResponse }
-            }
-            return data
+    private var timeout: Duration { .milliseconds(Int64(timeoutInterval * 1_000)) }
+
+    private static func readResponseBody(_ bytes: URLSession.AsyncBytes) async throws -> Data {
+        var data = Data()
+        for try await byte in bytes {
+            try Task.checkCancellation()
+            data.append(byte)
+            guard data.count <= responseBodyLimit else { throw TranslationError.responseTooLarge }
+        }
+        return data
+    }
+
+    /// A body read after the streaming request's headers, which have their own timeout.
+    private func readResponseBodyWithTimeout(_ bytes: URLSession.AsyncBytes) async throws -> Data {
+        try await withOperationTimeout(timeout, error: TranslationError.timedOut) {
+            try await Self.readResponseBody(bytes)
         }
     }
 
@@ -300,6 +310,7 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
         endpointHost: String,
         inactivityTimeout: Duration,
         inactivitySleeper: @escaping StreamingInactivitySleeper,
+        byteLimit: Int = responseBodyLimit,
         lineObserver: @escaping @Sendable () -> Void = {},
         onDelta: @escaping @Sendable (String) -> Void
     ) async throws where Bytes.Element == UInt8 {
@@ -318,8 +329,13 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
             do {
                 var parser = OpenAISSEParser()
                 var lineBytes: [UInt8] = []
+                var byteCount = 0
                 for try await byte in bytes {
                     try Task.checkCancellation()
+                    // Deltas keep the inactivity timer from firing, so a model stuck in a loop would
+                    // otherwise stream forever; a line that never ends would grow without bound.
+                    byteCount += 1
+                    guard byteCount <= byteLimit else { throw TranslationError.responseTooLarge }
                     lineBytes.append(byte)
                     guard byte == 0x0A || byte == 0x0D else { continue }
 
@@ -358,9 +374,12 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
                     eventContinuation.finish()
                     return
                 }
-                guard parser.didReceiveDone || parser.didReceiveStop else {
+                // `finish_reason: stop` then EOF is a complete answer from servers that never send `[DONE]`.
+                // EOF with neither marker is a dropped connection.
+                guard parser.didReceiveStop else {
                     throw TranslationError.cannotConnect(endpointHost)
                 }
+                eventContinuation.yield(.done)
                 eventContinuation.finish()
             } catch {
                 eventContinuation.finish(throwing: error)
@@ -430,7 +449,7 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
         return TranslationError.invalidResponse
     }
 
-    private func validate(_ response: HTTPURLResponse) throws {
+    private static func validate(_ response: HTTPURLResponse) throws {
         switch response.statusCode {
         case 200..<300:
             return

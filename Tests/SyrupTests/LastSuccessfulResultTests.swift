@@ -42,6 +42,10 @@ struct LastSuccessfulResultTests {
         #expect(state.lastResult == "old result")
         if paste { await state.pasteLastResult() } else { state.copyLastResult() }
         #expect(clipboard.writes == ["newest successful result"])
+
+        state.startRevision()
+        #expect(state.activeRun?.configuration.purpose == .revision(base: "newest successful result"))
+        state.cancelRequested()
     }
 
     private func settle(_ state: AppState) async {

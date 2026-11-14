@@ -131,7 +131,7 @@ private func runProcess(
     processBox: RunningProcessBox,
     killGraceNanoseconds: UInt64
 ) async throws -> CommandResult {
-    let metrics = CodexCLIProcessMetricsRecorder()
+    let metrics = CLIProcessMetricsRecorder(executableURL: executableURL)
     let process = Process()
     let stdinPipe = Pipe()
     let stdoutPipe = Pipe()
@@ -270,8 +270,8 @@ final class StdinFeeder: @unchecked Sendable {
                 } else if written < 0, errno == EAGAIN {
                     return false
                 } else {
-                    Logger(subsystem: "org.syrup.SyrupApp", category: "CodexCLI")
-                        .notice("codex_stdin_write_failed code=\(errno, privacy: .public)")
+                    Logger(subsystem: "org.syrup.SyrupApp", category: "CLIProvider")
+                        .notice("cli_stdin_write_failed code=\(errno, privacy: .public)")
                     break
                 }
             }
@@ -416,17 +416,22 @@ private final class PipeDataCollector: @unchecked Sendable {
     }
 }
 
-private final class CodexCLIProcessMetricsRecorder: @unchecked Sendable {
+/// Stage timings for one command-line provider run, Codex or Claude Code, named by `tool`.
+private final class CLIProcessMetricsRecorder: @unchecked Sendable {
     private let clock = ContinuousClock()
-    private let logger = Logger(subsystem: "org.syrup.SyrupApp", category: "CodexCLI")
+    private let logger = Logger(subsystem: "org.syrup.SyrupApp", category: "CLIProvider")
     private let commandID = UUID()
     private let commandStartedAt: ContinuousClock.Instant
+    /// "codex", "claude", or "cli": a fixed word, never the configured path.
+    private let tool: String
     private let lock = NSLock()
     private var didRecordFirstOutput = false
     private var didRecordCompletion = false
 
-    init() {
+    init(executableURL: URL) {
         commandStartedAt = clock.now
+        let name = executableURL.lastPathComponent.lowercased()
+        tool = name.contains("claude") ? "claude" : name.contains("codex") ? "codex" : "cli"
     }
 
     func measureSpawn(_ operation: () throws -> Void) throws {
@@ -465,7 +470,7 @@ private final class CodexCLIProcessMetricsRecorder: @unchecked Sendable {
     private func log(stage: String, startedAt: ContinuousClock.Instant, outcome: String) {
         let duration = startedAt.duration(to: clock.now)
         logger.info(
-            "codex_cli_stage=\(stage, privacy: .public) command_id=\(self.commandID.uuidString, privacy: .public) outcome=\(outcome, privacy: .public) duration_ms=\(duration.millisecondsDescription, privacy: .public)"
+            "cli_stage=\(stage, privacy: .public) tool=\(self.tool, privacy: .public) command_id=\(self.commandID.uuidString, privacy: .public) outcome=\(outcome, privacy: .public) duration_ms=\(duration.millisecondsDescription, privacy: .public)"
         )
     }
 }

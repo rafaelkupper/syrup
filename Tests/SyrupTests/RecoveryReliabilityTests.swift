@@ -275,9 +275,9 @@ struct RecoveryReliabilityTests {
         let directory = FileManager.default.temporaryDirectory.appending(path: testDomainName("SyrupRecoveryHistory"))
         defer { try? FileManager.default.removeItem(at: directory) }
         let settings = settings()
-        settings.persistHistory = true
         settings.updateWorkflow(id: settings.activeWorkflow.id) { $0.input = .selection }
         let history = HistoryStore(persistenceEnabled: true, storageDirectory: directory)
+        await settings.setPersistHistory(true, history: history)
         let transformer = FakeTextTransformer(.success("Transformed fixture output"))
         let pasteboard = RecoverablePasteboard()
         let state = AppState.fixture(
@@ -360,7 +360,7 @@ struct RecoveryReliabilityTests {
         await waitUntil { gate.waiter != nil }
         state.cancelRequested()
         gate.release()
-        await Task.yield()
+        await state.waitForPendingWork()
         #expect(state.pipelineState == .idle)
         #expect(await transformer.callCount == 0)
         #expect(state.history.records.isEmpty)

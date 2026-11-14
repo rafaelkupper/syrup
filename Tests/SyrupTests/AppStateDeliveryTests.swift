@@ -290,8 +290,12 @@ struct AppStateDeliveryTests {
         if !trusted { typist.startError = AutoPasteError.notTrusted }
         let history = HistoryStore()
         history.append(successfulRecord(output: "last success"))
-        let state = makeState(pasteboard: clipboard, feedback: feedback, history: history,
-                              autoPaster: paster, streamingTypistFactory: { typist })
+        let settings = makeTestSettings()
+        settings.autoPasteEnabled = true
+        // Without Accessibility no editor can be captured, as in the app.
+        let state = makeState(settings: settings, pasteboard: clipboard, feedback: feedback, history: history,
+                              autoPaster: paster, streamingTypistFactory: { typist },
+                              captureDeliveryTarget: { _ in trusted ? DeliveryTarget(checkCurrent: { true }) : nil })
         await state.pasteLastResult()
         #expect(clipboard.writes == ["last success"])
         #expect(history.records.count == 1)
@@ -305,12 +309,74 @@ struct AppStateDeliveryTests {
         #expect(clipboard.writes.count == 1)
     }
 
+    @Test(arguments: [true, false])
+    func aRunWithNoCapturedEditorSaysWhyInsteadOfEditorChanged(trusted: Bool) async {
+        let settings = makeTestSettings()
+        settings.autoPasteEnabled = true
+        settings.pinDeliveryTarget = true
+        let pasteboard = SpyPasteboard(), feedback = SpyFeedback(), paster = SpyAutoPaster(isTrusted: trusted)
+        let state = makeState(settings: settings, pasteboard: pasteboard, feedback: feedback,
+                              autoPaster: paster, captureDeliveryTarget: { _ in nil })
+        state.triggerPressed()
+        state.triggerReleased()
+        await expectPasteboardWrites(pasteboard, ["Good morning, how are you?"])
+        await expectState(state, .idle)
+        #expect(paster.pasteCount == 0)
+        if trusted {
+            #expect(feedback.errorMessages == ["No text field had focus - the result was copied."])
+        } else {
+            #expect(feedback.autoPasteNotTrustedCount == 1)
+            #expect(feedback.errorMessages.isEmpty)
+        }
+    }
+
+    @Test(arguments: [true, false])
+    func pasteLastWithNoCapturedEditorSaysWhyInsteadOfEditorChanged(trusted: Bool) async {
+        let history = HistoryStore()
+        history.append(successfulRecord(output: "last success"))
+        let settings = makeTestSettings()
+        settings.autoPasteEnabled = true
+        settings.pinDeliveryTarget = true
+        let clipboard = SpyPasteboard(), feedback = SpyFeedback(), paster = SpyAutoPaster(isTrusted: trusted)
+        let typist = SpyStreamingTypist()
+        let state = makeState(settings: settings, pasteboard: clipboard, feedback: feedback, history: history,
+                              autoPaster: paster, streamingTypistFactory: { typist },
+                              captureDeliveryTarget: { _ in nil })
+        await state.pasteLastResult()
+        #expect(clipboard.writes == ["last success"])
+        #expect(paster.pasteCount == 0)
+        #expect(typist.appendedDeltas.isEmpty)
+        if trusted {
+            #expect(feedback.errorMessages == ["No text field had focus - the result was copied."])
+        } else {
+            #expect(feedback.autoPasteNotTrustedCount == 1)
+            #expect(feedback.errorMessages.isEmpty)
+        }
+    }
+
+    @Test func withAutomaticPasteOffPasteLastOnlyCopies() async {
+        let history = HistoryStore()
+        history.append(successfulRecord(output: "last success"))
+        let clipboard = SpyPasteboard(), paster = SpyAutoPaster(), typist = SpyStreamingTypist()
+        let settings = makeTestSettings()
+        settings.autoPasteEnabled = false
+        let state = makeState(settings: settings, pasteboard: clipboard, history: history,
+                              autoPaster: paster, streamingTypistFactory: { typist })
+        await state.pasteLastResult()
+        #expect(clipboard.writes == ["last success"])
+        #expect(paster.pasteCount == 0)
+        #expect(typist.appendedDeltas.isEmpty)
+        #expect(history.records.count == 1)
+    }
+
     @Test func pasteLastDelayCannotPostIntoANewRun() async {
         let history = HistoryStore()
         history.append(successfulRecord(output: "previous"))
         let clipboard = SpyPasteboard(), paster = SpyAutoPaster()
         let sleeper = ManualResetSleeper()
-        let state = makeState(transcriber: FakeTranscriber(.suspended), pasteboard: clipboard,
+        let settings = makeTestSettings()
+        settings.autoPasteEnabled = true
+        let state = makeState(settings: settings, transcriber: FakeTranscriber(.suspended), pasteboard: clipboard,
                               history: history, autoPaster: paster,
                               autoPasteSleeper: { try await sleeper.sleep(nanoseconds: $0) })
         let paste = Task { await state.pasteLastResult() }
@@ -677,7 +743,7 @@ struct AppStateDeliveryTests {
         await sleeper.waitForCancellationCount(1)
         await sleeper.resumeCall(0, throwing: CancellationError())
         streamPair.continuation.finish()
-        await Task.yield()
+        await state.waitForPendingWork()
 
         #expect(state.pipelineState == .idle)
         #expect(postedChunks.isEmpty)

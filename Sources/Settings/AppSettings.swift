@@ -157,7 +157,8 @@ final class AppSettings {
     var transformsOnPause: Bool {
         didSet { userDefaults.set(transformsOnPause, forKey: Self.transformsOnPauseKey) }
     }
-    var persistHistory: Bool {
+    /// Changes only through `setPersistHistory`, so nothing can skip deleting the file on opt-out.
+    private(set) var persistHistory: Bool {
         didSet {
             userDefaults.set(persistHistory, forKey: Self.persistHistoryKey)
         }
@@ -172,11 +173,14 @@ final class AppSettings {
             userDefaults.set(includeCommonTechTerms, forKey: Self.includeCommonTechTermsKey)
         }
     }
-    var glossaryLearningEnabled: Bool {
+    /// Changes only through `setGlossaryLearning`, so nothing can skip deleting recordings on opt-out.
+    private(set) var glossaryLearningEnabled: Bool {
         didSet {
             userDefaults.set(glossaryLearningEnabled, forKey: Self.glossaryLearningEnabledKey)
         }
     }
+    /// Counts learning changes, so an older opt-out's failed deletion cannot undo a newer choice.
+    @ObservationIgnored private var glossaryLearningChange = 0
     var showLiveTranscript: Bool {
         didSet {
             userDefaults.set(showLiveTranscript, forKey: Self.showLiveTranscriptKey)
@@ -397,6 +401,45 @@ final class AppSettings {
         workflowList.updateWorkflow(id: id, update)
     }
 
+    /// Checks the active workflow's dictation language against what this Mac can transcribe, and
+    /// stores the replacement `findReplacement` returns, if any. The workflow and its language are read
+    /// before the check; if that workflow's language changed meanwhile, the replacement is dropped, and
+    /// switching workflows meanwhile never moves it onto another one.
+    func refreshActiveDictationLocale(findReplacement: (String) async -> String?) async {
+        let workflow = activeWorkflow
+        guard let replacement = await findReplacement(workflow.dictationLocaleID),
+              workflowList.workflows.first(where: { $0.id == workflow.id })?.dictationLocaleID == workflow.dictationLocaleID
+        else { return }
+        updateWorkflow(id: workflow.id) { $0.dictationLocaleID = replacement }
+    }
+
+    // MARK: - Privacy opt-ins
+
+    /// The only way to change Keep history. The store acts first: turning it off deletes the file, and
+    /// the setting follows only if that worked, so it never claims an opt-out it didn't honor.
+    func setPersistHistory(_ isEnabled: Bool, history: HistoryStore) async {
+        if await history.setPersistenceEnabled(isEnabled) { persistHistory = isEnabled }
+    }
+
+    /// The only way to change glossary learning. Turning it off deletes every pending recording; if that
+    /// fails the setting goes back on, so Syrup never claims an opt-out it didn't honor, unless a later
+    /// change superseded this one. The setting changes at once, and the returned task finishes the
+    /// deletion.
+    @discardableResult
+    func setGlossaryLearning(_ isEnabled: Bool, recordingArchive: (any RecordingArchiving)?) -> Task<Void, Never> {
+        glossaryLearningChange += 1
+        let change = glossaryLearningChange
+        glossaryLearningEnabled = isEnabled
+        guard isEnabled == false, let recordingArchive else { return Task {} }
+        return Task {
+            do {
+                try await recordingArchive.deleteAll()
+            } catch {
+                if glossaryLearningChange == change { glossaryLearningEnabled = true }
+            }
+        }
+    }
+
     @discardableResult
     func addWorkflow(from template: WorkflowTemplate) -> UUID {
         let workflow = template.workflow(dictationLocaleID: activeWorkflow.dictationLocaleID)
@@ -615,8 +658,7 @@ final class AppSettings {
         let data = current ?? userDefaults.data(forKey: legacyWorkflowListKey)
         if let data,
            let decoded = try? JSONDecoder().decode(WorkflowList.self, from: data),
-           (1...WorkflowList.currentVersion).contains(decoded.version),
-           decoded.workflows.isEmpty == false {
+           (1...WorkflowList.currentVersion).contains(decoded.version) {
             var upgraded = decoded
             upgraded.version = WorkflowList.currentVersion
             if current == nil || decoded.version < WorkflowList.currentVersion,

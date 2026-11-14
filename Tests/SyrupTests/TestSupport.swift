@@ -7,6 +7,7 @@ import Testing
 /// `org.syrup.SyrupIsolatedTests.<token>`; a plain `xcodebuild test` uses "local".
 enum TestRun {
     static let isolatedBundlePrefix = "org.syrup.SyrupIsolatedTests."
+    static let domainNamespace = "org.syrup.tests"
 
     static var token: String {
         token(bundleIdentifier: Bundle.main.bundleIdentifier)
@@ -19,11 +20,22 @@ enum TestRun {
     }
 }
 
-/// A unique name for a test's preference domain or scratch item: `<prefix>.<run token>.<UUID>`.
-/// The run token lets `script/test-isolated.sh` remove only its own run's preference files, so
-/// concurrent runs never delete each other's.
+/// A unique name for a test's preference domain or scratch item:
+/// `org.syrup.tests.<run token>.<prefix>.<UUID>`. Every test domain lives under that one namespace, so
+/// `script/test-isolated.sh` can remove a run's preference files without matching anything another
+/// app owns, and the run token keeps concurrent runs from deleting each other's.
 func testDomainName(_ prefix: String) -> String {
-    "\(prefix).\(TestRun.token).\(UUID().uuidString)"
+    "\(TestRun.domainNamespace).\(TestRun.token).\(prefix).\(UUID().uuidString)"
+}
+
+/// A history store whose persistence is already on, so `AppSettings.setPersistHistory(true, ...)`
+/// succeeds without writing anything. Its folder is never created.
+@MainActor
+func enabledHistoryStore() -> HistoryStore {
+    HistoryStore(
+        persistenceEnabled: true,
+        storageDirectory: FileManager.default.temporaryDirectory.appending(path: testDomainName("SyrupUnusedHistory"))
+    )
 }
 
 /// Waits until `condition` holds. Between checks it yields, and every so often sleeps briefly so

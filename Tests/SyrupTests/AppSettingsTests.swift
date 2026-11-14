@@ -90,7 +90,7 @@ struct AppSettingsTests {
     }
 
     @Test
-    func milestone7SettingsPersistRawValuesInUserDefaults() throws {
+    func milestone7SettingsPersistRawValuesInUserDefaults() async throws {
         let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer {
@@ -115,10 +115,10 @@ struct AppSettingsTests {
         settings.lowerOtherAudioWhileRecording = true
         settings.autoPasteEnabled = true
         settings.streamingDeliveryEnabled = true
-        settings.persistHistory = true
+        await settings.setPersistHistory(true, history: enabledHistoryStore())
         settings.showRecordingCue = false
         settings.includeCommonTechTerms = false
-        settings.glossaryLearningEnabled = true
+        settings.setGlossaryLearning(true, recordingArchive: nil)
         settings.showLiveTranscript = false
         settings.maximumRecordingDurationSeconds = 180
         settings.selectedMicrophoneID = "input-device-uid"
@@ -176,21 +176,28 @@ struct AppSettingsTests {
         )
         let archive = SpyRecordingArchive()
 
-        await applyGlossaryLearningRetentionChange(
-            isEnabled: true,
-            settings: settings,
-            recordingArchive: archive,
-            revertsSettingOnFailure: true
-        )
+        await settings.setGlossaryLearning(true, recordingArchive: archive).value
         #expect(await archive.snapshot().deleteAllCount == 0)
 
-        await applyGlossaryLearningRetentionChange(
-            isEnabled: false,
-            settings: settings,
-            recordingArchive: archive,
-            revertsSettingOnFailure: true
-        )
+        await settings.setGlossaryLearning(false, recordingArchive: archive).value
         #expect(await archive.snapshot().deleteAllCount == 1)
+    }
+
+    @Test(arguments: [false, true])
+    func turningLearningOffDeletesRecordingsWithoutAnyView(deletionFails: Bool) async throws {
+        let suiteName = testDomainName("SyrupTests")
+        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { userDefaults.removePersistentDomain(forName: suiteName) }
+        let settings = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
+        settings.setGlossaryLearning(true, recordingArchive: nil)
+        let archive = deletionFails ? SpyRecordingArchive(deleteAllError: .deleteAllFailed(code: 513)) : SpyRecordingArchive()
+
+        let deletion = settings.setGlossaryLearning(false, recordingArchive: archive)
+        #expect(settings.glossaryLearningEnabled == false)
+        await deletion.value
+
+        #expect(await archive.snapshot().deleteAllCount == 1)
+        #expect(settings.glossaryLearningEnabled == deletionFails)
     }
 
     @Test
@@ -202,41 +209,75 @@ struct AppSettingsTests {
             userDefaults: userDefaults,
             defaultMicrophoneIDProvider: { "" }
         )
-        settings.glossaryLearningEnabled = false
         let archive = SpyRecordingArchive(deleteAllError: .deleteAllFailed(code: 513))
 
-        await applyGlossaryLearningRetentionChange(
-            isEnabled: false,
-            settings: settings,
-            recordingArchive: archive,
-            revertsSettingOnFailure: false
-        )
+        await deleteLeftoverRecordingsIfLearningIsOff(settings: settings, recordingArchive: archive)
 
         #expect(settings.glossaryLearningEnabled == false)
         #expect(await archive.snapshot().deleteAllCount == 1)
     }
 
+    /// Off, on, off again: the first deletion fails after the second succeeded. The person's latest
+    /// choice, off, stands.
     @Test
-    func failedGlossaryLearningDeletionKeepsTheOptInEnabled() async throws {
+    func anOlderFailedOptOutCannotUndoANewerOne() async throws {
         let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer { userDefaults.removePersistentDomain(forName: suiteName) }
-        let settings = AppSettings(
-            userDefaults: userDefaults,
-            defaultMicrophoneIDProvider: { "" }
-        )
-        settings.glossaryLearningEnabled = false
-        let archive = SpyRecordingArchive(deleteAllError: .deleteAllFailed(code: 513))
+        let settings = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
+        settings.setGlossaryLearning(true, recordingArchive: nil)
+        let failing = SpyRecordingArchive(deleteAllError: .deleteAllFailed(code: 513)), working = SpyRecordingArchive()
 
-        await applyGlossaryLearningRetentionChange(
-            isEnabled: false,
-            settings: settings,
-            recordingArchive: archive,
-            revertsSettingOnFailure: true
-        )
+        let first = settings.setGlossaryLearning(false, recordingArchive: failing)
+        settings.setGlossaryLearning(true, recordingArchive: nil)
+        let second = settings.setGlossaryLearning(false, recordingArchive: working)
+        await second.value
+        await first.value
 
-        #expect(settings.glossaryLearningEnabled)
-        #expect(await archive.snapshot().deleteAllCount == 1)
+        #expect(await failing.snapshot().deleteAllCount == 1)
+        #expect(await working.snapshot().deleteAllCount == 1)
+        #expect(settings.glossaryLearningEnabled == false)
+    }
+
+    /// The language check awaits Speech. A workflow switch meanwhile must not move the replacement
+    /// onto the newly active workflow.
+    @Test
+    func aDictationLocaleReplacementStaysOnTheWorkflowItWasFoundFor() async throws {
+        let suiteName = testDomainName("SyrupTests")
+        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { userDefaults.removePersistentDomain(forName: suiteName) }
+        let settings = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
+        let first = settings.activeWorkflow.id
+        settings.updateWorkflow(id: first) { $0.dictationLocaleID = "xx-XX" }
+        let second = settings.addWorkflow(from: WorkflowTemplate(id: "other", name: "Other", kind: .transcribeOnly(cleanup: false)))
+        settings.updateWorkflow(id: second) { $0.dictationLocaleID = "pt-BR" }
+        settings.setActiveWorkflowID(first)
+
+        await settings.refreshActiveDictationLocale { localeID in
+            #expect(localeID == "xx-XX")
+            settings.setActiveWorkflowID(second)
+            return "en-US"
+        }
+
+        #expect(settings.workflow(id: first).dictationLocaleID == "en-US")
+        #expect(settings.workflow(id: second).dictationLocaleID == "pt-BR")
+    }
+
+    @Test
+    func aDictationLocaleEditedDuringTheCheckIsKept() async throws {
+        let suiteName = testDomainName("SyrupTests")
+        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { userDefaults.removePersistentDomain(forName: suiteName) }
+        let settings = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
+        let workflow = settings.activeWorkflow.id
+        settings.updateWorkflow(id: workflow) { $0.dictationLocaleID = "xx-XX" }
+
+        await settings.refreshActiveDictationLocale { _ in
+            settings.updateWorkflow(id: workflow) { $0.dictationLocaleID = "fr-FR" }
+            return "en-US"
+        }
+
+        #expect(settings.workflow(id: workflow).dictationLocaleID == "fr-FR")
     }
 
     @Test

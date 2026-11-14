@@ -137,12 +137,7 @@ struct SyrupApp: App {
         }
         Task { @MainActor in
             let learningEnabled = appState.settings.glossaryLearningEnabled
-            await applyGlossaryLearningRetentionChange(
-                isEnabled: learningEnabled,
-                settings: appState.settings,
-                recordingArchive: recordingArchive,
-                revertsSettingOnFailure: false
-            )
+            await deleteLeftoverRecordingsIfLearningIsOff(settings: appState.settings, recordingArchive: recordingArchive)
             if learningEnabled {
                 _ = await recordingArchive.pendingEntries()
             }

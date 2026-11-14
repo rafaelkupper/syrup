@@ -109,6 +109,16 @@ struct ParakeetPipelineTests {
         #expect(harness.state.usageStats.stats.isEmpty)
     }
 
+    @Test func turningStatsOnMidRunDoesNotCountThatRun() async throws {
+        let harness = try Harness(apple: FakeTranscriber(.success("apple words")), parakeet: FakeTranscriber(.success("parakeet words")))
+        harness.state.settings.keepsUsageStats = false
+        harness.state.triggerPressed()
+        harness.state.settings.keepsUsageStats = true
+        harness.state.triggerReleased()
+        await harness.settle(until: .idle)
+        #expect(harness.state.usageStats.stats.isEmpty)
+    }
+
     @Test func aFailedRunCountsNothing() async throws {
         let harness = try Harness(
             apple: FakeTranscriber(.success("apple words")), parakeet: FakeTranscriber(.success("parakeet words")),
@@ -327,7 +337,7 @@ private final class Harness {
         self.clipboard = clipboard
         self.feedback = feedback
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
-        settings.glossaryLearningEnabled = archive != nil
+        settings.setGlossaryLearning(archive != nil, recordingArchive: nil)
         settings.workflowList = WorkflowList(workflows: [Workflow(
             id: UUID(), name: "Dictate", kind: kind, dictationLocaleID: locale,
             translationProvider: nil, speechEngine: engine

@@ -82,6 +82,10 @@ func userMessage(for error: Error) -> String {
             return "The model stopped before finishing - try a shorter input or another model."
         case .responseFiltered:
             return "The model declined part of this content - the result was not delivered."
+        case .providerReportedError:
+            return "The model reported an error before finishing - the result was not delivered."
+        case .responseTooLarge:
+            return "The model returned far more text than expected and was stopped"
         case .cannotConnect(let host):
             return "Can't reach \(host)"
         case .timedOut:

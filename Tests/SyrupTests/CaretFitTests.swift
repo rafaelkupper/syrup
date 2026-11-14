@@ -101,12 +101,13 @@ struct CaretFitDeliveryTests {
         await fixture.run(state)
         fixture.settings.autoPasteEnabled = autoPaste
         await state.pasteLastResult()
-        #expect(fixture.clipboard.writes == ["então vamos", "então vamos"])
+        // With automatic paste off, Paste Last copies the exact result and reads nothing.
+        #expect(fixture.clipboard.writes == ["então vamos", autoPaste ? "então vamos" : "Então vamos."])
         #expect(fixture.typist.appendedDeltas.isEmpty)
-        #expect(fixture.paster.pasteCount == 2)
+        #expect(fixture.paster.pasteCount == (autoPaste ? 2 : 1))
         #expect(state.history.records.count == 1)
         #expect(state.history.records.first?.output == "Então vamos.")
-        #expect(fixture.reads.value.withLock { $0 } == 2)
+        #expect(fixture.reads.value.withLock { $0 } == (autoPaste ? 2 : 1))
     }
 
     @Test func automaticPasteOffStillFitsTheClipboard() async {

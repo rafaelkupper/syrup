@@ -101,12 +101,50 @@ struct SpeechModelManagerTests {
             try Data("weights".utf8).write(to: folder.appending(path: "Encoder.bin"))
         }
         SpeechModelCatalog(managers: [.parakeetUltra: fixture.manager], transcribers: [:]).replaceRetiredParakeetV3()
-        #expect(fileManager.fileExists(atPath: retired.path(percentEncoded: false)) == false)
-        #expect(fileManager.fileExists(atPath: sibling.path(percentEncoded: false)))
+        // v3 stays until Ultra is on disk.
+        #expect(fileManager.fileExists(atPath: retired.path(percentEncoded: false)))
         #expect(fixture.manager.state == .downloading(0))
         await fixture.gate.open()
         await waitFor(.ready, in: fixture.manager)
+        #expect(fileManager.fileExists(atPath: retired.path(percentEncoded: false)) == false)
+        #expect(fileManager.fileExists(atPath: sibling.path(percentEncoded: false)))
         #expect(fixture.log.calls == ["download", "load"])
+    }
+
+    /// An incomplete folder already at the destination is replaced, instead of failing the move on
+    /// every retry. A complete model is never downloaded, so it is never replaced.
+    @Test func aDownloadReplacesAnIncompleteModelFolder() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: testDomainName("SpeechModelStaging"), directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let directory = root.appending(path: "model", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try Data("partial".utf8).write(to: directory.appending(path: "leftover.bin"))
+        let complete: @Sendable (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.appending(path: "weights.bin").path(percentEncoded: false)) }
+
+        try await SpeechModelCatalog.stagedDownload(into: directory, modelsExist: complete, download: { staging, _ in
+            let model = staging.appending(path: "model", directoryHint: .isDirectory)
+            try FileManager.default.createDirectory(at: model, withIntermediateDirectories: true)
+            try Data("weights".utf8).write(to: model.appending(path: "weights.bin"))
+        }, progress: { _ in })
+
+        #expect(complete(directory))
+        #expect(FileManager.default.fileExists(atPath: directory.appending(path: "leftover.bin").path(percentEncoded: false)) == false)
+        #expect(FileManager.default.fileExists(atPath: SpeechModelManager.stagingDirectory(for: directory).path(percentEncoded: false)) == false)
+    }
+
+    @Test func aFailedUltraDownloadKeepsParakeetV3SoTheNextLaunchTriesAgain() async throws {
+        let fixture = try Fixture(onDisk: false, failingDownloads: 1)
+        let retired = fixture.root.appending(path: SpeechEngine.retiredParakeetV3Folder, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: retired, withIntermediateDirectories: true)
+        let catalog = SpeechModelCatalog(managers: [.parakeetUltra: fixture.manager], transcribers: [:])
+        catalog.replaceRetiredParakeetV3()
+        await fixture.gate.open()
+        await waitFor(.failed("Download failed."), in: fixture.manager)
+        #expect(FileManager.default.fileExists(atPath: retired.path(percentEncoded: false)))
+
+        catalog.replaceRetiredParakeetV3()
+        await waitFor(.ready, in: fixture.manager)
+        #expect(FileManager.default.fileExists(atPath: retired.path(percentEncoded: false)) == false)
     }
 
     @Test func withoutAParakeetV3DownloadNothingDownloads() async throws {

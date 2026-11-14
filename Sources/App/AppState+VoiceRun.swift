@@ -94,7 +94,7 @@ extension AppState {
                 run?.pauseCheckTask = nil
             }
         }
-        if settings.glossaryLearningEnabled, let recordingArchive {
+        if run.learnsFromRecording, settings.glossaryLearningEnabled, let recordingArchive {
             do {
                 let fileURL = try await recordingArchive.beginEntry(id: runID)
                 work.provisionalRecordingID = runID
@@ -326,6 +326,7 @@ extension AppState {
             } else {
                 rawTranscript
             }
+            // An opt-out made while this recording was filed wins over the run's frozen opt-in.
             if archived, settings.glossaryLearningEnabled, appleTranscript.isEmpty == false {
                 await recordingArchive.commitEntry(id: recordingID, localeID: configuration.dictationLocaleID, appleTranscript: appleTranscript)
             } else {
@@ -336,7 +337,7 @@ extension AppState {
 
     /// Counts only. The transcript is measured here and goes no further.
     private func recordUsage(rawTranscript: String, transcript: String, configuration: RunConfiguration, run: PipelineRun) {
-        guard settings.keepsUsageStats else { return }
+        guard run.keepsUsageStats, settings.keepsUsageStats else { return }
         var fixes = Correction.replacementCount(configuration.corrections, in: rawTranscript)
         switch configuration.purpose {
         case .revision:

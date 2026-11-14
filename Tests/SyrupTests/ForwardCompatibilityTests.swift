@@ -53,4 +53,11 @@ struct ForwardCompatibilityTests {
 
         #expect(history.records == [kept])
     }
+
+    @Test func aWorkflowListWithNoWorkflowsFailsToDecodeInsteadOfTrappingLater() {
+        let json = #"{"version":3,"workflows":[],"activeWorkflowID":"\#(UUID().uuidString)"}"#
+        #expect(throws: DecodingError.self) {
+            _ = try JSONDecoder().decode(WorkflowList.self, from: Data(json.utf8))
+        }
+    }
 }

@@ -173,7 +173,7 @@ struct AppStateSelectionTests {
     @Test
     func selectionInputSkipsRecordingAndTranscription() async throws {
         let settings = makeTestSettings()
-        settings.glossaryLearningEnabled = true
+        settings.setGlossaryLearning(true, recordingArchive: nil)
         let summarizeSelection = try #require(
             WorkflowTemplate.templates().first { $0.id == "summarize-selection" }
         )

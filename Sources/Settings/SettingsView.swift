@@ -123,14 +123,9 @@ struct SettingsView: View {
     }
 
     private func refreshDictationLocales() async {
-        if let replacementLocaleID = await assetManager.refreshSupportedLocales(
-            selecting: settings.activeWorkflow.dictationLocaleID
-        ) {
-            settings.updateWorkflow(id: settings.activeWorkflow.id) { workflow in
-                workflow.dictationLocaleID = replacementLocaleID
-            }
+        await settings.refreshActiveDictationLocale { [assetManager] localeID in
+            await assetManager.refreshSupportedLocales(selecting: localeID)
         }
-
         assetManager.prepareSelectedLocale(settings.activeWorkflow.dictationLocaleID)
     }
 

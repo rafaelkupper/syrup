@@ -145,6 +145,21 @@ struct ClipboardWriterTests {
     }
 
     @Test
+    func anItemPastTheLimitIsLostButTheItemsThatFitComeBack() {
+        let small = NSPasteboardItem(), large = NSPasteboardItem(), after = NSPasteboardItem()
+        _ = small.setString("note", forType: .string)
+        _ = large.setString(String(repeating: "x", count: 100), forType: .string)
+        _ = after.setString("tail", forType: .string)
+        let pasteboard = FakeClipboardPasteboard(items: [small, large, after], setResults: [false])
+        let writer = ClipboardWriter(pasteboard: pasteboard, snapshotByteLimit: 16)
+
+        #expect(throws: ClipboardError.writeFailedPreviousContentLost) {
+            try writer.write("New clipboard")
+        }
+        #expect(pasteboard.pasteboardItems?.map { $0.string(forType: .string) } == ["note", "tail"])
+    }
+
+    @Test
     func failedWriteRestoresTextWhenExistingPasteboardIsWithinSnapshotLimit() {
         let pasteboard = FakeClipboardPasteboard(
             storedString: "Small previous text",

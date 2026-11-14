@@ -25,6 +25,9 @@ final class HistoryStore: HistoryRecording {
     @ObservationIgnored private var isPersistenceEnabled: Bool
     @ObservationIgnored private let disk: HistoryDisk
     @ObservationIgnored private var pendingWrite: Task<Void, Never>?
+    /// Records made while persistence was off. They stay in memory for this session and are never
+    /// written, even after persistence is turned on: keeping history applies from that moment on.
+    @ObservationIgnored private var memoryOnlyIDs: Set<UUID> = []
 
     init(
         capacity: Int = HistoryStore.defaultCapacity,
@@ -49,6 +52,8 @@ final class HistoryStore: HistoryRecording {
         if records.count > capacity {
             records.removeLast(records.count - capacity)
         }
+        if isPersistenceEnabled == false { memoryOnlyIDs.insert(record.id) }
+        memoryOnlyIDs.formIntersection(records.map(\.id))
         saveIfNeeded()
     }
 
@@ -61,6 +66,7 @@ final class HistoryStore: HistoryRecording {
         do {
             try await disk.delete()
             records.removeAll { removedIDs.contains($0.id) }
+            memoryOnlyIDs.subtract(removedIDs)
             persistenceError = nil
             isChangingPersistence = false
             if records.isEmpty == false { saveIfNeeded() }
@@ -87,6 +93,7 @@ final class HistoryStore: HistoryRecording {
         do {
             try await disk.delete()
             isPersistenceEnabled = false
+            memoryOnlyIDs = Set(records.map(\.id))
             persistenceError = nil
             isChangingPersistence = false
             return true
@@ -115,7 +122,7 @@ final class HistoryStore: HistoryRecording {
 
     private func saveIfNeeded() {
         guard isPersistenceEnabled, isChangingPersistence == false else { return }
-        let snapshot = records
+        let snapshot = records.filter { memoryOnlyIDs.contains($0.id) == false }
         let previous = pendingWrite
         pendingWrite = Task { [weak self, disk] in
             await previous?.value

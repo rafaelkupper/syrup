@@ -147,6 +147,11 @@ struct WorkflowList: Equatable, Sendable, Codable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         version = try container.decodeIfPresent(Int.self, forKey: .version) ?? 1
         workflows = try container.decode([Workflow].self, forKey: .workflows)
+        guard workflows.isEmpty == false else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .workflows, in: container, debugDescription: "A workflow list needs at least one workflow."
+            )
+        }
         appRouting = try container.decodeIfPresent([String: UUID].self, forKey: .appRouting) ?? [:]
         activeWorkflowID = try container.decode(UUID.self, forKey: .activeWorkflowID)
         normalize()

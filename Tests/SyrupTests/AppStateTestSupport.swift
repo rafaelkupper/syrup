@@ -38,9 +38,14 @@ func verifyFailedVoiceContextMiss(
     )
 
     let record = try #require(history.records.first, sourceLocation: sourceLocation)
+    guard case .custom(let base, let enforcesOutputContract) = replyDraft.kind else {
+        Issue.record("Reply Draft is a custom workflow", sourceLocation: sourceLocation)
+        return
+    }
     #expect(record.transformation == .custom(
         workflowName: "Reply Draft",
-        instruction: PromptBuilder.instruction(for: replyDraft.kind)
+        instruction: PromptBuilder.instruction(for: replyDraft.kind),
+        prompt: .init(base: base, enforcesOutputContract: enforcesOutputContract)
     ), sourceLocation: sourceLocation)
     #expect(record.canUseTranscriptFallback, sourceLocation: sourceLocation)
     #expect(record.canRetry, sourceLocation: sourceLocation)
@@ -93,7 +98,8 @@ func makeState(
     recordingClock: any RecordingClock = FastForwardClock(),
     installHotkeys: Bool = false,
     selectionReader: any SelectionReading = FakeSelectionReader(.empty),
-    recordingArchive: (any RecordingArchiving)? = nil
+    recordingArchive: (any RecordingArchiving)? = nil,
+    captureDeliveryTarget: @escaping @MainActor (pid_t?) async -> DeliveryTarget? = { _ in DeliveryTarget(checkCurrent: { true }) }
 ) -> AppState {
     AppState.fixture(
         settings: settings ?? makeTestSettings(),
@@ -119,7 +125,7 @@ func makeState(
         installHotkeys: installHotkeys,
         selectionReader: selectionReader,
         recordingArchive: recordingArchive,
-        captureDeliveryTarget: { _ in DeliveryTarget(checkCurrent: { true }) }
+        captureDeliveryTarget: captureDeliveryTarget
     )
 }
 

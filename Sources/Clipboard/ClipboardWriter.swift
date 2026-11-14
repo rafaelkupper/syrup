@@ -83,19 +83,13 @@ private struct PasteboardSnapshot {
             )
 
             didSkipData = didSkipData || snapshot.didSkipData
+            // An item past the remaining limit comes back empty and is lost on its own; the items
+            // that fit, before or after it, still come back. So the total never passes the limit.
             guard snapshot.values.isEmpty == false else {
                 lostItem = lostItem || item.types.isEmpty == false
                 continue
             }
-
             byteCount += snapshot.byteCount
-            if byteCount > captureLimit {
-                didSkipData = true
-                lostItem = true
-                items = []
-                break
-            }
-
             items.append(snapshot)
         }
 

@@ -78,6 +78,10 @@ final class DeliveryCoordinator {
         isCurrentRun: @escaping @MainActor () -> Bool
     ) async throws {
         guard isCurrentRun(), run.autoPasteEnabled else { return }
+        if run.pinsDeliveryTarget, run.deliveryTarget == nil {
+            notifyNoCapturedTarget()
+            return
+        }
         guard await targetIsCurrent(run), isCurrentRun() else {
             if isCurrentRun() { feedback.notifyError(message: "The editor changed - the full result was copied.") }
             return
@@ -136,15 +140,28 @@ final class DeliveryCoordinator {
             }
             if case .commandV(let keyCode) = strategy { try autoPaster.paste(keyCode: keyCode) }
         } catch AutoPasteError.notTrusted {
-            if didNotifyAutoPasteNotTrusted == false {
-                didNotifyAutoPasteNotTrusted = true
-                feedback.notifyAutoPasteNotTrusted()
-            }
+            notifyNotTrustedOnce()
         } catch AutoPasteError.secureInputActive {
             feedback.notifyAutoPasteSecureInput()
         } catch {
             feedback.notifyError(message: "Typing stopped - the full result was copied.")
         }
+    }
+
+    /// A pinned delivery found no editor to capture, so nothing changed: Accessibility is off, or no
+    /// field had focus. Says which, instead of "the editor changed". The result is on the clipboard.
+    func notifyNoCapturedTarget() {
+        if autoPaster.isTrusted {
+            feedback.notifyError(message: "No text field had focus - the result was copied.")
+        } else {
+            notifyNotTrustedOnce()
+        }
+    }
+
+    private func notifyNotTrustedOnce() {
+        guard didNotifyAutoPasteNotTrusted == false else { return }
+        didNotifyAutoPasteNotTrusted = true
+        feedback.notifyAutoPasteNotTrusted()
     }
 
     /// Tells the person why streamed typing stopped before the end; the full result is on the clipboard.

@@ -130,8 +130,6 @@ struct CodexCLITransformer: TextTransformer, @unchecked Sendable {
             + ["-"]
     }
 
-    static let stderrTailBytes = 2_048
-
     func transform(_ text: String, instruction: String) async throws -> String {
         guard fileManager.isReadableFile(atPath: configuration.authFileURL.path(percentEncoded: false)) else {
             throw TranslationError.codexNotSignedIn
@@ -144,9 +142,11 @@ struct CodexCLITransformer: TextTransformer, @unchecked Sendable {
             try? fileManager.removeItem(at: temporaryDirectory)
         }
 
+        let boundary = UUID().uuidString
         let prompt = PromptBuilder.fencedPrompt(
             instruction: instruction,
-            transcript: text
+            transcript: text,
+            boundary: boundary
         )
         let arguments = Self.arguments(workingDirectory: temporaryDirectory, model: configuration.model)
 
@@ -165,7 +165,7 @@ struct CodexCLITransformer: TextTransformer, @unchecked Sendable {
             throw TranslationError.cliOutputTooLarge(.codexCLI)
         }
 
-        try mapFailureIfNeeded(result)
+        try Self.mapFailureIfNeeded(result, inputBoundary: boundary)
 
         let output = String(decoding: result.stdout, as: UTF8.self)
         let normalizedOutput = ModelOutputNormalizer.normalize(
@@ -179,13 +179,20 @@ struct CodexCLITransformer: TextTransformer, @unchecked Sendable {
         return normalizedOutput
     }
 
-    private func mapFailureIfNeeded(_ result: CommandResult) throws {
+    /// Codex echoes the prompt to stderr before its own messages, so only what follows the input's
+    /// closing marker is matched: a dictation that mentions "rate limit" must not read as a plan limit.
+    /// The marker carries a random boundary the input cannot forge. Without it (no echo, or the echo
+    /// fell out of the kept tail), everything kept is Codex's own output.
+    static func codexMessages(in stderr: Data, inputBoundary: String) -> String {
+        let text = String(decoding: stderr, as: UTF8.self)
+        guard let marker = text.range(of: "END INPUT \(inputBoundary)", options: .backwards) else { return text }
+        return String(text[marker.upperBound...])
+    }
+
+    private static func mapFailureIfNeeded(_ result: CommandResult, inputBoundary: String) throws {
         guard result.exitCode != 0 else { return }
 
-        // Codex echoes the prompt to stderr before its own messages, so only the tail is matched: a
-        // dictation that mentions "rate limit" must not read as a plan limit.
-        let stderr = String(decoding: result.stderr.suffix(Self.stderrTailBytes), as: UTF8.self)
-        let lowercasedStderr = stderr.lowercased()
+        let lowercasedStderr = codexMessages(in: result.stderr, inputBoundary: inputBoundary).lowercased()
 
         if lowercasedStderr.contains("codex login")
             || lowercasedStderr.contains("not signed in")

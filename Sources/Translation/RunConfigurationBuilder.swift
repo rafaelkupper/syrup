@@ -68,12 +68,7 @@ enum RunConfigurationBuilder {
     static func revision(
         _ configuration: RunConfiguration, adjustment: String, glossaryBlock: String?
     ) -> RunConfiguration {
-        let instruction = PromptBuilder.compose(
-            base: PromptBuilder.revisionInstruction(adjustment: adjustment),
-            glossary: glossaryBlock,
-            context: nil,
-            contract: PromptBuilder.outputContract
-        )
+        let instruction = revisionInstruction(adjustment: adjustment, glossaryBlock: glossaryBlock)
         return RunConfiguration(
             workflowID: configuration.workflowID,
             workflowName: configuration.workflowName,
@@ -89,9 +84,11 @@ enum RunConfigurationBuilder {
         )
     }
 
-    /// A retry of a failed record with `provider`. A translation snapshot is recomposed with the current
-    /// glossary; other snapshots reuse their saved instruction. Returns the configuration and the text to
-    /// transform, or nil when a revision record lost its captured base.
+    /// A retry of a failed record with `provider`, always with the current glossary. The instruction is
+    /// composed again from the parts the record kept: target and tone, the custom workflow's own
+    /// instruction, or the spoken adjustment. Only a custom record from an older build, which kept just
+    /// the rendered text, has its glossary block swapped in place. Returns the configuration and the
+    /// text to transform, or nil when a revision record lost its captured base.
     static func retry(
         transformation: TransformationSnapshot, transcript: String, output: String?,
         provider: TranslationProvider, activeWorkflow: Workflow,
@@ -108,13 +105,23 @@ enum RunConfigurationBuilder {
             inputText = transcript
             purpose = .dictation
         }
-        let instruction = if case .translation(let targetLanguage, let toneInstruction) = transformation {
+        let instruction = switch transformation {
+        case .translation(let targetLanguage, let toneInstruction):
             PromptBuilder.systemPrompt(
                 targetLanguage: targetLanguage, toneInstruction: toneInstruction,
                 glossary: glossary, dictation: dictation
             )
-        } else {
-            transformation.instruction
+        case .custom(_, _, let prompt?):
+            PromptBuilder.instruction(
+                for: .custom(instruction: prompt.base, enforceOutputContract: prompt.enforcesOutputContract),
+                glossary: glossary
+            )
+        case .custom(_, let rendered, nil):
+            PromptBuilder.replacingGlossary(in: rendered, with: glossary)
+        case .revision(let adjustment, _):
+            revisionInstruction(adjustment: adjustment, glossaryBlock: PromptBuilder.glossaryBlock(for: glossary))
+        case .contextual(_, let rendered):
+            rendered
         }
         let configuration = RunConfiguration(
             workflowID: activeWorkflow.id,
@@ -126,6 +133,16 @@ enum RunConfigurationBuilder {
             purpose: purpose
         )
         return (configuration, inputText)
+    }
+
+    /// A revision's instruction: the adjustment, the glossary block, and the output contract.
+    private static func revisionInstruction(adjustment: String, glossaryBlock: String?) -> String {
+        PromptBuilder.compose(
+            base: PromptBuilder.revisionInstruction(adjustment: adjustment),
+            glossary: glossaryBlock,
+            context: nil,
+            contract: PromptBuilder.outputContract
+        )
     }
 
     private static func snapshot(
@@ -140,22 +157,13 @@ enum RunConfigurationBuilder {
                 targetLanguage: targetLanguage,
                 toneInstruction: tonePreset.instruction(customText: customToneText)
             )
-        case .custom:
-            return .custom(workflowName: workflow.name, instruction: instruction)
+        case .custom(let base, let enforcesOutputContract):
+            return .custom(
+                workflowName: workflow.name, instruction: instruction,
+                prompt: .init(base: base, enforcesOutputContract: enforcesOutputContract)
+            )
         case .transcribeOnly:
             return .contextual(workflowName: workflow.name, instruction: "")
-        }
-    }
-}
-
-extension TransformationSnapshot {
-    /// The instruction a retry sends. Translation snapshots keep target and tone, not a rendered prompt.
-    var instruction: String {
-        switch self {
-        case .translation(let targetLanguage, let toneInstruction):
-            PromptBuilder.systemPrompt(targetLanguage: targetLanguage, toneInstruction: toneInstruction)
-        case .custom(_, let instruction), .revision(_, let instruction), .contextual(_, let instruction):
-            instruction
         }
     }
 }

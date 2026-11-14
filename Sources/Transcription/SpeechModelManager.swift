@@ -44,7 +44,8 @@ final class SpeechModelManager: SpeechModelProviding {
         )
     }
 
-    func download() {
+    /// `onDownloaded` runs once the model is on disk, before it loads.
+    func download(onDownloaded: (@MainActor () -> Void)? = nil) {
         switch state {
         case .notDownloaded, .failed:
             break
@@ -62,6 +63,7 @@ final class SpeechModelManager: SpeechModelProviding {
                 try await operations.download(directory) { fraction in
                     Task { @MainActor in self.updateDownloadProgress(fraction, generation: generation) }
                 }
+                onDownloaded?()
                 guard generation == self.generation else { return }
                 await load(generation: generation)
             } catch is CancellationError {

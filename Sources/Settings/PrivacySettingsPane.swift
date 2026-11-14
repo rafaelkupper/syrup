@@ -99,7 +99,7 @@ struct PrivacySettingsPane: View {
                     .labelsHidden()
             } label: {
                 Text("Keep history across restarts")
-                Text(settings.persistHistory ? "Stored on this Mac" : "Off: the last \(HistoryStore.defaultCapacity) results stay in memory until Syrup quits")
+                Text(settings.persistHistory ? "Results from now on are stored on this Mac" : "Off: the last \(HistoryStore.defaultCapacity) results stay in memory until Syrup quits. Turning it on keeps only later results.")
             }
             if let message = history.persistenceError {
                 Text(message)
@@ -156,9 +156,7 @@ struct PrivacySettingsPane: View {
         Binding {
             settings.persistHistory
         } set: { isEnabled in
-            Task {
-                if await history.setPersistenceEnabled(isEnabled) { settings.persistHistory = isEnabled }
-            }
+            Task { await settings.setPersistHistory(isEnabled, history: history) }
         }
     }
 

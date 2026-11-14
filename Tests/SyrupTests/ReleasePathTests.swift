@@ -227,7 +227,7 @@ struct ShortTapTests {
     func holdReleasedBefore300MillisecondsIsDiscardedSilently() async {
         let settings = makeRecordingSettings()
         settings.playSounds = true
-        settings.glossaryLearningEnabled = true
+        settings.setGlossaryLearning(true, recordingArchive: nil)
         let archive = SpyRecordingArchive()
         let cue = CueStateSpy()
         let fixture = RecordingFixture(settings: settings, recordingArchive: archive, recordingCue: cue)

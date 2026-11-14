@@ -31,6 +31,34 @@ struct OpenAICompatibleTransformerTests {
     }
 
     @Test
+    func anAtomicResponseLargerThanTheLimitIsRejected() async throws {
+        let session = Self.stubbedSession { _ in
+            let padding = String(repeating: "a", count: OpenAICompatibleTransformer.responseBodyLimit + 1_024)
+            return Self.response(statusCode: 200, body: #"{"choices":[{"message":{"role":"assistant","content":""# + padding + #""}}]}"#)
+        }
+        defer { StubURLProtocol.reset() }
+        let transformer = OpenAICompatibleTransformer(configuration: try Self.configuration(), session: session)
+        await #expect(throws: TranslationError.responseTooLarge) {
+            _ = try await transformer.transform("hello", instruction: "Polish it.")
+        }
+    }
+
+    /// Headers and body each arrive within the timeout, but together they take longer: one deadline
+    /// covers both, so the request still times out.
+    @Test
+    func aReplyWhoseHeadersAndBodyTogetherTakeTooLongTimesOut() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [SlowURLProtocol.self]
+        let transformer = OpenAICompatibleTransformer(
+            configuration: try Self.configuration(), session: URLSession(configuration: configuration),
+            timeoutInterval: 1
+        )
+        await #expect(throws: TranslationError.timedOut) {
+            _ = try await transformer.transform("hello", instruction: "Polish it.")
+        }
+    }
+
+    @Test
     func chatCompletionsURLAppendsPathAfterStoredV1BaseURL() throws {
         let noSlashURL = try OpenAICompatibleTransformer.chatCompletionsURL(
             baseURL: try #require(URL(string: "https://example.com/v1"))
@@ -802,6 +830,24 @@ final class StubURLProtocol: URLProtocol, @unchecked Sendable {
         } catch {
             client?.urlProtocol(self, didFailWithError: error)
         }
+    }
+
+    override func stopLoading() {}
+}
+
+/// Sends the headers after 0.7 seconds and the body 0.7 seconds later.
+final class SlowURLProtocol: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        Thread.sleep(forTimeInterval: 0.7)
+        let url = request.url ?? URL(string: "https://example.com")!
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+                            cacheStoragePolicy: .notAllowed)
+        Thread.sleep(forTimeInterval: 0.7)
+        client?.urlProtocol(self, didLoad: Data(#"{"choices":[{"message":{"role":"assistant","content":"late"}}]}"#.utf8))
+        client?.urlProtocolDidFinishLoading(self)
     }
 
     override func stopLoading() {}

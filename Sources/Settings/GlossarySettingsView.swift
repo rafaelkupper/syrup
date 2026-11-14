@@ -84,16 +84,6 @@ struct GlossarySettingsView: View {
         .onChange(of: settings.glossaryList) { _, _ in
             synchronizeDrafts()
         }
-        .onChange(of: settings.glossaryLearningEnabled) { _, isEnabled in
-            Task {
-                await applyGlossaryLearningRetentionChange(
-                    isEnabled: isEnabled,
-                    settings: settings,
-                    recordingArchive: recordingArchive,
-                    revertsSettingOnFailure: true
-                )
-            }
-        }
         .confirmationDialog(
             "Delete the comparison model too?",
             isPresented: $isConfirmingModelRemoval,
@@ -454,13 +444,13 @@ struct GlossarySettingsView: View {
         learningCoordinator?.isRunning == true
     }
 
-    /// Turning learning off always deletes pending recordings (handled by the
-    /// onChange above); the model is a separate 626 MB decision, so ask.
+    /// Turning learning off always deletes pending recordings (`AppSettings.setGlossaryLearning`); the
+    /// model is a separate 626 MB decision, so ask.
     private var learningToggleBinding: Binding<Bool> {
         Binding {
             settings.glossaryLearningEnabled
         } set: { isEnabled in
-            settings.glossaryLearningEnabled = isEnabled
+            settings.setGlossaryLearning(isEnabled, recordingArchive: recordingArchive)
             if isEnabled == false, whisperModelManager.state == .ready {
                 isConfirmingModelRemoval = true
             }

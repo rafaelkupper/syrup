@@ -1,24 +1,13 @@
 import Foundation
 
-/// Deletes pending recordings whenever learning is (or already was) off.
-/// `revertsSettingOnFailure` is only correct for the interactive toggle: it
-/// keeps the UI honest when the opt-out couldn't be honored. At startup the
-/// setting was never changed by the user, so a failed cleanup must never flip
-/// a privacy opt-in on — it just retries on the next launch.
+/// At launch, deletes any recordings left from a time learning was on, when it is off now. A failed
+/// cleanup never turns the opt-in on: the person did not change it, so it just retries at the next
+/// launch. Changing the setting goes through `AppSettings.setGlossaryLearning`.
 @MainActor
-func applyGlossaryLearningRetentionChange(
-    isEnabled: Bool,
+func deleteLeftoverRecordingsIfLearningIsOff(
     settings: AppSettings,
-    recordingArchive: (any RecordingArchiving)?,
-    revertsSettingOnFailure: Bool
+    recordingArchive: (any RecordingArchiving)?
 ) async {
-    guard isEnabled == false, let recordingArchive else { return }
-
-    do {
-        try await recordingArchive.deleteAll()
-    } catch {
-        if revertsSettingOnFailure {
-            settings.glossaryLearningEnabled = true
-        }
-    }
+    guard settings.glossaryLearningEnabled == false, let recordingArchive else { return }
+    try? await recordingArchive.deleteAll()
 }

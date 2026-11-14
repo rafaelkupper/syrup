@@ -8,11 +8,6 @@ import Testing
 private final class FakeBackend: StreamingSpeechBackend, Sendable {
     let events = Mutex<[String]>([])
     let samples = Mutex<Int>(0)
-    let chunkDelay: Duration
-
-    init(chunkDelay: Duration = .zero) {
-        self.chunkDelay = chunkDelay
-    }
 
     func load(from directory: URL) async throws { events.withLock { $0.append("load") } }
     func unload() async { events.withLock { $0.append("unload") } }
@@ -24,7 +19,6 @@ private final class FakeBackend: StreamingSpeechBackend, Sendable {
 
     func append(_ samples: [Float]) async throws {
         events.withLock { $0.append("append start") }
-        if chunkDelay > .zero { try await Task.sleep(for: chunkDelay) }
         self.samples.withLock { $0 += samples.count }
         events.withLock { $0.append("append end") }
     }
@@ -35,6 +29,37 @@ private final class FakeBackend: StreamingSpeechBackend, Sendable {
     }
 }
 
+/// Holds an `append` inside the backend until the test releases it.
+private final class GatedBackend: StreamingSpeechBackend, Sendable {
+    let events = Mutex<[String]>([])
+    private let started = AsyncStream<Void>.makeStream()
+    private let release = AsyncStream<Void>.makeStream()
+
+    func load(from directory: URL) async throws { events.withLock { $0.append("load") } }
+    func unload() async {}
+    func begin(localeID: String, onPartialTranscript: (@Sendable (String) -> Void)?) async throws {
+        events.withLock { $0.append("begin \(localeID)") }
+    }
+
+    func append(_ samples: [Float]) async throws {
+        events.withLock { $0.append("append start") }
+        started.continuation.yield()
+        for await _ in release.stream { break }
+        events.withLock { $0.append("append end") }
+    }
+
+    func finish() async throws -> String { "" }
+
+    func appendStarted() async {
+        for await _ in started.stream { return }
+    }
+
+    func releaseAppend() {
+        release.continuation.yield()
+    }
+}
+
+@MainActor
 struct StreamingSpeechTests {
     private func audio(frames: AVAudioFrameCount = 1_600, buffers: Int = 3) -> AudioBufferSequence {
         let source = AudioBufferStream.make()
@@ -66,16 +91,21 @@ struct StreamingSpeechTests {
         #expect(backend.events.withLock { $0.first { $0.hasPrefix("begin") } } == "begin pt-BR")
     }
 
+    /// The cancelled run's chunk is held inside the backend until the next run's `begin` has joined
+    /// the queue, so the order below is the one under test in every schedule.
     @Test func aNewRunWaitsForTheChunkACancelledRunIsStillProcessing() async throws {
-        let backend = FakeBackend(chunkDelay: .milliseconds(30))
+        let backend = GatedBackend()
         let engine = StreamingSpeechEngine(backend: backend)
         try await engine.load(from: URL(fileURLWithPath: "/nonexistent"))
         let cancelled = Task { try await engine.append([0, 0]) }
-        await Task.yield()
+        await backend.appendStarted()
         cancelled.cancel()
-        try await engine.begin(localeID: "en-US", onPartialTranscript: nil)
-        let events = backend.events.withLock { $0 }.filter { $0 != "load" }
-        #expect(events.last == "begin en-US")
+        let next = Task { try await engine.begin(localeID: "en-US", onPartialTranscript: nil) }
+        await eventually { await engine.queuedOperations == 2 }
+        backend.releaseAppend()
+        try await next.value
+        _ = try? await cancelled.value
+        #expect(backend.events.withLock { $0 } == ["load", "append start", "append end", "begin en-US"])
     }
 
     @Test func modelFoldersMatchFluidAudio() {

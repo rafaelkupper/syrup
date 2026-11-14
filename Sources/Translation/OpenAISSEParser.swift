@@ -62,9 +62,11 @@ struct OpenAISSEParser: Sendable {
             throw TranslationError.invalidResponse
         }
 
+        // A router can report a provider failure mid-stream, then still send `[DONE]`.
+        guard response.reportsError == false else { throw TranslationError.providerReportedError }
         try OpenAICompatibleTransformer.validateFinishReason(response.choices.first?.finishReason)
         if response.choices.first?.finishReason == "stop" { didReceiveStop = true }
-        guard let content = response.choices.first?.delta.content,
+        guard let content = response.choices.first?.delta?.content,
               content.isEmpty == false else {
             return []
         }
@@ -73,10 +75,23 @@ struct OpenAISSEParser: Sendable {
 
     private struct Response: Decodable {
         let choices: [Choice]
+        /// The chunk carries an `error` object, with or without `choices`.
+        let reportsError: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case choices, error
+        }
+
+        init(from decoder: any Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            reportsError = try container.contains(.error) && container.decodeNil(forKey: .error) == false
+            choices = reportsError ? [] : try container.decode([Choice].self, forKey: .choices)
+        }
     }
 
     private struct Choice: Decodable {
-        let delta: Delta
+        /// Some servers send the final `finish_reason` chunk without a `delta`.
+        let delta: Delta?
         let finishReason: String?
 
         enum CodingKeys: String, CodingKey {

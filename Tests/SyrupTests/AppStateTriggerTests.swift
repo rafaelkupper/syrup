@@ -173,7 +173,7 @@ struct AppStateTriggerTests {
 
         state.triggerPressed()
         state.cancelRequested()
-        await Task.yield()
+        await state.waitForPendingWork()
 
         #expect(state.pipelineState == .idle)
         #expect(recorder.startCallCount == 0)
@@ -220,7 +220,7 @@ struct AppStateTriggerTests {
         state.cancelRequested()
         await expectState(state, .idle)
         await transcriber.waitForCancellation()
-        await Task.yield()
+        await state.waitForPendingWork()
 
         #expect(pasteboard.writes.isEmpty)
         #expect(state.canCopyTranscriptFallback == false)
@@ -241,7 +241,7 @@ struct AppStateTriggerTests {
 
         state.cancelRequested()
         await expectState(state, .idle)
-        await Task.yield()
+        await state.waitForPendingWork()
 
         #expect(pasteboard.writes.isEmpty)
         #expect(state.canCopyTranscriptFallback == false)

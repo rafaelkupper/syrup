@@ -528,6 +528,8 @@ actor RecordingCommandRunner: CommandRunning {
         case writeOutputWithStderr(String, String)
         case stdout(String)
         case missingOutput(exitCode: Int32, stderr: String)
+        /// Echoes the prompt to stderr, as `codex exec` does, then prints its own message.
+        case echoPromptThenFail(exitCode: Int32, message: String)
         case failure(CommandRunnerError)
     }
 
@@ -562,6 +564,8 @@ actor RecordingCommandRunner: CommandRunning {
             return CommandResult(exitCode: 0, stdout: Data(stdout.utf8), stderr: Data())
         case .missingOutput(let exitCode, let stderr):
             return CommandResult(exitCode: exitCode, stdout: Data(), stderr: Data(stderr.utf8))
+        case .echoPromptThenFail(let exitCode, let message):
+            return CommandResult(exitCode: exitCode, stdout: Data(), stderr: stdin + Data("\n".utf8) + Data(message.utf8))
         case .failure(let error):
             throw error
         }

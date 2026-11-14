@@ -18,6 +18,8 @@ actor StreamingSpeechEngine {
     private let backend: any StreamingSpeechBackend
     private var tail: Task<Void, Never>?
     private var isLoaded = false
+    /// Calls waiting or running, in order. Tests read it to know a call has joined the queue.
+    private(set) var queuedOperations = 0
 
     init(backend: any StreamingSpeechBackend) {
         self.backend = backend
@@ -50,6 +52,8 @@ actor StreamingSpeechEngine {
 
     private func inOrder<T: Sendable>(_ operation: @escaping @Sendable () async throws -> T) async throws -> T {
         let previous = tail
+        queuedOperations += 1
+        defer { queuedOperations -= 1 }
         let task = Task {
             await previous?.value
             return try await operation()

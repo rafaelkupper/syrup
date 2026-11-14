@@ -38,19 +38,11 @@ extension AppState {
     ) async throws -> String {
         guard isCurrentRun(runID) else { throw CancellationError() }
         try Task.checkCancellation()
-        let transformerTask: Task<any TextTransformer, Never>
-        if let preparedTransformerTask = preparedTransformerTask ?? activeRun?.preparedTransformer {
-            transformerTask = preparedTransformerTask
-        } else {
-            metrics.begin(.translationConfiguration, runID: runID)
-            let snapshot = transformerProvider.snapshot(for: configuration.provider)
-            transformerTask = Task { [metrics] in
-                let transformer = await snapshot.transformer(instruction: configuration.instruction)
-                await MainActor.run {
-                    metrics.end(.translationConfiguration, runID: runID)
-                }
-                return transformer
-            }
+        // Every run that transforms prepares its transformer when it starts (`prepareTransformer`), from
+        // the provider settings frozen at the trigger, so an endpoint edited mid-run waits for the next run.
+        guard let transformerTask = preparedTransformerTask ?? activeRun?.preparedTransformer else {
+            assertionFailure("A transformation run started without preparing its transformer")
+            throw CancellationError()
         }
 
         let transformer = await withTaskCancellationHandler {

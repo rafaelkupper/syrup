@@ -241,14 +241,9 @@ final class AppState {
     }
 
     func refreshDictationLocales() async {
-        if let replacementLocaleID = await transcriberAssetManager.refreshSupportedLocales(
-            selecting: settings.activeWorkflow.dictationLocaleID
-        ) {
-            settings.updateWorkflow(id: settings.activeWorkflow.id) { workflow in
-                workflow.dictationLocaleID = replacementLocaleID
-            }
+        await settings.refreshActiveDictationLocale { [transcriberAssetManager] localeID in
+            await transcriberAssetManager.refreshSupportedLocales(selecting: localeID)
         }
-
         transcriberAssetManager.prepareSelectedLocale(settings.activeWorkflow.dictationLocaleID)
         prepareBoundSpeechModels()
     }
@@ -373,8 +368,10 @@ final class AppState {
         perform(command(for: .cancel))
     }
 
+    /// Revises the newest successful result, like Copy Last: a failed retry of an older revision keeps
+    /// that older base in history, and it must not become what the next revision works on.
     func startRevision() {
-        guard pipelineState.acceptsNewRun, let baseOutput = lastResult else { return }
+        guard pipelineState.acceptsNewRun, let baseOutput = lastSuccessfulResult else { return }
         startRevisionRun(configuration: RunConfigurationBuilder.revision(
             of: settings.runConfiguration(workflowID: nil), base: baseOutput
         ))
@@ -404,8 +401,11 @@ final class AppState {
                 for task in pending { await task.value }
             }
         }
-        await usageStats.flush()
-        await history.flush()
+        // A stuck disk write must not hold the quit either; whatever is unwritten is lost, as in a crash.
+        _ = try? await withOperationTimeout(.seconds(2), error: CancellationError()) { [usageStats, history] in
+            await usageStats.flush()
+            await history.flush()
+        }
     }
 
     // MARK: - Results
@@ -510,7 +510,13 @@ final class AppState {
         }
     }
 
+    /// Pastes the last result where automatic paste would. Accessibility serves only opt-in automatic
+    /// paste, so with automatic paste off this copies the result, like Copy Last.
     func pasteLastResult() async {
+        guard settings.autoPasteEnabled else {
+            copyLastResult()
+            return
+        }
         guard canCopyLastResult, let text = lastSuccessfulResult else { return }
         let pasteID = UUID()
         pendingPasteID = pasteID
@@ -530,6 +536,10 @@ final class AppState {
         } ?? text
         do {
             try pasteboard.write(delivered)
+            if pinsTarget, target == nil {
+                delivery.notifyNoCapturedTarget()
+                return
+            }
             try await delivery.pasteCompletedText(delivered, contextTarget: usesSpacing ? target : nil,
                                                   usesSpacing: usesSpacing, knownContext: context, canContinue: { [weak self] in
                 self?.pendingPasteID == pasteID && self?.canCopyLastResult == true
@@ -561,10 +571,6 @@ final class AppState {
         let workflow = resolvedID.flatMap { id in
             settings.workflowList.workflows.first { $0.id == id }
         } ?? settings.activeWorkflow
-
-        cancelErrorReset()
-        cancelSuccessFeedback()
-        clearRunTracking()
 
         let inputs = settings.runInputs(for: workflow)
         let initialConfiguration = RunConfigurationBuilder.configuration(for: inputs)
@@ -812,10 +818,6 @@ final class AppState {
                 runID: runID
             )
         }
-    }
-
-    func setPersistHistory(_ isEnabled: Bool) async {
-        if await history.setPersistenceEnabled(isEnabled) { settings.persistHistory = isEnabled }
     }
 
     @discardableResult

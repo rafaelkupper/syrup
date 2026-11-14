@@ -24,15 +24,23 @@ final class SpeechModelCatalog {
         managers[engine]
     }
 
-    /// Ultra replaced Parakeet v3 after 0.9. A v3 download left by 0.9 is removed, and Ultra
-    /// downloads in its place, so the workflows that chose v3 keep a model on this Mac.
-    func replaceRetiredParakeetV3(fileManager: FileManager = .default) {
+    /// Ultra replaced Parakeet v3 after 0.9. Ultra downloads in place of a v3 download left by 0.9, so
+    /// the workflows that chose v3 keep a model on this Mac. The v3 folder is removed only once Ultra is
+    /// on disk: if the download fails, v3 stays, and its folder makes the next launch try again.
+    func replaceRetiredParakeetV3() {
         guard let ultra = managers[.parakeetUltra] else { return }
         let retired = ultra.directory.deletingLastPathComponent()
             .appending(path: SpeechEngine.retiredParakeetV3Folder, directoryHint: .isDirectory)
-        guard fileManager.fileExists(atPath: retired.path(percentEncoded: false)) else { return }
-        try? fileManager.removeItem(at: retired)
-        ultra.download()
+        guard FileManager.default.fileExists(atPath: retired.path(percentEncoded: false)) else { return }
+        let removeRetired: @MainActor @Sendable () -> Void = { try? FileManager.default.removeItem(at: retired) }
+        switch ultra.state {
+        case .downloaded, .loading, .ready:
+            removeRetired()
+        case .notDownloaded, .failed:
+            ultra.download(onDownloaded: removeRetired)
+        case .downloading, .unsupported:
+            break
+        }
     }
 
     static func live(storageDirectory: URL? = nil) -> SpeechModelCatalog {
@@ -98,6 +106,28 @@ final class SpeechModelCatalog {
         )
     }
 
+    /// Downloads into a staging folder, then moves the finished model into place. A folder already at
+    /// the destination is incomplete (a complete one would not be downloaded again), so it is replaced;
+    /// otherwise the move would fail on every retry until the person chose Delete.
+    static func stagedDownload(
+        into directory: URL,
+        modelsExist: @Sendable (URL) -> Bool,
+        download: @Sendable (URL, @escaping @Sendable (Double) -> Void) async throws -> Void,
+        progress: @escaping @Sendable (Double) -> Void
+    ) async throws {
+        let staging = SpeechModelManager.stagingDirectory(for: directory)
+        try await download(staging, progress)
+        let fileManager = FileManager.default
+        if fileManager.fileExists(atPath: directory.path(percentEncoded: false)), modelsExist(directory) == false {
+            try fileManager.removeItem(at: directory)
+        }
+        try fileManager.moveItem(
+            at: staging.appending(path: directory.lastPathComponent, directoryHint: .isDirectory),
+            to: directory
+        )
+        try fileManager.removeItem(at: staging)
+    }
+
     private static func stagedManager(
         _ speechEngine: SpeechEngine,
         storageDirectory: URL?,
@@ -111,13 +141,7 @@ final class SpeechModelCatalog {
             operations: .init(
                 modelsExist: modelsExist,
                 download: { directory, progress in
-                    let staging = SpeechModelManager.stagingDirectory(for: directory)
-                    try await download(staging, progress)
-                    try FileManager.default.moveItem(
-                        at: staging.appending(path: directory.lastPathComponent, directoryHint: .isDirectory),
-                        to: directory
-                    )
-                    try FileManager.default.removeItem(at: staging)
+                    try await stagedDownload(into: directory, modelsExist: modelsExist, download: download, progress: progress)
                 },
                 load: load,
                 unload: unload

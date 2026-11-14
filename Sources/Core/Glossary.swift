@@ -12,16 +12,22 @@ struct GlossaryTerm: Identifiable, Equatable, Sendable, Codable {
     }
 
     fileprivate var normalized: GlossaryTerm? {
-        let normalizedTerm = term.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedTerm = Self.normalizedText(term)
         guard normalizedTerm.isEmpty == false else { return nil }
 
         return GlossaryTerm(
             id: id,
             term: normalizedTerm,
             mishearings: mishearings
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .map(Self.normalizedText)
                 .filter { $0.isEmpty == false }
         )
+    }
+
+    /// Ends trimmed and every inner run of whitespace, line breaks included, made one space. A term
+    /// is a word or phrase, so it renders as one line of the prompt's vocabulary block.
+    static func normalizedText(_ text: String) -> String {
+        text.split(whereSeparator: \.isWhitespace).joined(separator: " ")
     }
 }
 
@@ -75,7 +81,7 @@ struct GlossaryList: Equatable, Codable {
     }
 
     func validation(for candidate: String, excluding excludedID: UUID? = nil) -> Validation {
-        let normalizedCandidate = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedCandidate = GlossaryTerm.normalizedText(candidate)
         guard normalizedCandidate.isEmpty == false else { return .empty }
 
         let comparisonKey = normalizedCandidate.lowercased()

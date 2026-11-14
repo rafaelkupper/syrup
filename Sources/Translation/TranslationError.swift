@@ -9,6 +9,10 @@ enum TranslationError: Error, Equatable, Sendable {
     case emptyResponse
     case outputLimitReached
     case responseFiltered
+    /// The endpoint reported an error partway through a streamed answer.
+    case providerReportedError
+    /// The endpoint sent far more than any answer, and was stopped.
+    case responseTooLarge
     case cannotConnect(String)
     case timedOut
     case apiKeyRejected

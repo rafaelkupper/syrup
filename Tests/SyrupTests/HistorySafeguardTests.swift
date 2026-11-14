@@ -13,8 +13,8 @@ struct HistorySafeguardTests {
             try? FileManager.default.removeItem(at: directory)
         }
         let settings = fixtureSettings()
-        settings.persistHistory = true
         let history = HistoryStore(persistenceEnabled: true, storageDirectory: directory)
+        await settings.setPersistHistory(true, history: history)
         history.append(record("retained"))
         await history.flush()
         try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: directory.path)
@@ -23,7 +23,7 @@ struct HistorySafeguardTests {
         await history.flush()
         try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: directory.path)
         let state = appState(settings: settings, history: history)
-        await state.setPersistHistory(false)
+        await state.settings.setPersistHistory(false, history: history)
         #expect(settings.persistHistory)
         #expect(history.persistenceError != nil)
         #expect(FileManager.default.fileExists(atPath: directory.appending(path: "history.json").path))

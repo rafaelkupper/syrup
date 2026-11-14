@@ -122,10 +122,14 @@ struct ClaudeCLITransformerTests {
         #expect(call.timeout == 9)
     }
 
+    /// Claude prints these on stdout (checked with Claude Code 2.1). Only its last line counts, so
+    /// model text before a failure that mentions a rate limit or /login is not taken for the error.
     @Test(arguments: [
         ("Not logged in · Please run /login", TranslationError.claudeNotSignedIn),
         ("Claude AI usage limit reached|1731000000", .claudeUsageLimit),
         ("API Error: 500 something broke", .claudeFailed(1)),
+        ("The API has a rate limit; run /login first.\nAPI Error: 500 something broke\n", .claudeFailed(1)),
+        ("Partial answer\nNot logged in · Please run /login\n\n", .claudeNotSignedIn),
     ])
     func failuresMapToOneMessageEach(output: String, expected: TranslationError) async {
         let runner = ClaudeRunner(.init(exitCode: 1, stdout: Data(output.utf8), stderr: Data()))
@@ -206,7 +210,7 @@ struct CodexModelChoiceTests {
 
     @MainActor
     @Test func newSettingsUseTheAccountDefaultModel() throws {
-        let suite = "SyrupCodexDefault.\(UUID())"
+        let suite = testDomainName("SyrupCodexDefault")
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
@@ -219,7 +223,7 @@ struct CodexModelChoiceTests {
 @MainActor
 struct OfferedProviderTests {
     private func settings() throws -> (AppSettings, UserDefaults, String) {
-        let suite = "SyrupOfferedProviders.\(UUID())"
+        let suite = testDomainName("SyrupOfferedProviders")
         let defaults = try #require(UserDefaults(suiteName: suite))
         return (AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" }), defaults, suite)
     }

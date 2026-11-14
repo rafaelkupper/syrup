@@ -87,8 +87,8 @@ struct WorkflowAbilitiesTests {
         settings.translationProvider = .openAICompatible
         settings.autoPasteEnabled = true
         settings.streamingDeliveryEnabled = true
-        settings.persistHistory = true
-        settings.glossaryLearningEnabled = true
+        await settings.setPersistHistory(true, history: enabledHistoryStore())
+        settings.setGlossaryLearning(true, recordingArchive: nil)
         settings.addWorkflow(from: WorkflowTemplate(id: "local", name: "Local", kind: .transcribeOnly(cleanup: cleanup)))
         settings.updateWorkflow(id: settings.activeWorkflow.id) { $0.dictationLocaleID = "en-US" }
         let clipboard = SpyPasteboard(), paster = SpyAutoPaster(), typist = SpyStreamingTypist()

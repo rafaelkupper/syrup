@@ -43,7 +43,10 @@ struct AppleOnDeviceTransformerTests {
         #expect(AppleOnDeviceTransformer.availabilityMessage(availability: .unavailable(.modelNotReady)) == "The on-device model is still downloading")
     }
 
-    @Test(.enabled(if: AppleOnDeviceTransformer.availabilityMessage() == "Ready"))
+    /// Runs the real on-device model, so it depends on this Mac and its model. Opt in with
+    /// `SYRUP_ON_DEVICE_REAL=1`, like the other real suites.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["SYRUP_ON_DEVICE_REAL"] == "1"
+        && AppleOnDeviceTransformer.availabilityMessage() == "Ready"))
     func availableModelSmokeTransformsShortPhrase() async throws {
         let transformer = AppleOnDeviceTransformer()
 

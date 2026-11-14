@@ -425,3 +425,83 @@ struct DictationOptionsSettingsTests {
         #expect(settings.runConfiguration(workflowID: workflow.id).instruction.contains(PromptBuilder.selfCorrectionInstruction))
     }
 }
+
+/// A retry of a saved custom or revision instruction uses the glossary as it is now.
+struct RetryGlossaryTests {
+    private let old = GlossaryList(terms: [GlossaryTerm(term: "Zorvex")])
+    private let new = GlossaryList(terms: [GlossaryTerm(term: "Syrup", mishearings: ["sirup"])])
+    private let workflow = Workflow(
+        id: UUID(), name: "Polish", kind: .custom(instruction: "Polish it.", enforceOutputContract: true),
+        dictationLocaleID: "en-US", translationProvider: nil
+    )
+
+    private func retryInstruction(_ transformation: TransformationSnapshot, glossary: GlossaryList) throws -> String {
+        try #require(RunConfigurationBuilder.retry(
+            transformation: transformation, transcript: "words", output: "base text", provider: .openAICompatible,
+            activeWorkflow: workflow, glossary: glossary, dictation: .off
+        )).configuration.instruction
+    }
+
+    /// What a custom run records, built the way a run builds it.
+    private func recorded(_ kind: WorkflowKind, glossary: GlossaryList) -> TransformationSnapshot {
+        let workflow = Workflow(id: UUID(), name: "Custom", kind: kind, dictationLocaleID: "en-US", translationProvider: nil)
+        let inputs = RunInputs(workflow: workflow, provider: .openAICompatible, glossary: glossary,
+                               dictation: .off, speechVocabulary: [])
+        return RunConfigurationBuilder.configuration(for: inputs).transformation
+    }
+
+    @Test(arguments: [
+        "Polish it.", "Polish it.\n", "Polish it.\n\n\n", "Polish it.\n\nKeep it short.",
+        "Polish it.\n\nVocabulary — these exact spellings are correct. If the input contains a likely\nmishearing of one of these terms, use the exact spelling:\n- Mine",
+    ], [true, false])
+    func aCustomRetryComposesTheWorkflowsInstructionWithTheCurrentGlossary(base: String, enforcesContract: Bool) throws {
+        let kind = WorkflowKind.custom(instruction: base, enforceOutputContract: enforcesContract)
+        let snapshot = recorded(kind, glossary: old)
+        #expect(try retryInstruction(snapshot, glossary: new) == PromptBuilder.instruction(for: kind, glossary: new))
+        #expect(try retryInstruction(snapshot, glossary: GlossaryList()) == PromptBuilder.instruction(for: kind))
+    }
+
+    /// Older records kept only the rendered instruction, so their glossary block is found and replaced.
+    @Test(arguments: ["Polish it.", "Polish it.\n", "Polish it.\n\n\n", "Polish it.\n\nKeep it short."], [true, false])
+    func anOlderCustomRecordHasItsGlossaryBlockReplaced(base: String, enforcesContract: Bool) throws {
+        let kind = WorkflowKind.custom(instruction: base, enforceOutputContract: enforcesContract)
+        let saved = PromptBuilder.instruction(for: kind, glossary: old)
+        let legacy = TransformationSnapshot.custom(workflowName: "Polish", instruction: saved)
+        #expect(try retryInstruction(legacy, glossary: new) == PromptBuilder.instruction(for: kind, glossary: new))
+        #expect(try retryInstruction(legacy, glossary: GlossaryList()) == PromptBuilder.instruction(for: kind))
+        let savedWithout = TransformationSnapshot.custom(workflowName: "Polish", instruction: PromptBuilder.instruction(for: kind))
+        #expect(try retryInstruction(savedWithout, glossary: new) == PromptBuilder.instruction(for: kind, glossary: new))
+    }
+
+    /// Before terms were made one line, a saved block could hold a blank line. All of it is replaced.
+    @Test func anOlderRecordWithAMultilineTermLosesAllOfIt() throws {
+        let saved = "Polish it.\n\n" + (PromptBuilder.glossaryBlock(for: old) ?? "") + "\n\nRetainedTerm\n\n" + PromptBuilder.outputContract
+        let legacy = TransformationSnapshot.custom(workflowName: "Polish", instruction: saved)
+        let kind = WorkflowKind.custom(instruction: "Polish it.", enforceOutputContract: true)
+        #expect(try retryInstruction(legacy, glossary: GlossaryList()) == PromptBuilder.instruction(for: kind))
+    }
+
+    @Test func aRevisionRetryIsComposedAgainFromItsAdjustment() throws {
+        let saved = PromptBuilder.compose(
+            base: PromptBuilder.revisionInstruction(adjustment: "shorter"),
+            glossary: PromptBuilder.glossaryBlock(for: old), context: nil, contract: PromptBuilder.outputContract
+        )
+        let retry = try #require(RunConfigurationBuilder.retry(
+            transformation: .revision(adjustment: "shorter", instruction: saved), transcript: "shorter",
+            output: "base text", provider: .openAICompatible, activeWorkflow: workflow, glossary: new, dictation: .off
+        ))
+        #expect(retry.configuration.instruction == PromptBuilder.compose(
+            base: PromptBuilder.revisionInstruction(adjustment: "shorter"),
+            glossary: PromptBuilder.glossaryBlock(for: new), context: nil, contract: PromptBuilder.outputContract
+        ))
+        #expect(retry.inputText == "base text")
+    }
+
+    @Test func glossaryTermsAreOneLine() {
+        let glossary = GlossaryList(terms: [GlossaryTerm(term: "  Old\n\nTerm ", mishearings: ["old\tterm\n", " \n "])])
+        #expect(glossary.terms.map(\.term) == ["Old Term"])
+        #expect(glossary.terms.map(\.mishearings) == [["old term"]])
+        #expect(glossary.validation(for: "old \n term") == .duplicate)
+        #expect(PromptBuilder.glossaryBlock(for: glossary)?.contains("\n\n") == false)
+    }
+}

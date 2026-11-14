@@ -57,4 +57,69 @@ struct OpenAISSEParsingTests {
         }
         #expect(output.withLock { $0 } == "Olá")
     }
+
+    private func consume(
+        _ payload: String, byteLimit: Int = OpenAICompatibleTransformer.responseBodyLimit
+    ) async throws -> String {
+        let bytes = AsyncThrowingStream<UInt8, any Error>.makeStream()
+        for byte in payload.utf8 { bytes.continuation.yield(byte) }
+        bytes.continuation.finish()
+        let output = Mutex("")
+        try await withOperationTimeout(.seconds(2), error: TranslationError.timedOut) {
+            try await OpenAICompatibleTransformer.consumeSSE(bytes: bytes.stream, endpointHost: "fixture",
+                inactivityTimeout: .seconds(30), inactivitySleeper: { try await Task.sleep(for: $0) },
+                byteLimit: byteLimit, onDelta: { delta in output.withLock { $0 += delta } })
+        }
+        return output.withLock { $0 }
+    }
+
+    @Test func aStreamThatEndsOnStopWithoutDoneSucceeds() async throws {
+        let output = try await consume(
+            #"data: {"choices":[{"delta":{"content":"Hi"},"finish_reason":null}]}"# + "\n\n"
+            + #"data: {"choices":[{"delta":{},"finish_reason":"stop"}]}"# + "\n\n"
+        )
+        #expect(output == "Hi")
+    }
+
+    @Test func aStreamThatEndsWithoutStopOrDoneIsADroppedConnection() async throws {
+        await #expect(throws: TranslationError.cannotConnect("fixture")) {
+            _ = try await consume(#"data: {"choices":[{"delta":{"content":"Hi"},"finish_reason":null}]}"# + "\n\n")
+        }
+    }
+
+    @Test func aFinalChunkWithoutADeltaIsAccepted() async throws {
+        let output = try await consume(
+            #"data: {"choices":[{"delta":{"content":"Hi"}}]}"# + "\n\n"
+            + #"data: {"choices":[{"index":0,"finish_reason":"stop"}]}"# + "\n\n"
+        )
+        #expect(output == "Hi")
+    }
+
+    @Test(arguments: [
+        #"data: {"choices":[{"delta":{},"finish_reason":"error"}]}"#,
+        #"data: {"choices":[{"delta":{}}],"error":{"message":"upstream failed"}}"#,
+        #"data: {"error":{"message":"upstream failed","code":502}}"#,
+    ])
+    func anErrorPartwayThroughIsAFailureEvenWhenDoneFollows(errorChunk: String) async throws {
+        await #expect(throws: TranslationError.providerReportedError) {
+            _ = try await consume(
+                #"data: {"choices":[{"delta":{"content":"Hi"}}]}"# + "\n\n" + errorChunk + "\n\n" + "data: [DONE]\n\n"
+            )
+        }
+    }
+
+    @Test func manySmallDeltasStopAtTheByteLimit() async throws {
+        let chunk = #"data: {"choices":[{"delta":{"content":"again "}}]}"# + "\n\n"
+        await #expect(throws: TranslationError.responseTooLarge) {
+            _ = try await consume(String(repeating: chunk, count: 100) + "data: [DONE]\n\n", byteLimit: 2_000)
+        }
+        #expect(try await consume(String(repeating: chunk, count: 10) + "data: [DONE]\n\n", byteLimit: 2_000)
+            == String(repeating: "again ", count: 10))
+    }
+
+    @Test func aLineThatNeverEndsStopsAtTheByteLimit() async throws {
+        await #expect(throws: TranslationError.responseTooLarge) {
+            _ = try await consume("data: " + String(repeating: "x", count: 5_000), byteLimit: 2_000)
+        }
+    }
 }

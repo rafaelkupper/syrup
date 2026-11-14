@@ -103,12 +103,18 @@ struct CommandRunnerTests {
         }
     }
 
-    @Test func codexErrorsMatchOnlyTheEndOfStderrNotTheEchoedPrompt() async throws {
-        let echoedPrompt = "user: please fix the rate limit wording in my draft\n" + String(repeating: "log line\n", count: 400)
-        let (codex, home) = try signedInCodex(.missingOutput(exitCode: 1, stderr: echoedPrompt + "Error: model crashed"))
+    @Test func codexErrorsIgnoreTheUsersWordsInTheEchoedPrompt() async throws {
+        // A short dictation fits wholly inside any fixed-size tail, so matching starts after the input.
+        let (codex, home) = try signedInCodex(.echoPromptThenFail(exitCode: 1, message: "Error: model crashed"))
         defer { try? FileManager.default.removeItem(at: home) }
         await #expect(throws: TranslationError.codexFailed(1)) {
-            try await codex.transform("text", instruction: "Polish it.")
+            try await codex.transform("fix the authentication and rate limit wording", instruction: "Polish it.")
+        }
+
+        let (signedOut, signedOutHome) = try signedInCodex(.echoPromptThenFail(exitCode: 1, message: "Error: not signed in, run codex login"))
+        defer { try? FileManager.default.removeItem(at: signedOutHome) }
+        await #expect(throws: TranslationError.codexNotSignedIn) {
+            try await signedOut.transform("hello", instruction: "Polish it.")
         }
     }
 }

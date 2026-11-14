@@ -47,6 +47,26 @@ struct HistoryStoreTests {
     }
 
     @Test
+    func turningPersistenceOnKeepsOnlyResultsMadeAfterwards() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = HistoryStore(persistenceEnabled: true, storageDirectory: directory)
+        store.append(record(transcript: "kept, then opted out"))
+        #expect(await store.setPersistenceEnabled(false))
+        store.append(record(transcript: "made while off"))
+
+        #expect(await store.setPersistenceEnabled(true))
+        await store.flush()
+        #expect(HistoryStore(persistenceEnabled: true, storageDirectory: directory).records.isEmpty)
+
+        store.append(record(transcript: "made after turning it on"))
+        await store.flush()
+        #expect(store.records.map(\.transcript) == ["made after turning it on", "made while off", "kept, then opted out"])
+        let reloaded = HistoryStore(persistenceEnabled: true, storageDirectory: directory)
+        #expect(reloaded.records.map(\.transcript) == ["made after turning it on"])
+    }
+
+    @Test
     func disablingPersistenceDeletesFile() async throws {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }

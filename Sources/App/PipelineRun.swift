@@ -54,6 +54,10 @@ final class PipelineRun {
     let protectedTerms: [String]
     let pinsDeliveryTarget: Bool
     let lowersOtherAudio: Bool
+    /// Opt-ins frozen at the trigger, so turning one on mid-run never applies to that run. Turning one
+    /// off mid-run still wins: the run checks the live setting again before it keeps anything.
+    let learnsFromRecording: Bool
+    let keepsUsageStats: Bool
     var deliveryTarget: DeliveryTarget?
     var task: Task<Void, Never>?
     var recordingDurationTask: Task<Void, Never>?
@@ -110,6 +114,8 @@ final class PipelineRun {
         protectedTerms = settings.glossaryList.terms.map(\.term)
         pinsDeliveryTarget = settings.pinDeliveryTarget
         lowersOtherAudio = settings.lowerOtherAudioWhileRecording
+        learnsFromRecording = settings.glossaryLearningEnabled
+        keepsUsageStats = settings.keepsUsageStats
         if case .transcribeOnly = configuration.purpose {
             glossaryBlock = nil
         } else {
