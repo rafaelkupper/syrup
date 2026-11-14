@@ -113,12 +113,14 @@ for folder in Sources/*/; do
     esac
 done
 
-# Every RunConfiguration is assembled by RunConfigurationBuilder.
-for file in $(grep -rlw 'RunConfiguration(' Sources --include='*.swift' || true); do
-    case $file in Sources/Translation/RunConfigurationBuilder.swift) ;; *)
+# Every RunConfiguration is assembled by RunConfigurationBuilder. Checked on code only, so a comment
+# or string naming it does not count, and with any space before the parenthesis.
+for file in $(find Sources -name '*.swift' | sort); do
+    case $file in Sources/Translation/RunConfigurationBuilder.swift) continue ;; esac
+    if code_only "$file" | grep -qE '(^|[^A-Za-z0-9_])RunConfiguration[[:space:]]*\('; then
         echo "boundary: $file builds a RunConfiguration outside RunConfigurationBuilder" >&2
-        status=1 ;;
-    esac
+        status=1
+    fi
 done
 
 exit $status

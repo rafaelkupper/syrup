@@ -136,6 +136,7 @@ struct SyrupApp: App {
             mishearingSuggestions.setForegroundActive(active)
         }
         Task { @MainActor in
+            await appState.history.deleteLeftoverFileIfPersistenceIsOff()
             let learningEnabled = appState.settings.glossaryLearningEnabled
             await deleteLeftoverRecordingsIfLearningIsOff(settings: appState.settings, recordingArchive: recordingArchive)
             if learningEnabled {

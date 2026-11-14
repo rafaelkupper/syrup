@@ -37,10 +37,9 @@ struct WhisperModelRemovalTests {
             .appending(path: WhisperModelManager.modelVariant, directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: modelDirectory, withIntermediateDirectories: true)
         for name in ["MelSpectrogram", "AudioEncoder", "TextDecoder"] {
-            try FileManager.default.createDirectory(
-                at: modelDirectory.appending(path: "\(name).mlmodelc"),
-                withIntermediateDirectories: true
-            )
+            let bundle = modelDirectory.appending(path: "\(name).mlmodelc")
+            try FileManager.default.createDirectory(at: bundle, withIntermediateDirectories: true)
+            try Data().write(to: bundle.appending(path: "coremldata.bin"))
         }
         try Data("{}".utf8).write(to: modelDirectory.appending(path: "tokenizer.json"))
         return storageDirectory

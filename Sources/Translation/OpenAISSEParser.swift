@@ -14,9 +14,10 @@ struct OpenAISSEParser: Sendable {
     private(set) var didReceiveStop = false
     /// `data:` chunks parsed so far, whatever they carry.
     private(set) var dataChunks = 0
-    /// Chunks whose choice carries text, answer or not. These are progress: a model that reasons
-    /// before it answers sends `reasoning_content` or `reasoning` for a while. A chunk without a
-    /// choice, or with an empty delta, is not, so a server repeating them cannot hold a run open.
+    /// Chunks whose choice carries something, answer or not. These are progress: a model that reasons
+    /// before it answers sends `reasoning_content`, `reasoning`, or `reasoning_details` for a while. A
+    /// chunk without a choice, or with an empty or role-only delta, is not, so a server repeating
+    /// them cannot hold a run open.
     private(set) var progressChunks = 0
 
     mutating func append(_ chunk: String) throws -> [OpenAISSEEvent] {
@@ -71,7 +72,7 @@ struct OpenAISSEParser: Sendable {
 
         // A router can report a provider failure mid-stream, then still send `[DONE]`.
         guard response.reportsError == false else { throw TranslationError.providerReportedError }
-        if response.choices.contains(where: { $0.delta?.carriesText == true }) { progressChunks += 1 }
+        if response.choices.contains(where: { $0.delta?.carriesSomething == true }) { progressChunks += 1 }
         try OpenAICompatibleTransformer.validateFinishReason(response.choices.first?.finishReason)
         if response.choices.first?.finishReason == "stop" { didReceiveStop = true }
         guard let content = response.choices.first?.delta?.content,
@@ -111,24 +112,68 @@ struct OpenAISSEParser: Sendable {
 
     private struct Delta: Decodable {
         let content: String?
-        /// A field other than `role` holds non-empty text: the answer, or reasoning under whatever
-        /// name the server uses.
-        let carriesText: Bool
-
-        private struct AnyKey: CodingKey {
-            let stringValue: String
-            var intValue: Int? { nil }
-            init(stringValue: String) { self.stringValue = stringValue }
-            init?(intValue: Int) { nil }
-        }
+        /// A field other than `role` is non-empty: answer text, or reasoning in whatever shape the
+        /// server sends it (a string, or structured `reasoning_details`), or a tool call.
+        let carriesSomething: Bool
 
         init(from decoder: any Decoder) throws {
-            let container = try decoder.container(keyedBy: AnyKey.self)
-            content = try container.decodeIfPresent(String.self, forKey: AnyKey(stringValue: "content"))
-            // `role` names the speaker in the first chunk; it is not generated text.
-            carriesText = container.allKeys.contains { key in
-                key.stringValue != "role" && (try? container.decode(String.self, forKey: key))?.isEmpty == false
-            }
+            let fields = try decoder.singleValueContainer().decode([String: JSONFieldValue].self)
+            content = fields["content"]?.text
+            // `role` names the speaker in the first chunk; it is not the model working.
+            carriesSomething = fields.contains { $0.key != "role" && $0.value.isEmpty == false }
+        }
+    }
+}
+
+/// Any JSON value, to tell whether a field carries something and to read `content`, which some
+/// servers send as a list of typed parts instead of a string.
+enum JSONFieldValue: Decodable, Sendable {
+    case string(String)
+    case number
+    case bool
+    case null
+    case array([JSONFieldValue])
+    case object([String: JSONFieldValue])
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if container.decodeNil() {
+            self = .null
+        } else if let string = try? container.decode(String.self) {
+            self = .string(string)
+        } else if (try? container.decode(Bool.self)) != nil {
+            self = .bool
+        } else if (try? container.decode(Double.self)) != nil {
+            self = .number
+        } else if let array = try? container.decode([JSONFieldValue].self) {
+            self = .array(array)
+        } else {
+            self = .object(try container.decode([String: JSONFieldValue].self))
+        }
+    }
+
+    var isEmpty: Bool {
+        switch self {
+        case .string(let string): string.isEmpty
+        case .null: true
+        case .array(let array): array.isEmpty
+        case .object(let object): object.isEmpty
+        case .number, .bool: false
+        }
+    }
+
+    /// A string as it is; a list of parts as the `text` of each part, joined; anything else nil.
+    var text: String? {
+        switch self {
+        case .string(let string):
+            string
+        case .array(let parts):
+            parts.compactMap { part -> String? in
+                guard case .object(let fields) = part, case .string(let text)? = fields["text"] else { return nil }
+                return text
+            }.joined()
+        case .number, .bool, .null, .object:
+            nil
         }
     }
 }

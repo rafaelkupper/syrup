@@ -18,8 +18,9 @@ final class SpeechModelManager: SpeechModelProviding {
     @ObservationIgnored private let fileManager: FileManager
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var downloadTask: Task<Void, Never>?
-    /// The latest download or removal. The next one waits for it: a cancelled download can take a
-    /// while to stop, and both use the same staging folder.
+    /// The latest download, load, or removal. The next one waits for it: a cancelled download can
+    /// take a while to stop, downloads and removals use the same folders, and a removal must not
+    /// interleave with a load.
     @ObservationIgnored private var lastOperation: Task<Void, Never>?
     /// A folder this model is taking over from; see `replace`.
     @ObservationIgnored private var replacedDirectory: URL?
@@ -117,34 +118,37 @@ final class SpeechModelManager: SpeechModelProviding {
             download()
             return
         }
-        generation += 1
-        let generation = generation
-        state = .loading
-        Task { await load(generation: generation) }
+        startLoad()
     }
 
     func loadIfDownloaded() {
         guard state == .downloaded else { return }
+        startLoad()
+    }
+
+    /// Loads in turn with downloads and removals, so a removal queued before it goes first.
+    private func startLoad() {
         generation += 1
         let generation = generation
         state = .loading
-        Task { await load(generation: generation) }
+        let previous = lastOperation
+        lastOperation = Task {
+            await previous?.value
+            guard generation == self.generation else { return }
+            await load(generation: generation)
+        }
     }
 
     /// Deletes the model, its unfinished download, and any folder it was replacing. A download in
-    /// progress is cancelled first, and the folders go once it has stopped.
+    /// progress is cancelled first, and a load in progress is let finish without becoming ready; the
+    /// folders go once they have stopped. The model shows as not downloaded at once, so nothing can
+    /// start loading it meanwhile.
     func remove() {
-        switch state {
-        case .loading:
-            return
-        case .downloading:
-            cancelDownload()
-        case .unsupported, .notDownloaded, .downloaded, .ready, .failed:
-            break
-        }
+        if case .downloading = state { cancelDownload() }
 
         generation += 1
         let generation = generation
+        if state != .unsupported { state = .notDownloaded }
         removeReplacedDirectory()
         let previous = lastOperation
         lastOperation = Task {

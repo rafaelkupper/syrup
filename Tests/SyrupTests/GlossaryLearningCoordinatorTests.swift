@@ -207,6 +207,26 @@ struct GlossaryLearningCoordinatorTests {
         #expect(pair.whisperTranscript.count == 4_000)
     }
 
+    /// A model that fails to load is the model's fault, not the recording's: no attempt is used up,
+    /// the pass stops, and the model is marked failed.
+    @Test
+    func aModelThatFailsToLoadUsesUpNoRecordings() async throws {
+        let archive = CoordinatorArchive(entries: [sidecar(index: 0), sidecar(index: 1)])
+        let modelManager = FakeWhisperModelManager(state: .ready)
+        let transcriber = CoordinatorBatchTranscriber(error: BatchTranscriptionError.modelUnavailable)
+        let coordinator = makeCoordinator(
+            settings: makeCoordinatorSettings(enabled: true), archive: archive,
+            modelManager: modelManager, transcriber: transcriber
+        )
+
+        await coordinator.runPass()
+
+        #expect(await transcriber.calls.count == 1)
+        #expect(await archive.pendingEntries().map(\.attempts) == [0, 0])
+        #expect(await archive.deletedEntryIDs.isEmpty)
+        #expect(modelManager.state == .failed("The recognition model couldn't load."))
+    }
+
     private func makeCoordinator(
         settings: AppSettings,
         archive: CoordinatorArchive,
@@ -262,6 +282,21 @@ struct WhisperModelManagerTests {
         #expect(manager.state == .notDownloaded)
     }
 
+    /// Quitting mid-download used to leave the three model folders and the tokenizer, which counted
+    /// as ready; every pass then failed to load it and used up the recordings.
+    @Test
+    func modelFoldersWithoutTheirCompiledDataAreNotReady() throws {
+        let directory = temporaryModelDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let partial = modelDirectory(in: directory)
+        for component in ["MelSpectrogram", "AudioEncoder", "TextDecoder"] {
+            try FileManager.default.createDirectory(at: partial.appending(path: "\(component).mlmodelc"), withIntermediateDirectories: true)
+        }
+        try Data().write(to: partial.appending(path: "tokenizer.json"))
+
+        #expect(WhisperModelManager(storageDirectory: directory).state == .notDownloaded)
+    }
+
     @Test
     func completeLocalModelIsReportedReadyWithoutNetwork() throws {
         let directory = temporaryModelDirectory()
@@ -272,10 +307,9 @@ struct WhisperModelManagerTests {
             withIntermediateDirectories: true
         )
         for component in ["MelSpectrogram", "AudioEncoder", "TextDecoder"] {
-            try FileManager.default.createDirectory(
-                at: completeModelDirectory.appending(path: "\(component).mlmodelc"),
-                withIntermediateDirectories: true
-            )
+            let bundle = completeModelDirectory.appending(path: "\(component).mlmodelc")
+            try FileManager.default.createDirectory(at: bundle, withIntermediateDirectories: true)
+            try Data().write(to: bundle.appending(path: "coremldata.bin"))
         }
         try Data().write(to: completeModelDirectory.appending(path: "tokenizer.json"))
 
@@ -331,6 +365,10 @@ private final class FakeWhisperModelManager: WhisperModelManaging {
 
     func ensureModel() async {
         ensureCount += 1
+    }
+
+    func modelFailedToLoad() {
+        state = .failed("The recognition model couldn't load.")
     }
 }
 

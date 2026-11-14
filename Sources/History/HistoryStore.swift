@@ -79,6 +79,18 @@ final class HistoryStore: HistoryRecording {
         }
     }
 
+    /// At launch with Keep history off, deletes a history file left on disk, for example after the
+    /// preferences were reset while the file stayed. Only the app calls it, at launch: a test's store
+    /// may point at the real folder.
+    func deleteLeftoverFileIfPersistenceIsOff() async {
+        guard isPersistenceEnabled == false else { return }
+        do {
+            try await disk.delete()
+        } catch {
+            logger.error("history_leftover_delete_failed code=\((error as NSError).code, privacy: .public)")
+        }
+    }
+
     @discardableResult
     func setPersistenceEnabled(_ isEnabled: Bool) async -> Bool {
         guard isChangingPersistence == false else { return false }

@@ -305,8 +305,10 @@ extension AppState {
         }
 
         // The typist fitted what it typed with the context it read; reuse it so the clipboard matches.
+        // If nothing reached the editor, that context may describe a field the person has left, so
+        // the result is fitted afresh, as an untyped run is.
         let fitted: FittedText
-        if readTypedContext {
+        if readTypedContext, typist.hasPostedText {
             fitted = FittedText(text: typedContext.map {
                 SentenceFit.apply(transformedText, context: $0, protectedTerms: run.protectedTerms)
             } ?? transformedText, context: typedContext)

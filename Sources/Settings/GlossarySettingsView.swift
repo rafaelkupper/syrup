@@ -361,7 +361,7 @@ struct GlossarySettingsView: View {
                     Text(message)
                         .foregroundStyle(.red)
                     Button("Retry") {
-                        downloadRecognitionModel()
+                        Task { await whisperModelManager.retryDownload() }
                     }
                     Button("Delete", role: .destructive) {
                         whisperModelManager.removeModel()

@@ -500,13 +500,16 @@ private actor RunningProcessBox {
     }
 
     func enforceTerminationIfRequested(after graceNanoseconds: UInt64) {
-        guard terminationReason != nil, escalation == nil else { return }
-        guard let process, process.isRunning else { return }
+        guard terminationReason != nil, escalation == nil, let process else { return }
 
         // `Process` starts the CLI as the leader of its own process group, and the helpers it starts
         // join that group, so signalling the group stops them too. A helper left running would hold
-        // the output pipes and, for Claude, the working folder the caller is about to delete.
+        // the output pipes and, for Claude, the working folder the caller is about to delete. The
+        // group is signalled even after the CLI itself exited, while the runner still waits for a
+        // helper holding the pipes, for as long as the group has members. Before launch the ID is 0,
+        // which would signal Syrup's own group.
         let group = process.processIdentifier
+        guard group > 0, process.isRunning || kill(-group, 0) == 0 else { return }
         kill(-group, SIGTERM)
 
         // The SIGKILL waits in a task of its own that nothing cancels. The caller is often the
@@ -516,7 +519,7 @@ private actor RunningProcessBox {
         // of reach.
         escalation = Task.detached {
             try? await Task.sleep(nanoseconds: graceNanoseconds)
-            kill(-group, SIGKILL)
+            if kill(-group, 0) == 0 { kill(-group, SIGKILL) }
         }
     }
 

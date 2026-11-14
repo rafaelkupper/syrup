@@ -76,35 +76,75 @@ struct OpenAICompatibleTransformerTests {
         #expect(DripURLProtocol.streamFlags.withLock { $0 } == [true])
     }
 
-    /// A stream that keeps sending reasoning without ever answering is stopped at ten times the
-    /// inactivity timeout, though every chunk resets that timeout.
+    /// A stream that keeps sending reasoning without ever answering is stopped at the first-answer
+    /// limit, though every chunk resets the inactivity deadline. The limits are set apart from the
+    /// 100 ms chunk rhythm, so a scheduling gap cannot end the stream some other way.
     @Test
-    func aStreamThatNeverFinishesStopsAtTheOverallLimit() async throws {
+    func aStreamThatNeverAnswersStopsAtTheFirstAnswerLimit() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [EndlessReasoningURLProtocol.self]
         let transformer = OpenAICompatibleTransformer(
             configuration: try Self.configuration(), session: URLSession(configuration: configuration),
-            timeoutInterval: 0.2
+            timeoutInterval: 2, firstAnswerLimit: .seconds(1)
         )
         let clock = ContinuousClock(), started = clock.now
         await #expect(throws: TranslationError.timedOut) {
             _ = try await transformer.transform("hello", instruction: "Polish it.")
         }
         let elapsed = started.duration(to: clock.now)
-        #expect(elapsed >= .seconds(1.9) && elapsed < .seconds(5))
+        #expect(elapsed >= .seconds(0.9) && elapsed < .seconds(2.5))
+    }
+
+    /// Once the answer has started, the first-answer limit no longer applies, so a slow model writing
+    /// a long answer is not cut off. The answer takes 3 s against a 2 s limit; the first chunk has two
+    /// seconds to arrive, even behind the previous test's fake server, which shares its loading thread.
+    @Test
+    func aSlowAnswerPastTheFirstAnswerLimitIsNotCutOff() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [SlowAnswerURLProtocol.self]
+        let transformer = OpenAICompatibleTransformer(
+            configuration: try Self.configuration(), session: URLSession(configuration: configuration),
+            timeoutInterval: 2, firstAnswerLimit: .seconds(2)
+        )
+        let output = try await transformer.transform("hello", instruction: "Polish it.")
+        #expect(output == String(repeating: "word ", count: 12).trimmingCharacters(in: .whitespaces))
+    }
+
+    @Test
+    func answerContentGivenAsAListOfPartsIsRead() async throws {
+        for (streamed, body, mime) in [
+            (true, #"data: {"choices":[{"delta":{"content":[{"type":"text","text":"Hel"},{"type":"text","text":"lo"}]}}]}"# + "\n\ndata: [DONE]\n\n", "text/event-stream"),
+            (false, #"{"choices":[{"message":{"role":"assistant","content":[{"type":"text","text":"Hello"}]}}]}"#, "application/json"),
+        ] {
+            let session = Self.stubbedSession { _ in
+                let (response, data) = Self.response(statusCode: 200, body: body)
+                return (HTTPURLResponse(url: response.url!, statusCode: 200, httpVersion: nil,
+                                        headerFields: ["Content-Type": mime])!, data)
+            }
+            defer { StubURLProtocol.reset() }
+            let transformer = OpenAICompatibleTransformer(configuration: try Self.configuration(), session: session)
+            let output = streamed
+                ? try await transformer.transform("hello", instruction: "Polish it.")
+                : try await transformer.transformWithUsage("hello", instruction: "Polish it.").text
+            #expect(output == "Hello")
+        }
     }
 
     /// Some models accept only their default temperature. The request is sent once more without it,
     /// streamed or not, and nothing else is retried.
-    @Test(arguments: [true, false])
-    func aModelThatRejectsTemperatureIsAskedAgainWithoutIt(streamed: Bool) async throws {
+    @Test(arguments: [true, false], [
+        #"{"error":{"message":"Only the default (1) value is supported.","type":"invalid_request_error","param":"temperature","code":"unsupported_value"}}"#,
+        #"{"error":{"message":"Unsupported parameter: 'temperature' is not supported with this model.","code":400}}"#,
+        #"{"error":{"param":"temperature","code":20015}}"#,
+    ])
+    func aModelThatRejectsTemperatureIsAskedAgainWithoutIt(streamed: Bool, rejection: String) async throws {
         let sent = Mutex<[(temperature: Double?, stream: Bool)]>([])
         let session = Self.stubbedSession { request in
             let body = try Self.jsonBody(from: request)
             let temperature = body["temperature"] as? Double, stream = body["stream"] as? Bool ?? false
             sent.withLock { $0.append((temperature, stream)) }
             if temperature != nil {
-                return Self.response(statusCode: 400, body: #"{"error":{"message":"Only the default (1) value is supported.","type":"invalid_request_error","param":"temperature","code":"unsupported_value"}}"#)
+                return Self.response(statusCode: 400, body: rejection)
             }
             let (response, data) = Self.response(statusCode: 200, body: #"{"choices":[{"message":{"role":"assistant","content":"Hello"}}]}"#)
             return (HTTPURLResponse(url: response.url!, statusCode: 200, httpVersion: nil,
@@ -1008,7 +1048,8 @@ final class DripURLProtocol: URLProtocol, @unchecked Sendable {
     override func stopLoading() {}
 }
 
-/// Streams a reasoning chunk every 100 ms for 3 seconds and never answers.
+/// Streams a reasoning chunk every 100 ms for 2 seconds and never answers. Custom protocols share a
+/// loading thread, so it stops soon after the test's 1 s limit rather than delaying the next test.
 final class EndlessReasoningURLProtocol: URLProtocol, @unchecked Sendable {
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
@@ -1019,10 +1060,32 @@ final class EndlessReasoningURLProtocol: URLProtocol, @unchecked Sendable {
                                                               headerFields: ["Content-Type": "text/event-stream"])!,
                             cacheStoragePolicy: .notAllowed)
         let chunk = Data((#"data: {"choices":[{"delta":{"reasoning_content":"still thinking"}}]}"# + "\n\n").utf8)
-        for _ in 0..<30 {
+        for _ in 0..<20 {
             client?.urlProtocol(self, didLoad: chunk)
             Thread.sleep(forTimeInterval: 0.1)
         }
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+}
+
+/// Answers in twelve chunks 250 ms apart, 3 seconds in all.
+final class SlowAnswerURLProtocol: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        let url = request.url ?? URL(string: "https://example.com")!
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil,
+                                                              headerFields: ["Content-Type": "text/event-stream"])!,
+                            cacheStoragePolicy: .notAllowed)
+        let chunk = Data((#"data: {"choices":[{"delta":{"content":"word "}}]}"# + "\n\n").utf8)
+        for _ in 0..<12 {
+            client?.urlProtocol(self, didLoad: chunk)
+            Thread.sleep(forTimeInterval: 0.25)
+        }
+        client?.urlProtocol(self, didLoad: Data("data: [DONE]\n\n".utf8))
         client?.urlProtocolDidFinishLoading(self)
     }
 

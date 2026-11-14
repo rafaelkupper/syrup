@@ -115,6 +115,10 @@ actor NemotronBackend: StreamingSpeechBackend {
     private static let leadingSilenceSamples = ParakeetTranscriber.sampleRate * 300 / 1_000
     private var manager: StreamingNemotronMultilingualAsrManager?
 
+    init() {
+        FluidAudioLogging.silence()
+    }
+
     static func variantDirectory(in directory: URL) -> URL {
         directory.appending(path: "multilingual/\(chunkMs)ms", directoryHint: .isDirectory)
     }
@@ -184,6 +188,10 @@ private extension StreamingNemotronMultilingualAsrManager {
 
 actor ParakeetUnifiedBackend: StreamingSpeechBackend {
     private var manager: StreamingUnifiedAsrManager?
+
+    init() {
+        FluidAudioLogging.silence()
+    }
 
     /// The four files `loadModels(from:)` reads, the same set FluidAudio's own download checks.
     static func modelsExist(at directory: URL) -> Bool {

@@ -2,7 +2,8 @@ import Foundation
 
 /// Rules about where an OpenAI-compatible endpoint sends data.
 enum EndpointPolicy {
-    /// The endpoint is on this Mac, so nothing leaves it.
+    /// The endpoint is on this Mac, so the request itself stays here. A local server can still pass
+    /// it on elsewhere, which Syrup cannot see.
     static func isLoopback(_ url: URL) -> Bool {
         guard let host = url.host()?.lowercased() else { return false }
         if host == "localhost" || host == "[::1]" || host == "::1" { return true }

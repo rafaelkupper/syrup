@@ -82,6 +82,7 @@ extension AppSettings {
     func attachedOptIns(
         history: HistoryStore = HistoryStore(), recordingArchive: (any RecordingArchiving)? = nil
     ) -> PrivacyOptIns {
+        privacyOptIns.detachForTesting()
         privacyOptIns.attach(history: history, recordingArchive: recordingArchive)
         return privacyOptIns
     }
@@ -980,7 +981,9 @@ extension AppState {
         frontmostApplication: @escaping @MainActor (Bool) -> (bundleID: String?, processID: pid_t?) = { _ in (nil, nil) },
         captureDeliveryTarget: @escaping @MainActor (pid_t?) async -> DeliveryTarget? = { _ in nil }
     ) -> AppState {
-        AppState(
+        // A test may build several states on one settings, standing in for relaunches.
+        settings.privacyOptIns.detachForTesting()
+        return AppState(
             settings: settings,
             transcriberAssetManager: transcriberAssetManager,
             history: history ?? HistoryStore(),

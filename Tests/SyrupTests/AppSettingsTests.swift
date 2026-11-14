@@ -242,29 +242,29 @@ struct AppSettingsTests {
         #expect(settings.glossaryLearningEnabled == false)
     }
 
-    /// One owner per settings: before the app attaches its stores nothing has been kept, so turning
-    /// learning off deletes nothing; afterwards it deletes from the archive attached last.
+    /// One owner per settings. Before the app attaches its stores, an opt-out is refused: files from
+    /// an earlier launch may be on disk with nothing attached to delete them. Once attached, turning
+    /// learning off deletes from the archive.
     @Test
-    func eachSettingsHasOneOptInOwnerThatEmptiesTheAttachedStores() async throws {
+    func anOptOutBeforeTheStoresAreAttachedIsRefused() async throws {
         let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer { userDefaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
         #expect(settings.privacyOptIns === settings.privacyOptIns)
-        let archive = SpyRecordingArchive(), history = HistoryStore()
+        let archive = SpyRecordingArchive()
 
         settings.privacyOptIns.setGlossaryLearning(true)
         await settings.privacyOptIns.setGlossaryLearning(false).value
-        #expect(await archive.snapshot().deleteAllCount == 0)
+        #expect(settings.glossaryLearningEnabled, "Refused, so it stays on")
+        await settings.privacyOptIns.setPersistHistory(true)
+        await settings.privacyOptIns.setPersistHistory(false)
+        #expect(settings.persistHistory, "Refused, so it stays on")
 
-        let earlier = SpyRecordingArchive()
-        settings.privacyOptIns.attach(history: HistoryStore(), recordingArchive: earlier)
-        settings.privacyOptIns.attach(history: history, recordingArchive: archive)
-        settings.privacyOptIns.setGlossaryLearning(true)
+        settings.privacyOptIns.attach(history: enabledHistoryStore(), recordingArchive: archive)
         await settings.privacyOptIns.setGlossaryLearning(false).value
-        #expect(await archive.snapshot().deleteAllCount == 1)
-        #expect(await earlier.snapshot().deleteAllCount == 0)
         #expect(settings.glossaryLearningEnabled == false)
+        #expect(await archive.snapshot().deleteAllCount == 1)
     }
 
     /// Off, then on again before the deletion started: nothing is deleted, so a recording made after
@@ -381,6 +381,25 @@ struct AppSettingsTests {
             customToneText: "Use a formal register."
         ))
         #expect(userDefaults.data(forKey: "workflowListV3") != nil)
+    }
+
+    /// A corrupt current list beside a valid older one loads the older one, not the default workflow;
+    /// the corrupt one keeps its backup.
+    @Test
+    func aCorruptCurrentWorkflowListFallsBackToTheOlderOne() throws {
+        let suiteName = testDomainName("SyrupTests")
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
+        defer { userDefaults.removePersistentDomain(forName: suiteName) }
+        let corrupt = Data([0xFF])
+        userDefaults.set(corrupt, forKey: "workflowListV3")
+        userDefaults.set(Data(
+            #"{"version":1,"workflows":[{"id":"00000000-0000-0000-0000-000000000001","name":"Legacy Polish","kind":{"custom":{"instruction":"Polish this.","enforceOutputContract":true}},"dictationLocaleID":"pt-BR","translationProvider":null}],"activeWorkflowID":"00000000-0000-0000-0000-000000000001"}"#.utf8
+        ), forKey: "workflowListV1")
+
+        let settings = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
+
+        #expect(settings.activeWorkflow.name == "Legacy Polish")
+        #expect(userDefaults.data(forKey: AppSettings.unusableBlobBackupKey(for: corrupt, key: "workflowListV3")) == corrupt)
     }
 
     @Test

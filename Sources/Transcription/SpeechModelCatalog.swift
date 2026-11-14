@@ -116,6 +116,8 @@ final class SpeechModelCatalog {
         let fileManager = FileManager.default
         if fileManager.fileExists(atPath: directory.path(percentEncoded: false)) {
             try fileManager.removeItem(at: directory)
+            // Removing a large incomplete folder takes a moment; a Cancel during it still wins.
+            try Task.checkCancellation()
         }
         try fileManager.moveItem(
             at: staging.appending(path: directory.lastPathComponent, directoryHint: .isDirectory),

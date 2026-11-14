@@ -30,6 +30,23 @@ struct HistorySafeguardTests {
         await history.flush()
     }
 
+    /// A history file left on disk while Keep history is off, as after the preferences were reset,
+    /// is deleted at launch; with Keep history on it is kept.
+    @Test func aLeftoverHistoryFileGoesAtLaunchOnlyWhenKeepHistoryIsOff() async throws {
+        for persistenceEnabled in [false, true] {
+            let directory = FileManager.default.temporaryDirectory.appending(path: testDomainName("SyrupLeftoverHistory"))
+            defer { try? FileManager.default.removeItem(at: directory) }
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let file = directory.appending(path: "history.json")
+            try Data("[]".utf8).write(to: file)
+
+            let history = HistoryStore(persistenceEnabled: persistenceEnabled, storageDirectory: directory)
+            await history.deleteLeftoverFileIfPersistenceIsOff()
+
+            #expect(FileManager.default.fileExists(atPath: file.path(percentEncoded: false)) == persistenceEnabled)
+        }
+    }
+
     @Test func historyDeletionWaitsForQueuedWrites() async throws {
         let directory = FileManager.default.temporaryDirectory.appending(path: testDomainName("SyrupHistoryBarrier"))
         defer { try? FileManager.default.removeItem(at: directory) }

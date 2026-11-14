@@ -541,15 +541,23 @@ final class AppSettings {
         }
     }
 
+    /// Saved empty, the glossary also drops its `.unreadable` backups: they hold terms the person has
+    /// now removed. The same goes for proposals below.
     private func persistGlossaryList() {
-        persistVersioned(glossaryList, version: GlossaryList.currentVersion, forKey: Self.glossaryListKey, name: "glossary")
+        let saved = persistVersioned(glossaryList, version: GlossaryList.currentVersion, forKey: Self.glossaryListKey, name: "glossary")
+        if saved, glossaryList.terms.isEmpty {
+            Self.removeUnusableBlobBackups(forKey: Self.glossaryListKey, keeping: nil, in: userDefaults)
+        }
     }
 
     private func persistGlossaryProposals() {
-        persistVersioned(
+        let saved = persistVersioned(
             glossaryProposals, version: GlossaryProposalList.currentVersion,
             forKey: Self.glossaryProposalsKey, name: "glossary_proposals"
         )
+        if saved, glossaryProposals.proposals.isEmpty, glossaryProposals.dismissedKeys.isEmpty {
+            Self.removeUnusableBlobBackups(forKey: Self.glossaryProposalsKey, keeping: nil, in: userDefaults)
+        }
     }
 
     /// Writes a versioned JSON blob. A blob saved by a newer build loads empty here (the workflow
@@ -624,13 +632,17 @@ final class AppSettings {
             return
         }
         let backupKey = unusableBlobBackupKey(for: data, key: key)
-        for older in userDefaults.dictionaryRepresentation().keys
-        where older.hasPrefix(key + ".unreadable.") && older != backupKey {
-            userDefaults.removeObject(forKey: older)
-        }
+        removeUnusableBlobBackups(forKey: key, keeping: backupKey, in: userDefaults)
         guard userDefaults.data(forKey: backupKey) == nil else { return }
         userDefaults.set(data, forKey: backupKey)
         logger.notice("settings_blob_preserved blob=\(name, privacy: .public)")
+    }
+
+    private static func removeUnusableBlobBackups(forKey key: String, keeping kept: String?, in userDefaults: UserDefaults) {
+        for backup in userDefaults.dictionaryRepresentation().keys
+        where backup.hasPrefix(key + ".unreadable.") && backup != kept {
+            userDefaults.removeObject(forKey: backup)
+        }
     }
 
     static func unusableBlobBackupKey(for data: Data, key: String) -> String {
@@ -660,6 +672,16 @@ final class AppSettings {
         if let current {
             preserveUnusableBlob(current, forKey: workflowListKey, currentVersion: WorkflowList.currentVersion,
                                  name: "workflow_list", in: userDefaults)
+            // An unusable current list falls back to the person's older one, if that still reads, before
+            // the default workflow. It is not written here: the first edit saves it, unless the current
+            // list is a newer build's, which is never overwritten.
+            if let legacy = userDefaults.data(forKey: legacyWorkflowListKey),
+               let decoded = try? JSONDecoder().decode(WorkflowList.self, from: legacy),
+               (1...WorkflowList.currentVersion).contains(decoded.version) {
+                var upgraded = decoded
+                upgraded.version = WorkflowList.currentVersion
+                return upgraded
+            }
         }
         let migrated = migratedWorkflowList(in: userDefaults)
         if data == nil {
@@ -690,46 +712,70 @@ final class AppSettings {
 /// The only way to change the two privacy opt-ins. Each `AppSettings` makes exactly one, and only
 /// this file can set the two settings or make another, so there is one supersession counter and no
 /// second owner without the stores. `AppState` attaches the stores the opt-outs must empty, the
-/// app's history store and recording archive, when it starts. Before that, nothing has been kept,
-/// so a change has nothing to delete.
+/// app's history store and recording archive, once when it starts.
 @MainActor
 final class PrivacyOptIns {
     private unowned let settings: AppSettings
     private var stores: (history: HistoryStore, recordingArchive: (any RecordingArchiving)?)?
     /// Counts learning changes, so an older opt-out cannot act after a newer choice.
     private var glossaryLearningChange = 0
+    private static let logger = Logger(subsystem: "org.syrup.SyrupApp", category: "Settings")
 
     fileprivate init(settings: AppSettings) {
         self.settings = settings
     }
 
-    /// Called by `AppState` when it starts, with the stores it keeps. Another `AppState` on the same
-    /// settings, which tests build to stand in for a relaunch, replaces them: the opt-outs always empty
-    /// the stores of the app that is running.
+    /// Once: attaching other stores later would let an opt-out miss what the first ones kept.
     func attach(history: HistoryStore, recordingArchive: (any RecordingArchiving)?) {
+        precondition(stores == nil, "The privacy opt-ins already have their stores")
         stores = (history, recordingArchive)
     }
 
+    #if DEBUG
+    /// Tests only: lets another `AppState` on the same settings attach its stores, standing in for a
+    /// relaunch. Release builds cannot re-attach.
+    func detachForTesting() {
+        stores = nil
+    }
+    #endif
+
     /// Keep history. The store acts first: turning it off deletes the file, and the setting follows
-    /// only if that worked, so it never claims an opt-out it didn't honor.
+    /// only if that worked, so it never claims an opt-out it didn't honor. With no store attached,
+    /// turning it off is refused: a file from an earlier launch may be on disk, with nothing to delete it.
     func setPersistHistory(_ isEnabled: Bool) async {
-        if let history = stores?.history {
-            guard await history.setPersistenceEnabled(isEnabled) else { return }
+        guard let history = stores?.history else {
+            if isEnabled || settings.persistHistory == false {
+                settings.persistHistory = isEnabled
+            } else {
+                Self.logger.error("privacy_opt_out_refused setting=persist_history reason=no_store")
+            }
+            return
         }
-        settings.persistHistory = isEnabled
+        if await history.setPersistenceEnabled(isEnabled) { settings.persistHistory = isEnabled }
     }
 
     /// Glossary learning. The setting changes at once, and turning it off deletes every pending
     /// recording in the returned task. If the deletion fails, the setting goes back on, so Syrup never
     /// claims an opt-out it didn't honor. A newer change supersedes this one: if it comes before the
     /// deletion starts, nothing is deleted, so turning learning back on keeps new recordings; and a
-    /// failure no longer turns learning back on.
+    /// failure no longer turns learning back on. With no stores attached, turning it off is refused:
+    /// recordings from an earlier launch may be on disk. Attached stores without an archive belong to
+    /// an app that keeps no recordings, which has nothing to delete.
     @discardableResult
     func setGlossaryLearning(_ isEnabled: Bool) -> Task<Void, Never> {
+        guard let stores else {
+            if isEnabled || settings.glossaryLearningEnabled == false {
+                glossaryLearningChange += 1
+                settings.glossaryLearningEnabled = isEnabled
+            } else {
+                Self.logger.error("privacy_opt_out_refused setting=glossary_learning reason=no_store")
+            }
+            return Task {}
+        }
         glossaryLearningChange += 1
         let change = glossaryLearningChange
         settings.glossaryLearningEnabled = isEnabled
-        guard isEnabled == false, let recordingArchive = stores?.recordingArchive else { return Task {} }
+        guard isEnabled == false, let recordingArchive = stores.recordingArchive else { return Task {} }
         return Task {
             guard glossaryLearningChange == change else { return }
             do {

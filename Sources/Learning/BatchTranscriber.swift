@@ -2,6 +2,11 @@ import Foundation
 import WhisperKit
 import Synchronization
 
+enum BatchTranscriptionError: Error, Equatable, Sendable {
+    /// The model on disk could not be loaded, so no recording can be transcribed until it is replaced.
+    case modelUnavailable
+}
+
 protocol BatchTranscribing: Sendable {
     /// Transcribes a whole audio file. languageCode is a bare ISO 639-1 subtag ("pt").
     func transcribe(fileURL: URL, languageCode: String) async throws -> String
@@ -45,13 +50,20 @@ actor WhisperKitBatchTranscriber: BatchTranscribing {
             return pipeline
         }
 
-        let pipeline = try await WhisperKit(WhisperKitConfig(
-            model: WhisperModelManager.modelVariant,
-            modelFolder: modelDirectory.path,
-            verbose: false,
-            load: true,
-            download: false
-        ))
+        let pipeline: WhisperKit
+        do {
+            pipeline = try await WhisperKit(WhisperKitConfig(
+                model: WhisperModelManager.modelVariant,
+                modelFolder: modelDirectory.path,
+                verbose: false,
+                load: true,
+                download: false
+            ))
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            throw BatchTranscriptionError.modelUnavailable
+        }
         self.pipeline = pipeline
         return pipeline
     }

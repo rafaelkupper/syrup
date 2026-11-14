@@ -49,7 +49,8 @@ struct CommandRunnerTests {
         #expect(kill(helper, 0) != 0)
     }
 
-    /// The CLI exits on SIGTERM at once, which ends the timeout race; its helper ignores SIGTERM.
+    /// The CLI exits on SIGTERM at once, which ends the timeout race; its helper ignores SIGTERM. The
+    /// 1 s timeout leaves the helper time to write its PID and set its trap even on a busy machine.
     /// The SIGKILL after the grace period must still reach the helper. The grace is longer than the
     /// runner's wait for the output pipes (`drainGrace`, 500 ms), as the real 2 s one is: a shorter
     /// one would send the SIGKILL while that wait still held the cancelled caller.
@@ -62,12 +63,29 @@ struct CommandRunnerTests {
             _ = try await runner.run(
                 executableURL: URL(filePath: "/bin/sh"),
                 arguments: ["-c", helper + #" while [ ! -s "$PIDFILE" ]; do :; done; /bin/sleep 30"#], stdin: Data(),
-                environment: ["PATH": "/usr/bin:/bin", "PIDFILE": pidFile.path(percentEncoded: false)], timeout: 0.3
+                environment: ["PATH": "/usr/bin:/bin", "PIDFILE": pidFile.path(percentEncoded: false)], timeout: 1
             )
         }
         let pid = try #require(Int32(String(decoding: try Data(contentsOf: pidFile), as: UTF8.self)
             .trimmingCharacters(in: .whitespacesAndNewlines)))
         await eventually("The helper that ignored SIGTERM is still running") { kill(pid, 0) != 0 }
+        #expect(kill(pid, 0) != 0)
+        if kill(pid, 0) == 0 { kill(pid, SIGKILL) }  // Only when the test failed, so nothing is left running.
+    }
+
+    /// The CLI exits on its own and leaves a helper holding its output; the timeout lands while the
+    /// runner waits for that output. The helper must still be stopped.
+    @MainActor @Test func aTimeoutAfterTheCLIExitedStillStopsItsHelper() async throws {
+        let pidFile = FileManager.default.temporaryDirectory.appending(path: "SyrupOrphanHelper.\(UUID()).pid")
+        defer { try? FileManager.default.removeItem(at: pidFile) }
+        _ = try? await runner.run(
+            executableURL: URL(filePath: "/bin/sh"),
+            arguments: ["-c", #"/bin/sleep 30 & echo $! > "$PIDFILE""#], stdin: Data(),
+            environment: ["PATH": "/usr/bin:/bin", "PIDFILE": pidFile.path(percentEncoded: false)], timeout: 0.2
+        )
+        let pid = try #require(Int32(String(decoding: try Data(contentsOf: pidFile), as: UTF8.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines)))
+        await eventually("The helper outlived its CLI") { kill(pid, 0) != 0 }
         #expect(kill(pid, 0) != 0)
         if kill(pid, 0) == 0 { kill(pid, SIGKILL) }  // Only when the test failed, so nothing is left running.
     }

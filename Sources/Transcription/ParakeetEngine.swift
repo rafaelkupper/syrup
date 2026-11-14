@@ -37,6 +37,7 @@ actor ParakeetEngine {
     private var manager: AsrManager?
 
     init(model: Model) {
+        FluidAudioLogging.silence()
         self.model = model
     }
 
@@ -85,7 +86,8 @@ actor ParakeetEngine {
 }
 
 /// FluidAudio's own logging can include transcript text, so it is turned down to faults, and off
-/// the console, before any FluidAudio engine exists: `SpeechModelCatalog.live` does it first.
+/// the console, before any FluidAudio engine works: `SpeechModelCatalog.live` does it first, and
+/// every engine that uses FluidAudio does it again when built, wherever that happens.
 enum FluidAudioLogging {
     static func silence() {
         AppLogger.mirrorsToConsole = false

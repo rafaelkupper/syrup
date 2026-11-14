@@ -205,6 +205,37 @@ struct CaretFitDeliveryTests {
         #expect(fixture.paster.pasteCount == 0)
     }
 
+    /// The first delta reads a mid-sentence context, then focus moves to an empty field before
+    /// anything is typed. The clipboard is fitted with the context read at the end, not the old one.
+    @Test func aStreamThatTypedNothingFitsTheClipboardAfresh() async {
+        let fixture = CaretFitFixture()
+        defer { fixture.clean() }
+        fixture.settings.streamingDeliveryEnabled = true
+        let typist = SpyStreamingTypist()
+        typist.stopAfterFirstAppend = .focusChanged
+        let reads = Mutex(0)
+        let state = AppState.fixture(
+            settings: fixture.settings, audioRecorder: FakeRecorder(), transcriber: FakeTranscriber(.success("fixture")),
+            transformer: FakeStreamingTextTransformer(atomicOutput: "Então vamos.", deltas: ["En", "tão ", "vamos."]),
+            pasteboard: fixture.clipboard, feedback: fixture.feedback, autoPaster: fixture.paster,
+            streamingTypistFactory: { typist }, maximumRecordingDurationNanoseconds: 0,
+            autoPasteDelayNanoseconds: 0, recordingClock: FastForwardClock(),
+            frontmostApplication: { _ in ("fixture", 1) },
+            captureDeliveryTarget: { _ in DeliveryTarget(checkCurrent: { true }, contextProbe: {
+                let read = reads.withLock { count in
+                    count += 1
+                    return count
+                }
+                return read == 1 ? CaretContext(precedingWordCharacter: true, continuesSentence: true, textFollows: true) : CaretContext()
+            }) }
+        )
+        await fixture.run(state)
+        await eventually { fixture.clipboard.writes.isEmpty == false }
+        #expect(typist.hasPostedText == false)
+        #expect(fixture.clipboard.writes == ["Então vamos."])
+        #expect(reads.withLock { $0 } == 2)
+    }
+
     @Test func contextTimeoutAndChangedTargetFallBack() async {
         let gate = ManualResetSleeper()
         let target = DeliveryTarget(checkCurrent: { true }, contextProbe: {

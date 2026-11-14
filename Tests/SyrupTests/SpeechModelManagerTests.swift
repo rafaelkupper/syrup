@@ -71,7 +71,9 @@ struct SpeechModelManagerTests {
         fixture.manager.loadIfDownloaded()
         await waitFor(.ready, in: fixture.manager)
         fixture.manager.remove()
-        await waitFor(.notDownloaded, in: fixture.manager)
+        // Delete shows the model as not downloaded at once; the files go once it is unloaded.
+        #expect(fixture.manager.state == .notDownloaded)
+        await eventually { FileManager.default.fileExists(atPath: fixture.manager.directory.path(percentEncoded: false)) == false }
         #expect(fixture.log.calls == ["load", "unload"])
         #expect(FileManager.default.fileExists(atPath: fixture.manager.directory.path(percentEncoded: false)) == false)
     }
@@ -85,7 +87,8 @@ struct SpeechModelManagerTests {
             try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
         }
         fixture.manager.remove()
-        await waitFor(.notDownloaded, in: fixture.manager)
+        await eventually { fileManager.fileExists(atPath: staging.path(percentEncoded: false)) == false }
+        #expect(fixture.manager.state == .notDownloaded)
         #expect(fileManager.fileExists(atPath: sibling.path(percentEncoded: false)))
         #expect(fileManager.fileExists(atPath: fixture.manager.directory.path(percentEncoded: false)) == false)
         #expect(fileManager.fileExists(atPath: staging.path(percentEncoded: false)) == false)
@@ -206,6 +209,28 @@ struct SpeechModelManagerTests {
         await waitFor(.ready, in: manager)
         #expect(downloads.calls == 2)
         #expect(downloads.mostAtOnce == 1)
+    }
+
+    /// A workflow change asks for a load right after Delete. The model shows as not downloaded at
+    /// once, so no load starts and the files go.
+    @Test func aLoadAskedForRightAfterDeleteDoesNotKeepTheModel() async throws {
+        let fixture = try Fixture(onDisk: true)
+        fixture.manager.remove()
+        fixture.manager.loadIfDownloaded()
+        await eventually { FileManager.default.fileExists(atPath: fixture.manager.directory.path(percentEncoded: false)) == false }
+        #expect(fixture.manager.state == .notDownloaded)
+        #expect(fixture.log.calls == ["unload"])
+    }
+
+    /// Delete during a load: the load is not let become ready, and the files still go.
+    @Test func deleteDuringALoadStillRemovesTheModel() async throws {
+        let fixture = try Fixture(onDisk: true)
+        fixture.manager.loadIfDownloaded()
+        #expect(fixture.manager.state == .loading)
+        fixture.manager.remove()
+        await eventually { FileManager.default.fileExists(atPath: fixture.manager.directory.path(percentEncoded: false)) == false }
+        #expect(fixture.manager.state == .notDownloaded)
+        #expect(fixture.log.calls.last == "unload")
     }
 
     @Test func deleteWhileDownloadingCancelsTheDownloadThenRemovesWhatItFetched() async throws {

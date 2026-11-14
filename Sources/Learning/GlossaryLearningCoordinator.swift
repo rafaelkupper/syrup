@@ -141,6 +141,11 @@ final class GlossaryLearningCoordinator {
                 }
             } catch is CancellationError {
                 break
+            } catch BatchTranscriptionError.modelUnavailable {
+                // The model, not the recording, failed: no attempt is used up, and passes stop until
+                // the person retries or removes the model.
+                modelManager.modelFailedToLoad()
+                break
             } catch {
                 guard Task.isCancelled == false else { break }
                 await recordFailure(id: entry.id)

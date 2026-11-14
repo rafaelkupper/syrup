@@ -86,19 +86,24 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
     private let session: URLSession
     private let timeoutInterval: TimeInterval
     private let inactivitySleeper: StreamingInactivitySleeper
+    /// How long a streamed request may take to start its answer; see `transformStream`.
+    private let firstAnswerLimit: Duration
 
+    /// `firstAnswerLimit` defaults to ten times the timeout: five minutes by default.
     init(
         configuration: OpenAICompatibleConfiguration,
         session: URLSession = .shared,
         timeoutInterval: TimeInterval = 30,
         inactivitySleeper: @escaping StreamingInactivitySleeper = { duration in
             try await Task.sleep(for: duration)
-        }
+        },
+        firstAnswerLimit: Duration? = nil
     ) {
         self.configuration = configuration
         self.session = session
         self.timeoutInterval = timeoutInterval
         self.inactivitySleeper = inactivitySleeper
+        self.firstAnswerLimit = firstAnswerLimit ?? .milliseconds(Int64(timeoutInterval * 10_000))
     }
 
     /// A reply that ends without one event; see `consumeSSE`.
@@ -140,14 +145,24 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
         let (stream, continuation) = AsyncThrowingStream<String, any Error>.makeStream()
         let endpointHost = configuration.baseURL.host() ?? "endpoint"
         let task = Task { [self] in
+            // The inactivity deadline ends a stalled stream. This limit caps one that keeps sending
+            // without ever answering, such as a server repeating chunks that carry only reasoning or
+            // nothing. It ends when the answer starts: from then the inactivity deadline and the 8 MB
+            // cap bound the stream, so a slow model writing a long answer is not cut off.
+            let firstAnswerDeadline = Task {
+                try? await Task.sleep(for: firstAnswerLimit)
+                guard Task.isCancelled == false else { return }
+                continuation.finish(throwing: TranslationError.timedOut)
+            }
             do {
-                // The inactivity deadline ends a stalled stream; this caps one that keeps sending
-                // without finishing, such as a server repeating chunks with no text.
-                try await withOperationTimeout(streamLimit, error: TranslationError.timedOut) {
-                    try await self.stream(text, instruction: instruction, endpointHost: endpointHost, into: continuation)
-                }
+                try await self.stream(
+                    text, instruction: instruction, endpointHost: endpointHost,
+                    into: continuation, answerStarted: { firstAnswerDeadline.cancel() }
+                )
+                firstAnswerDeadline.cancel()
                 continuation.finish()
             } catch {
+                firstAnswerDeadline.cancel()
                 continuation.finish(throwing: Self.streamingError(error, host: endpointHost))
             }
         }
@@ -157,13 +172,15 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
         return stream
     }
 
-    /// Ten times the inactivity timeout: five minutes by default, far beyond a dictation's answer.
-    private var streamLimit: Duration { timeout * 10 }
-
     private func stream(
         _ text: String, instruction: String, endpointHost: String,
-        into continuation: AsyncThrowingStream<String, any Error>.Continuation
+        into continuation: AsyncThrowingStream<String, any Error>.Continuation,
+        answerStarted: @escaping @Sendable () -> Void
     ) async throws {
+        let yield: @Sendable (String) -> Void = { text in
+            answerStarted()
+            continuation.yield(text)
+        }
         var sendsTemperature = true
         while true {
             let request = try makeRequest(
@@ -177,16 +194,12 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw TranslationError.invalidResponse
             }
-            if [400, 422, 501].contains(httpResponse.statusCode) {
+            if Self.rejectionStatuses.contains(httpResponse.statusCode) {
                 let data = try await readResponseBodyWithTimeout(bytes)
-                switch Self.rejectedParameter(in: data) {
-                case "stream":
-                    throw StreamingTransformError.requiresAtomicFallback
-                case "temperature" where sendsTemperature:
+                if Self.rejectsStreaming(data) { throw StreamingTransformError.requiresAtomicFallback }
+                if sendsTemperature, Self.rejectsTemperature(data) {
                     sendsTemperature = false
                     continue
-                default:
-                    break
                 }
             }
             try Self.validate(httpResponse)
@@ -197,7 +210,7 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
                 let data = try await readResponseBodyWithTimeout(bytes)
                 let content = try Self.decodeCompletionContent(data).content
                 try Task.checkCancellation()
-                continuation.yield(content)
+                yield(content)
                 return
             }
 
@@ -208,14 +221,14 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
                     inactivityTimeout: timeout,
                     inactivitySleeper: inactivitySleeper
                 ) { delta in
-                    continuation.yield(delta)
+                    yield(delta)
                 }
             } catch let reply as NotAnEventStream {
                 // A 200 without a single event: a JSON answer sent as `text/plain`, or not an answer,
                 // such as a proxy's HTML page, which fails to decode as an invalid response.
                 let content = try Self.decodeCompletionContent(reply.body).content
                 try Task.checkCancellation()
-                continuation.yield(content)
+                yield(content)
             }
             return
         }
@@ -225,9 +238,10 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
         _ text: String,
         instruction: String
     ) async throws -> OpenAICompatibleTranslationResult {
-        let requests = try [true, false].map {
-            try makeRequest(text: text, instruction: instruction, endpoint: configuration, streaming: false, sendsTemperature: $0)
-        }
+        let withTemperature = try makeRequest(text: text, instruction: instruction, endpoint: configuration, streaming: false)
+        let withoutTemperature = try makeRequest(
+            text: text, instruction: instruction, endpoint: configuration, streaming: false, sendsTemperature: false
+        )
 
         let keepsWrapperQuotes = ModelOutputNormalizer.requestsQuotes(input: text, instruction: instruction)
         do {
@@ -236,21 +250,21 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
             // held in memory whole. Runs reach this only through the streaming fallback (see `transform`).
             // A model that rejects `temperature` is asked once more without it.
             return try await withOperationTimeout(timeout, error: TranslationError.timedOut) { [session] in
-                for request in requests {
-                    let (bytes, response) = try await session.bytes(for: request)
+                var sendsTemperature = true
+                while true {
+                    let (bytes, response) = try await session.bytes(for: sendsTemperature ? withTemperature : withoutTemperature)
                     guard let httpResponse = response as? HTTPURLResponse else {
                         throw TranslationError.invalidResponse
                     }
-                    if [400, 422].contains(httpResponse.statusCode), request == requests[0],
-                       Self.rejectedParameter(in: try await Self.readResponseBody(bytes)) == "temperature" {
+                    let data = try await Self.readResponseBody(bytes)
+                    if sendsTemperature, Self.rejectionStatuses.contains(httpResponse.statusCode),
+                       Self.rejectsTemperature(data) {
+                        sendsTemperature = false
                         continue
                     }
-
                     try Self.validate(httpResponse)
-                    let data = try await Self.readResponseBody(bytes)
                     return try Self.decodeCompletion(data, keepsWrapperQuotes: keepsWrapperQuotes)
                 }
-                throw TranslationError.httpStatus(400)
             }
         } catch let error as TranslationError {
             throw error
@@ -331,13 +345,23 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
         }
     }
 
-    /// The request parameter a 4xx reply says the server or model does not support, such as `stream`
-    /// or `temperature` (models that accept only their default temperature).
-    private static func rejectedParameter(in data: Data) -> String? {
-        guard let rejection = try? JSONDecoder().decode(ParameterRejection.self, from: data),
-              ["unsupported_parameter", "unsupported_value", "not_supported"].contains(rejection.error.code ?? "")
-        else { return nil }
-        return rejection.error.param
+    /// Replies whose body may say a request parameter is unsupported; both paths read them the same way.
+    private static let rejectionStatuses: Set<Int> = [400, 422, 501]
+
+    /// The reply names `stream` as unsupported, with one of the codes servers use for that.
+    private static func rejectsStreaming(_ data: Data) -> Bool {
+        guard let rejection = try? JSONDecoder().decode(ParameterRejection.self, from: data) else { return false }
+        return rejection.error.param == "stream"
+            && ["unsupported_parameter", "unsupported_value", "not_supported"].contains(rejection.error.code ?? "")
+    }
+
+    /// The reply rejects `temperature`, as a model that accepts only its default does: by naming it as
+    /// the parameter, whatever the code, or in the message, as some routers do. Asked only of a
+    /// request that sent one, and retried once without it, so a wrong guess costs one request.
+    private static func rejectsTemperature(_ data: Data) -> Bool {
+        guard let rejection = try? JSONDecoder().decode(ParameterRejection.self, from: data) else { return false }
+        return rejection.error.param == "temperature"
+            || rejection.error.message?.localizedCaseInsensitiveContains("temperature") == true
     }
 
     private func makeRequest(
@@ -602,7 +626,15 @@ private struct ChatCompletionResponse: Decodable {
 
 private struct ChatChoice: Decodable {
     struct Message: Decodable {
+        /// A string, or the text of a list of parts.
         let content: String?
+
+        enum CodingKeys: String, CodingKey { case content }
+
+        init(from decoder: any Decoder) throws {
+            content = try decoder.container(keyedBy: CodingKeys.self)
+                .decodeIfPresent(JSONFieldValue.self, forKey: .content)?.text
+        }
     }
     let message: Message
     let finishReason: String?
@@ -616,7 +648,19 @@ private struct ChatChoice: Decodable {
 private struct ParameterRejection: Decodable {
     struct Detail: Decodable {
         let param: String?
+        /// A string, or a number written as one; some routers send a numeric code.
         let code: String?
+        let message: String?
+
+        enum CodingKeys: String, CodingKey { case param, code, message }
+
+        init(from decoder: any Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            param = try? container.decodeIfPresent(String.self, forKey: .param)
+            message = try? container.decodeIfPresent(String.self, forKey: .message)
+            code = (try? container.decodeIfPresent(String.self, forKey: .code))
+                ?? (try? container.decodeIfPresent(Int.self, forKey: .code)).flatMap { $0.map(String.init) }
+        }
     }
     let error: Detail
 }

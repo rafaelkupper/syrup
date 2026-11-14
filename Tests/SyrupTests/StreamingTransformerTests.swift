@@ -145,7 +145,14 @@ struct StreamingTransformerTests {
         yield(#"data: {"choices":[{"delta":{"reasoning":"More"}}]}"# + "\n", to: bytes.continuation)
         _ = await lineIterator.next()
         await sleeper.waitForCallCount(3)
-        #expect(await sleeper.callCount == 3)
+        // Structured reasoning and tool calls carry no string, but they are the model working too.
+        yield(#"data: {"choices":[{"delta":{"reasoning_details":[{"type":"reasoning.summary","summary":"Plan"}]}}]}"# + "\n", to: bytes.continuation)
+        _ = await lineIterator.next()
+        await sleeper.waitForCallCount(4)
+        yield(#"data: {"choices":[{"delta":{"tool_calls":[{"index":0}]}}]}"# + "\n", to: bytes.continuation)
+        _ = await lineIterator.next()
+        await sleeper.waitForCallCount(5)
+        #expect(await sleeper.callCount == 5)
 
         yield(#"data: {"choices":[{"delta":{"content":"Hi"},"finish_reason":"stop"}]}"# + "\n", to: bytes.continuation)
         bytes.continuation.finish()
