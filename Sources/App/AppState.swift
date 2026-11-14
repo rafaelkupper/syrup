@@ -45,7 +45,7 @@ final class AppState {
         }
         didSet {
             hotkeyController?.setCancelShortcutEnabled(pipelineState.allowsCancelShortcut)
-            syncRecordingCue()
+            status.syncRecordingCue()
         }
     }
     enum ProcessingPhase { case transcribing, translating }
@@ -77,11 +77,6 @@ final class AppState {
     let history: HistoryStore
     let autoPaster: any AutoPasting
     @ObservationIgnored let keychainStore: KeychainStore
-    private var isShowingSuccessFeedback = false {
-        didSet {
-            syncRecordingCue()
-        }
-    }
 
     @ObservationIgnored let audioRecorder: any AudioRecording
     @ObservationIgnored let transcriber: any Transcriber
@@ -96,15 +91,12 @@ final class AppState {
     @ObservationIgnored let captureDeliveryTarget: @MainActor (pid_t?) async -> DeliveryTarget?
     @ObservationIgnored let frontmostApplication: @MainActor (Bool) -> (bundleID: String?, processID: pid_t?)
     @ObservationIgnored let selectionReader: any SelectionReading
-    @ObservationIgnored private let errorResetDelayNanoseconds: UInt64
-    @ObservationIgnored private let errorResetSleeper: ErrorResetSleeper
-    @ObservationIgnored private let feedbackFlashDurationNanoseconds: UInt64
-    @ObservationIgnored private let feedbackFlashSleeper: FeedbackFlashSleeper
     @ObservationIgnored let maximumRecordingDurationNanoseconds: UInt64?
     @ObservationIgnored let recordingDurationSleeper: RecordingDurationSleeper
     @ObservationIgnored let recordingClock: any RecordingClock
     @ObservationIgnored let processActivity: any ProcessActivityControlling
     @ObservationIgnored let outputVolume: OutputVolumeChain
+    @ObservationIgnored let status: StatusIndicator
     /// Run tasks that have not returned yet, keyed by run ID. See `launch`.
     @ObservationIgnored private var runTasks: [UUID: Task<Void, Never>] = [:]
     @ObservationIgnored let streamingTypistFactory: () -> any StreamingTyping
@@ -112,9 +104,6 @@ final class AppState {
     @ObservationIgnored var foregroundActivityChanged: ((Bool) -> Void)?
     var activeRunID: UUID? { activeRun?.id }
     private var isRevisionRun: Bool { activeRun?.configuration.purpose.isRevision == true }
-    @ObservationIgnored private var errorResetTask: Task<Void, Never>?
-    @ObservationIgnored private var errorResetRunID: UUID?
-    @ObservationIgnored private var feedbackFlashTask: Task<Void, Never>?
     @ObservationIgnored private var hotkeyController: HotkeyController?
     @ObservationIgnored let recordingCue: (any RecordingCuePresenting)?
     @ObservationIgnored private var didNotifyEmptySelectionContext = false
@@ -191,10 +180,15 @@ final class AppState {
             captureDeliveryTarget: captureDeliveryTarget,
             frontmostApplication: frontmostApplication
         )
-        self.errorResetDelayNanoseconds = errorResetDelayNanoseconds
-        self.errorResetSleeper = errorResetSleeper
-        self.feedbackFlashDurationNanoseconds = feedbackFlashDurationNanoseconds
-        self.feedbackFlashSleeper = feedbackFlashSleeper
+        self.status = StatusIndicator(
+            settings: settings,
+            feedback: feedback,
+            recordingCue: recordingCue,
+            flashDurationNanoseconds: feedbackFlashDurationNanoseconds,
+            flashSleeper: feedbackFlashSleeper,
+            errorResetDelayNanoseconds: errorResetDelayNanoseconds,
+            errorResetSleeper: errorResetSleeper
+        )
         self.maximumRecordingDurationNanoseconds = maximumRecordingDurationNanoseconds
         self.recordingDurationSleeper = recordingDurationSleeper
         self.recordingClock = recordingClock
@@ -203,6 +197,7 @@ final class AppState {
         settings.privacyOptIns.attach(history: history)
         self.outputVolume = OutputVolumeChain(ducker: outputDucker)
 
+        status.source = self
         if let appFeedback = feedback as? AppFeedback {
             appFeedback.actionHandler = self
         }
@@ -242,35 +237,10 @@ final class AppState {
     }
 
     var isMenuBarSymbolAnimated: Bool {
-        switch pipelineState {
-        case .recording, .transcribing, .translating:
-            true
-        case .idle, .error:
-            false
-        }
+        StatusIndicator.isMenuBarSymbolAnimated(for: pipelineState)
     }
 
-    private func syncRecordingCue() {
-        guard let recordingCue else { return }
-        guard settings.showRecordingCue else {
-            recordingCue.apply(.hidden)
-            return
-        }
-
-        let state: RecordingCueState = switch pipelineState {
-        case .recording:
-            .recording(caption: recordingCueCaption)
-        case .transcribing, .translating:
-            .processing
-        case .error(let message):
-            .error(message)
-        case .idle:
-            isShowingSuccessFeedback ? .success : .hidden
-        }
-        recordingCue.apply(state)
-    }
-
-    private var recordingCueCaption: String? {
+    var recordingCueCaption: String? {
         if isRevisionRun {
             return "Revising last result"
         }
@@ -285,20 +255,11 @@ final class AppState {
     }
 
     var menuBarSymbol: String {
-        Self.menuBarSymbol(for: pipelineState, showingSuccess: isShowingSuccessFeedback)
+        Self.menuBarSymbol(for: pipelineState, showingSuccess: status.isShowingSuccess)
     }
 
     static func menuBarSymbol(for state: PipelineState, showingSuccess: Bool) -> String {
-        switch state {
-        case .idle:
-            showingSuccess ? "checkmark.circle" : "waveform"
-        case .recording:
-            "waveform.badge.microphone"
-        case .transcribing, .translating:
-            "ellipsis"
-        case .error:
-            "exclamationmark.triangle"
-        }
+        StatusIndicator.menuBarSymbol(for: state, showingSuccess: showingSuccess)
     }
 
     // MARK: - Events
@@ -373,7 +334,7 @@ final class AppState {
     private func cancelActiveRun() {
         cancelActiveStreamingTypist()
         activeRun?.cancel()
-        cancelErrorReset()
+        status.cancelErrorReset()
         audioRecorder.stop()
         resumeStopWaiter()
         clearRunTracking()
@@ -493,12 +454,12 @@ final class AppState {
         do {
             try pasteboard.write(text)
             afterWrite()
-            cancelErrorReset()
+            status.cancelErrorReset()
             pipelineState = .idle
-            showSuccessFeedback()
+            status.showSuccess()
         } catch {
             presentError(error)
-            scheduleErrorReset(for: UUID())
+            status.scheduleErrorReset(for: UUID())
         }
     }
 
@@ -529,13 +490,13 @@ final class AppState {
         do {
             try pasteboard.write(delivered)
             // The copy succeeded, so an error still on screen no longer applies, as with Copy Last.
-            cancelErrorReset()
+            status.cancelErrorReset()
             if case .error = pipelineState { pipelineState = .idle }
             // Whenever it copied without pasting, the copied flash shows, every time: the notice for
             // missing Accessibility appears only once per launch.
             if pinsTarget, target == nil {
                 delivery.notifyNoCapturedTarget()
-                showSuccessFeedback()
+                status.showSuccess()
                 return
             }
             let pasted = try await delivery.pasteCompletedText(delivered, contextTarget: usesSpacing ? target : nil,
@@ -545,19 +506,19 @@ final class AppState {
                 guard pinsTarget else { return true }
                 return await target?.isCurrent() == true
             })
-            if pasted == false { showSuccessFeedback() }
+            if pasted == false { status.showSuccess() }
         } catch is CancellationError {
         } catch {
             presentError(error)
-            scheduleErrorReset(for: UUID())
+            status.scheduleErrorReset(for: UUID())
         }
     }
 
     // MARK: - Starting runs
 
     private func beginRun(_ run: PipelineRun, state: PipelineState) {
-        cancelErrorReset()
-        cancelSuccessFeedback()
+        status.cancelErrorReset()
+        status.cancelSuccess()
         clearRunTracking()
         activeRun = run
         foregroundActivityChanged?(true)
@@ -755,7 +716,7 @@ final class AppState {
     func finishRunSucceeded(_ runID: UUID) {
         guard isCurrentRun(runID) else { return }
         pipelineState = .idle
-        showSuccessFeedback()
+        status.showSuccess()
         finishRun(runID)
     }
 
@@ -763,12 +724,12 @@ final class AppState {
     func finishRunFailed(_ runID: UUID, error: any Error) {
         guard isCurrentRun(runID) else { return }
         if error is CancellationError {
-            cancelSuccessFeedback()
+            status.cancelSuccess()
             pipelineState = .idle
             finishRun(runID)
         } else {
             presentError(error)
-            scheduleErrorReset(for: runID)
+            status.scheduleErrorReset(for: runID)
             finishRun(runID, keepErrorReset: true)
         }
     }
@@ -851,37 +812,19 @@ final class AppState {
 
     private func failRunStart(_ error: Error, runID: UUID) {
         presentError(error)
-        scheduleErrorReset(for: runID)
+        status.scheduleErrorReset(for: runID)
         finishRun(runID, keepErrorReset: true)
     }
 
     // MARK: - Run bookkeeping
 
-    private func scheduleErrorReset(for runID: UUID) {
-        errorResetTask?.cancel()
-        errorResetRunID = runID
-        let delay = errorResetDelayNanoseconds
-        let sleeper = errorResetSleeper
-        errorResetTask = Task { [weak self] in
-            do {
-                try await sleeper(delay)
-            } catch {
-                return
-            }
-
-            self?.clearErrorIfNeeded(runID: runID)
-        }
-    }
-
-    private func clearErrorIfNeeded(runID: UUID) {
-        guard activeRunID == nil, errorResetRunID == runID else { return }
+    func clearErrorAfterDelay() -> Bool {
+        guard activeRunID == nil else { return false }
 
         if case .error = pipelineState {
             pipelineState = .idle
         }
-
-        errorResetRunID = nil
-        errorResetTask = nil
+        return true
     }
 
     private func finishRun(_ runID: UUID, keepErrorReset: Bool = false) {
@@ -889,7 +832,7 @@ final class AppState {
 
         clearRunTracking()
         if keepErrorReset == false {
-            cancelErrorReset()
+            status.cancelErrorReset()
         }
     }
 
@@ -946,47 +889,10 @@ final class AppState {
         activeRunID == runID
     }
 
-    private func cancelErrorReset() {
-        errorResetTask?.cancel()
-        errorResetTask = nil
-        errorResetRunID = nil
-    }
-
-    private func showSuccessFeedback() {
-        if settings.playSounds {
-            feedback.playSuccessSound(settings.successSound)
-        }
-
-        feedbackFlashTask?.cancel()
-        isShowingSuccessFeedback = true
-        let duration = feedbackFlashDurationNanoseconds
-        let sleeper = feedbackFlashSleeper
-        feedbackFlashTask = Task { [weak self] in
-            do {
-                try await sleeper(duration)
-            } catch {
-                return
-            }
-
-            self?.clearSuccessFeedback()
-        }
-    }
-
-    private func clearSuccessFeedback() {
-        isShowingSuccessFeedback = false
-        feedbackFlashTask = nil
-    }
-
-    private func cancelSuccessFeedback() {
-        feedbackFlashTask?.cancel()
-        feedbackFlashTask = nil
-        isShowingSuccessFeedback = false
-    }
-
     /// Shows an error. When the active run appended a failed history record, the notification offers
     /// that record's transcript and retry actions; it never matches an older record by its message.
     private func presentError(_ error: Error) {
-        cancelSuccessFeedback()
+        status.cancelSuccess()
         let message = userMessage(for: error)
         pipelineState = .error(message)
         if let recordID = activeRun?.failedRecordID,
@@ -1028,3 +934,5 @@ final class AppState {
 }
 
 extension AppState: AppFeedbackActionHandling {}
+
+extension AppState: StatusIndicatorSource {}

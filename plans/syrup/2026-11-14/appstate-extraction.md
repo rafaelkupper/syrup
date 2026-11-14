@@ -90,10 +90,13 @@ None planned. Any mechanical call-site change will be listed here with its reaso
 
 For each owner: break one rule on purpose, run the named suite, record the failing test, restore, rerun.
 
-| Owner | Mutation | Failing test | Restored and green |
+| Owner | Mutation | Failing tests | Restored and green |
 | --- | --- | --- | --- |
-| `OutputVolumeChain` | | | |
-| `StatusIndicator` | | | |
+| `OutputVolumeChain` | A change no longer waits for the previous one (`await previous?.value` removed) | None: survived. `OutputDucker` is an actor, and the fake holds the first write inside it, so a later change still queues behind it. Equivalent under these fakes; recorded, not chased with a timing-dependent test. | Yes |
+| `OutputVolumeChain` | `pending` no longer records the queued change | `crashRecoveryRestoresThroughTheChainThatPendingWorkAwaits`, `quittingWaitsForACancelledRunsVolumeRestore`, `slowVolumeChangesNeverDelayDeliveryButPrecedeTheSuccessSound` | Yes |
+| `StatusIndicator` | The flash flag no longer re-applies the cue | All five cue-sequence tests except the cancelled run's, plus `aCancelledRunAppliesHiddenOnce`, `cueMirrorsSuccessfulRunLifecycle`, `disabledLiveTranscriptKeepsCueButSkipsPartials` | Yes |
+| `StatusIndicator` | The flash flag is `@ObservationIgnored` | `menuBarObserversHearTheSuccessFlashEnd` | Yes |
+| `StatusIndicator` | The error reset never clears | `aFailedRunShowsItsErrorUntilTheResetClearsIt`, `aFailedCopyShowsItsErrorUntilTheResetClearsIt`, `errorAutoReturnsToIdle` | Yes |
 | `ResultActions` | | | |
 | `SpeechReadiness` | | | |
 | `RecordingFiler` | | | |
@@ -109,3 +112,6 @@ For each owner: break one rule on purpose, run the named suite, record the faili
 ## Progress
 
 - 2026-11-14: baseline 847 tests passed. Plan written.
+- Step 1: 16 characterization tests pass on the unchanged code; full run 863 tests, 858 passed and 5 skipped by their environment gates (Apple model smoke, real mishearing probes, release timing), as in the baseline. Per-test results are compared with this run after every step, from the `.xcresult` bundles.
+- Step 2: `OutputVolumeChain` extracted. Full run identical to step 1.
+- Step 3: `StatusIndicator` extracted. Full run identical to step 1.
