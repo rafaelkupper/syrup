@@ -107,11 +107,13 @@ For each owner: break one rule on purpose, run the named suites, record the fail
 
 ## Done when
 
+All met on 2026-11-14:
+
 - The five owners exist with the state and rules listed above, and `AppState` composes them.
-- `script/ci_test.sh` passes: boundary check, production build, and the isolated suite with 847 baseline tests plus the new ones.
+- `script/ci_test.sh` passes: boundary check, production build, and the isolated suite. Before the rebase: 863 tests (847 baseline plus 16 new), 858 passed, 5 skipped by environment gates, no Swift warnings. After rebasing onto local `main` at `3492746`: 879 tests, 874 passed, the same 5 skipped.
 - Each owner has a recorded mutation check.
 - ARCHITECTURE.md and IMPLEMENTATION.md describe the new structure.
-- Commits are on `appstate-extraction` only.
+- Commits are on `appstate-extraction` only. Nothing was pushed, merged, or released.
 
 ## Progress
 
@@ -121,3 +123,9 @@ For each owner: break one rule on purpose, run the named suites, record the fail
 - Step 3: `StatusIndicator` extracted. Full run identical to step 1.
 - Step 4: `ResultActions` extracted. The moved code was diffed against the old section: apart from the host calls listed under Owners, the only addition is `cancelPendingPaste()`. Full run identical to step 1.
 - Step 5: `SpeechReadiness` extracted; `AppState` no longer stores `speechModels`, which nothing outside these methods read. Full run identical to step 1.
+- Step 6: `RecordingFiler` extracted; `AppState.recordingArchive` is now a forward to it, for the Settings window. Full run identical to step 1; boundary check passes (the new file imports only Foundation).
+- Step 7: `AppState`'s declarations regrouped by owner (declarations only, each with the same attributes; checked by script). ARCHITECTURE.md (module map; output volume, last result, recording cue, speech warm-up, pipeline-state transitions, quitting, Paste Last, testing) and IMPLEMENTATION.md (source map) updated. `script/ci_test.sh` passed.
+- Rebase: local `main` gained `3492746` (round-10 fixes, including `AppState.fixture` defaults in `TestSupport.swift`). Rebased onto it; the only conflict was ARCHITECTURE.md, resolved by taking `main`'s paragraphs and re-applying the eleven sentence edits above. `script/ci_test.sh` passed again. Per-test results differ from step 1 only by tests that `3492746` added, removed, or renamed.
+- Size: `AppState` went from 1,989 lines (1,053 + 567 + 369) to 1,720 (804 + 547 + 369), and from about 25 mutable properties to 11. The owners add 585 lines, including their interfaces and comments. Measured before the 2026-11-15 rebase below.
+- Rebase onto `main` at `86008fb` (2026-11-15): `main` removed glossary learning, so step 6 (`RecordingFiler`) and its characterization tests (`RecordingFilingCharacterizationTests`) were dropped; the other steps were re-applied without their learning lines.
+
