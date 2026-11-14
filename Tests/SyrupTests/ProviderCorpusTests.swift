@@ -23,6 +23,7 @@ struct ProviderErrorCase: Sendable, CustomTestStringConvertible {
     let label: String
     let source: String
     let nearby: String
+    let note: String
     /// The status shown with the example, if the page shows one.
     let status: Int?
     let body: String
@@ -57,7 +58,8 @@ struct ProviderCorpusTests {
     }
 
     /// No documented error, from any provider, is read as a rejection of `temperature` or of
-    /// streaming: those are the only rejections the transformer retries or remembers.
+    /// streaming: those are the only rejections the transformer retries or remembers. Today no
+    /// documented error mentions either, so this guards entries added to the corpus later.
     @Test(arguments: ProviderCorpus.errors)
     func noDocumentedErrorReadsAsATemperatureOrStreamingRejection(_ example: ProviderErrorCase) {
         let data = Data(example.body.utf8)

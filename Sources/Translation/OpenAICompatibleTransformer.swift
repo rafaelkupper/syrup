@@ -206,12 +206,13 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
                 }
             }
             try Self.validate(httpResponse)
-            // A rejection that named the parameter is remembered once the retry's answer starts, so a
-            // mention for another reason, or a retry that fails, changes nothing for later runs.
+            // A rejection that blamed the parameter is remembered once the retry's answer text starts,
+            // so a rejection that blamed another parameter, a retry that fails before answering, or an
+            // empty reply changes nothing for later runs.
             let remembers = sendsTemperature == false && rejectionNamedTemperature
             let temperatureKey = temperatureKey
             let answer: @Sendable (String) -> Void = { text in
-                if remembers { Self.rememberTemperatureRejection(for: temperatureKey) }
+                if remembers, text.isEmpty == false { Self.rememberTemperatureRejection(for: temperatureKey) }
                 yield(text)
             }
 
@@ -382,20 +383,18 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
         String(decoding: data, as: UTF8.self).localizedCaseInsensitiveContains("temperature")
     }
 
-    /// The reply names `temperature` as the rejected parameter: `param` is `temperature`, or an error
-    /// message says temperature is unsupported. Only such a rejection is remembered for the session, so
-    /// an error that mentions the word for another reason never changes later requests.
+    /// The reply blames `temperature`: its `param` is `temperature`, or it names no parameter and
+    /// mentions temperature. Only such a rejection is remembered for the session; one that blames
+    /// another parameter never changes later requests, whatever words it uses. Wording is not trusted:
+    /// providers phrase this rejection in many ways and publish none of them.
     static func namesTemperatureAsRejected(_ data: Data) -> Bool {
-        guard let body = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return false }
+        guard rejectsTemperature(data) else { return false }
+        guard let body = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return true }
         let error = body["error"] as? [String: Any]
+        // An empty name, or a proxy writing its own null as "None" or "null", names no parameter.
         let params = [error?["param"], body["param"]].compactMap { $0 as? String }
-        if params.contains(where: { $0.caseInsensitiveCompare("temperature") == .orderedSame }) { return true }
-        let messages = [error?["message"], body["error"], body["detail"], body["message"]].compactMap { $0 as? String }
-        return messages.contains { message in
-            let message = message.lowercased()
-            return message.contains("temperature")
-                && ["unsupported", "not supported", "does not support", "only the default"].contains { message.contains($0) }
-        }
+            .filter { ["", "none", "null"].contains($0.lowercased()) == false }
+        return params.isEmpty || params.contains { $0.caseInsensitiveCompare("temperature") == .orderedSame }
     }
 
     /// Endpoints and models that rejected `temperature` during this session: their requests leave it

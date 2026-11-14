@@ -1,0 +1,438 @@
+{
+  "retrieved": "2026-11-14",
+  "entries": [
+    {
+      "provider": "OpenAI",
+      "kind": "stream",
+      "label": "first chunk: role with empty content",
+      "raw": "data: {\"id\":\"chatcmpl-123\",\"object\":\"chat.completion.chunk\",\"created\":1694268190,\"model\":\"gpt-6-astra\", \"system_fingerprint\": \"fp_44709d6fcb\", \"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null}]}",
+      "meaning": "First streamed chunk: delta carries role \"assistant\" and an empty content string; finish_reason null.",
+      "source": "https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create.md",
+      "quote_context": "### Streaming ... #### Response example"
+    },
+    {
+      "provider": "OpenAI",
+      "kind": "stream",
+      "label": "content delta",
+      "raw": "data: {\"id\":\"chatcmpl-123\",\"object\":\"chat.completion.chunk\",\"created\":1694268190,\"model\":\"gpt-6-astra\", \"system_fingerprint\": \"fp_44709d6fcb\", \"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hello\"},\"logprobs\":null,\"finish_reason\":null}]}",
+      "meaning": "Answer text delta (delta.content = \"Hello\"); finish_reason null.",
+      "source": "https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create.md",
+      "quote_context": "### Streaming ... #### Response example"
+    },
+    {
+      "provider": "OpenAI",
+      "kind": "stream",
+      "label": "SSE comment-style line inside the documented example",
+      "raw": ": Intermediate chat completion chunks omitted.",
+      "meaning": "Documentation placeholder standing in for omitted chunks, written in SSE comment syntax (line starts with ':'). The page does not describe it as something the API sends.",
+      "source": "https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create.md",
+      "quote_context": "### Streaming ... #### Response example"
+    },
+    {
+      "provider": "OpenAI",
+      "kind": "stream",
+      "label": "final chunk: empty delta, finish_reason stop",
+      "raw": "data: {\"id\":\"chatcmpl-123\",\"object\":\"chat.completion.chunk\",\"created\":1694268190,\"model\":\"gpt-6-astra\", \"system_fingerprint\": \"fp_44709d6fcb\", \"choices\":[{\"index\":0,\"delta\":{},\"logprobs\":null,\"finish_reason\":\"stop\"}]}",
+      "meaning": "Finish chunk: empty delta object and finish_reason \"stop\".",
+      "source": "https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create.md",
+      "quote_context": "### Streaming ... #### Response example"
+    },
+    {
+      "provider": "OpenAI",
+      "kind": "stream",
+      "label": "[DONE] terminator",
+      "raw": "data: [DONE]",
+      "meaning": "Stream terminator.",
+      "source": "https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create.md",
+      "quote_context": "### Streaming ... #### Response example"
+    },
+    {
+      "provider": "OpenAI",
+      "kind": "stream",
+      "label": "whole documented stream, with blank-line event separators",
+      "raw": "data: {\"id\":\"chatcmpl-123\",\"object\":\"chat.completion.chunk\",\"created\":1694268190,\"model\":\"gpt-6-astra\", \"system_fingerprint\": \"fp_44709d6fcb\", \"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-123\",\"object\":\"chat.completion.chunk\",\"created\":1694268190,\"model\":\"gpt-6-astra\", \"system_fingerprint\": \"fp_44709d6fcb\", \"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hello\"},\"logprobs\":null,\"finish_reason\":null}]}\n\n: Intermediate chat completion chunks omitted.\n\ndata: {\"id\":\"chatcmpl-123\",\"object\":\"chat.completion.chunk\",\"created\":1694268190,\"model\":\"gpt-6-astra\", \"system_fingerprint\": \"fp_44709d6fcb\", \"choices\":[{\"index\":0,\"delta\":{},\"logprobs\":null,\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]",
+      "meaning": "The complete response example as printed: role chunk, content chunk, the placeholder comment line, finish chunk, [DONE], each separated by a blank line.",
+      "source": "https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create.md",
+      "quote_context": "### Streaming ... #### Response example"
+    },
+    {
+      "provider": "OpenAI",
+      "kind": "stream",
+      "label": "chunk object carrying an obfuscation field",
+      "raw": "{\"id\":\"chatcmpl-123\",\"object\":\"chat.completion.chunk\",\"created\":1694268190,\"model\":\"gpt-6-astra\", \"system_fingerprint\": \"fp_44709d6fcb\", \"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null}],\"obfuscation\":\"r4N7vQ2m\"}",
+      "meaning": "Example chat.completion.chunk object (role chunk) with a top-level \"obfuscation\" field. Shown as a bare JSON object without the 'data: ' prefix.",
+      "source": "https://developers.openai.com/api/reference/resources/chat/subresources/completions/streaming-events.md",
+      "quote_context": "Represents a streamed chunk of a chat completion response returned by the model ... ### Example"
+    },
+    {
+      "provider": "OpenAI",
+      "kind": "stream",
+      "label": "tool-call deltas: successive values of delta.tool_calls",
+      "raw": "[{\"index\": 0, \"id\": \"call_DdmO9pD3xa9XTPNJ32zg2hcA\", \"function\": {\"arguments\": \"\", \"name\": \"get_weather\"}, \"type\": \"function\"}]\n[{\"index\": 0, \"id\": null, \"function\": {\"arguments\": \"{\\\"\", \"name\": null}, \"type\": null}]\n[{\"index\": 0, \"id\": null, \"function\": {\"arguments\": \"location\", \"name\": null}, \"type\": null}]\n[{\"index\": 0, \"id\": null, \"function\": {\"arguments\": \"\\\":\\\"\", \"name\": null}, \"type\": null}]\n[{\"index\": 0, \"id\": null, \"function\": {\"arguments\": \"Paris\", \"name\": null}, \"type\": null}]\n[{\"index\": 0, \"id\": null, \"function\": {\"arguments\": \",\", \"name\": null}, \"type\": null}]\n[{\"index\": 0, \"id\": null, \"function\": {\"arguments\": \" France\", \"name\": null}, \"type\": null}]\n[{\"index\": 0, \"id\": null, \"function\": {\"arguments\": \"\\\"}\", \"name\": null}, \"type\": null}]\nnull",
+      "meaning": "Tool call streamed in pieces. Each line is the value of choices[0].delta.tool_calls printed by the sample code for one chunk, not a full 'data:' line: the first carries id, type and function name with empty arguments, later ones carry argument fragments with id, name and type null; the last line is null (a chunk without tool_calls).",
+      "source": "https://developers.openai.com/api/docs/guides/function-calling?api-mode=chat",
+      "quote_context": "Output delta.tool_calls"
+    },
+    {
+      "provider": "OpenAI",
+      "kind": "error",
+      "label": "error envelope with type, code, message, param (Agents API files guide, not Chat Completions)",
+      "status": 400,
+      "raw": "{\n  \"error\": {\n    \"type\": \"invalid_request_error\",\n    \"code\": \"invalid_request_error\",\n    \"message\": \"path must be an absolute POSIX path inside /workspace\",\n    \"param\": \"path\"\n  }\n}",
+      "meaning": "Error envelope {\"error\": {type, code, message, param}} for an invalid request parameter. Published for the Agents API files endpoints; the Chat Completions reference and the error codes guide publish no JSON error body.",
+      "source": "https://developers.openai.com/api/docs/guides/agents-api/environments/files.md",
+      "quote_context": "For HTTP 400, use `error.param` and `error.message` to identify the input to correct. For example, a destination outside `/workspace` returns:"
+    },
+    {
+      "provider": "OpenAI",
+      "kind": "error",
+      "label": "rate limit error envelope with null param (Agents API errors guide, not Chat Completions)",
+      "status": 429,
+      "raw": "{\n  \"error\": {\n    \"type\": \"rate_limit_error\",\n    \"code\": \"files_api_rate_limit_exceeded\",\n    \"message\": \"The Files API rate limit for your user has been exceeded. Reduce the rate of requests that access files, then try again.\",\n    \"param\": null\n  }\n}",
+      "meaning": "Error envelope with type \"rate_limit_error\", a code, a message and param null. Published for the Agents API.",
+      "source": "https://developers.openai.com/api/docs/guides/agents-api/errors.md",
+      "quote_context": "Session creation and file attachment requests can return HTTP 429 with `files_api_rate_limit_exceeded`."
+    },
+    {
+      "provider": "OpenRouter",
+      "kind": "stream",
+      "label": "SSE comment keepalive",
+      "raw": ": OPENROUTER PROCESSING",
+      "meaning": "Keepalive: an SSE comment sent occasionally to prevent connection timeouts; not JSON and safe to ignore.",
+      "source": "https://openrouter.ai/docs/api_reference/streaming.md",
+      "quote_context": "OpenRouter occasionally sends comments to prevent connection timeouts. These comments look like:"
+    },
+    {
+      "provider": "OpenRouter",
+      "kind": "stream",
+      "label": "last content chunk, usage chunk, [DONE] (abridged by the docs with '...')",
+      "raw": "data: {\"id\":\"gen-abc123\",...,\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\"},\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\"}]}\ndata: {\"id\":\"gen-abc123\",...,\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\",\"role\":\"assistant\"},\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\"}],\"usage\":{...}}\ndata: [DONE]",
+      "meaning": "End of a Chat Completions stream: a chunk with finish_reason, then the usage chunk, which keeps one choice with a content-free delta and repeats finish_reason instead of using an empty choices array, then [DONE]. The docs abridge the payloads with literal '...' so the two data lines are not parseable JSON as printed.",
+      "source": "https://openrouter.ai/docs/api_reference/streaming.md",
+      "quote_context": "every stream ends with an extra chunk that carries the `usage` object for the request, sent just before the `[DONE]` message"
+    },
+    {
+      "provider": "OpenRouter",
+      "kind": "error",
+      "label": "error before the response is committed",
+      "status": 400,
+      "raw": "{\n  \"error\": {\n    \"code\": 400,\n    \"message\": \"Invalid model specified\"\n  }\n}",
+      "meaning": "Standard JSON error response returned with an HTTP error status when the failure happens before the response is committed. error.code is numeric and mirrors the HTTP status.",
+      "source": "https://openrouter.ai/docs/api_reference/streaming.md",
+      "quote_context": "you get a standard JSON error response with the appropriate HTTP status code"
+    },
+    {
+      "provider": "OpenRouter",
+      "kind": "error",
+      "label": "mid-stream error chunk, provider disconnect (HTTP 200 already sent)",
+      "status": 200,
+      "raw": "data: {\"id\":\"cmpl-abc123\",\"object\":\"chat.completion.chunk\",\"created\":1234567890,\"model\":\"openai/gpt-4o\",\"provider\":\"openai\",\"error\":{\"code\":502,\"message\":\"Provider disconnected unexpectedly\"},\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\"},\"finish_reason\":\"error\"}]}",
+      "meaning": "Error arriving inside a Chat Completions stream after 200 OK: a chat.completion.chunk with a top-level error object and one choice with finish_reason \"error\"; the stream terminates after it.",
+      "source": "https://openrouter.ai/docs/api_reference/streaming.md",
+      "quote_context": "The stream ends with a chunk that carries a top-level `error`:"
+    },
+    {
+      "provider": "OpenRouter",
+      "kind": "error",
+      "label": "mid-stream error chunk with error.metadata.error_type (HTTP 200 already sent)",
+      "status": 200,
+      "raw": "data: {\"id\":\"gen-abc123\",\"object\":\"chat.completion.chunk\",\"created\":1234567890,\"model\":\"openai/gpt-4o\",\"provider\":\"OpenAI\",\"error\":{\"code\":429,\"message\":\"Rate limit exceeded\",\"metadata\":{\"error_type\":\"rate_limit_exceeded\"}},\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\"},\"finish_reason\":\"error\"}]}",
+      "meaning": "Mid-stream error event: top-level error with numeric code, message and metadata.error_type (typed code), plus a choice with finish_reason \"error\". HTTP status stays 200.",
+      "source": "https://openrouter.ai/docs/api_reference/errors-and-debugging.md",
+      "quote_context": "Example SSE data:"
+    },
+    {
+      "provider": "OpenRouter",
+      "kind": "error",
+      "label": "mid-stream rate limit chunk",
+      "raw": "data: {\"id\":\"cmpl-abc123\",\"object\":\"chat.completion.chunk\",\"created\":1234567890,\"model\":\"openai/gpt-4o\",\"provider\":\"openai\",\"error\":{\"code\":429,\"message\":\"Rate limit exceeded\"},\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\"},\"finish_reason\":\"error\"}]}",
+      "meaning": "Rate limit hit after streaming started: SSE event with top-level error code 429 and finish_reason \"error\". The sentence beside it reads 'instead of an HTTP , since the  status was already sent' in the fetched page (the status numbers are missing there), so no status is recorded.",
+      "source": "https://openrouter.ai/docs/api_reference/limits.md",
+      "quote_context": "If a rate limit is hit after streaming has started, the error arrives as an SSE event with `finish_reason: \"error\"`"
+    },
+    {
+      "provider": "OpenRouter",
+      "kind": "error",
+      "label": "provider error body with metadata.error_type and provider_code",
+      "raw": "{\n  \"error\": {\n    \"code\": 429,\n    \"message\": \"Rate limit exceeded\",\n    \"metadata\": {\n      \"error_type\": \"rate_limit_exceeded\",\n      \"provider_code\": \"rate_limited\"\n    }\n  }\n}",
+      "meaning": "Chat Completions provider error that interrupts generation: error.code, message, metadata.error_type and metadata.provider_code. The page gives no HTTP status for this example beyond error.code.",
+      "source": "https://openrouter.ai/docs/api_reference/errors-and-debugging.md",
+      "quote_context": "For Chat Completions, a provider error that interrupts generation carries `error_type` inside `error.metadata`:"
+    },
+    {
+      "provider": "OpenRouter",
+      "kind": "error",
+      "label": "budget limit rejection with metadata",
+      "status": 403,
+      "raw": "{\n  \"error\": {\n    \"code\": 403,\n    \"message\": \"Budget limit exceeded (weekly limit). Contact your org admin. $52.00 of $50.00 used; resets 2026-10-12T00:00:00.000Z.\",\n    \"metadata\": {\n      \"limit_source\": \"openrouter_guardrail_budget\",\n      \"remedy_hint\": \"Wait for the budget window to reset (see metadata.resets_at), or ask your org admin to raise the guardrail budget.\",\n      \"scope\": \"workspace_default_member\",\n      \"limit_usd\": 50,\n      \"spend_usd\": 52,\n      \"resets_at\": \"2026-10-12T00:00:00.000Z\"\n    }\n  }\n}",
+      "meaning": "Request rejected before reaching a provider because a budget is spent; error.metadata carries limit fields.",
+      "source": "https://openrouter.ai/docs/api_reference/errors-and-debugging.md",
+      "quote_context": "the request is rejected with a `403` before it reaches a provider"
+    },
+    {
+      "provider": "OpenRouter",
+      "kind": "error",
+      "label": "guardrail block",
+      "status": 403,
+      "raw": "{\n  \"error\": {\n    \"code\": 403,\n    \"message\": \"Request blocked: prompt injection patterns detected\",\n    \"metadata\": {\n      \"patterns\": [\"ignore all previous instructions\"]\n    }\n  }\n}",
+      "meaning": "Request blocked by a guardrail before reaching a provider; error.metadata describes the block.",
+      "source": "https://openrouter.ai/docs/api_reference/errors-and-debugging.md",
+      "quote_context": "the response is a `403` with a message describing the block reason"
+    },
+    {
+      "provider": "OpenRouter",
+      "kind": "error",
+      "label": "non-streaming response with error embedded in the choice",
+      "raw": "{\n  \"choices\": [{\n    \"message\": { \"role\": \"assistant\", \"content\": \"partial output...\" },\n    \"finish_reason\": \"error\",\n    \"error\": {\n      \"code\": 502,\n      \"message\": \"Provider disconnected mid-stream\",\n      \"metadata\": { \"error_type\": \"provider_unavailable\" }\n    }\n  }]\n}",
+      "meaning": "Non-streaming provider error: partial message content, finish_reason \"error\" and an error object inside the choice. Not a stream chunk.",
+      "source": "https://openrouter.ai/docs/api_reference/errors-and-debugging.md",
+      "quote_context": "For non-streaming requests where a provider error occurs, the error is embedded in the final response alongside any partial content:"
+    },
+    {
+      "provider": "OpenRouter",
+      "kind": "stream",
+      "label": "reasoning_details delta chunk",
+      "raw": "{\n  \"choices\": [\n    {\n      \"delta\": {\n        \"reasoning_details\": [\n          {\n            \"type\": \"reasoning.text\",\n            \"text\": \"Let me think about this step by step...\",\n            \"signature\": null,\n            \"id\": \"reasoning-text-1\",\n            \"format\": \"anthropic-claude-v1\",\n            \"index\": 0\n          }\n        ]\n      }\n    }\n  ]\n}",
+      "meaning": "Reasoning delta: choices[].delta.reasoning_details is an array of reasoning objects (here type \"reasoning.text\"). Shown pretty-printed on several lines and without the 'data: ' prefix; kept as printed.",
+      "source": "https://openrouter.ai/docs/guides/best-practices/reasoning-tokens.md",
+      "quote_context": "In streaming responses, `reasoning_details` appears in delta chunks as the reasoning is generated:"
+    },
+    {
+      "provider": "OpenRouter",
+      "kind": "stream",
+      "label": "debug chunk with empty choices array",
+      "raw": "{\n  \"id\": \"gen-xxxxx\",\n  \"provider\": \"Anthropic\",\n  \"model\": \"anthropic/claude-haiku-5.5\",\n  \"object\": \"chat.completion.chunk\",\n  \"created\": 1234567890,\n  \"choices\": [],\n  \"debug\": {\n    \"echo_upstream_body\": {\n      \"system\": [\n        { \"type\": \"text\", \"text\": \"You are a helpful assistant.\" }\n      ],\n      \"messages\": [\n        { \"role\": \"user\", \"content\": \"Hello!\" }\n      ],\n      \"model\": \"claude-haiku-5-5\",\n      \"stream\": true,\n      \"max_tokens\": 65536\n    }\n  }\n}",
+      "meaning": "First chunk of a stream when debug.echo_upstream_body is true: choices is an empty array and a debug field carries the transformed request body. Shown pretty-printed and without the 'data: ' prefix; kept as printed.",
+      "source": "https://openrouter.ai/docs/api_reference/errors-and-debugging.md",
+      "quote_context": "OpenRouter sends a debug chunk as the **first chunk** in the streaming response. This chunk has an empty `choices` array"
+    },
+    {
+      "provider": "OpenRouter",
+      "kind": "stream",
+      "label": "usage object on a chunk (fragment)",
+      "raw": "{\n  \"object\": \"chat.completion.chunk\",\n  \"usage\": {\n    \"completion_tokens\": 2,\n    \"completion_tokens_details\": {\n      \"reasoning_tokens\": 0\n    },\n    \"cost\": 0.95,\n    \"cost_details\": {\n      \"upstream_inference_cost\": 19\n    },\n    \"prompt_tokens\": 194,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\": 0,\n      \"cache_write_tokens\": 100,\n      \"audio_tokens\": 0\n    },\n    \"total_tokens\": 196\n  }\n}",
+      "meaning": "Usage accounting shape on Chat Completions: an abridged chat.completion.chunk showing only object and usage. Shown pretty-printed and without the 'data: ' prefix; kept as printed.",
+      "source": "https://openrouter.ai/docs/cookbook/administration/usage-accounting.md",
+      "quote_context": "Every response includes a `usage` object with detailed token information. ... ### Chat Completions"
+    },
+    {
+      "provider": "OpenRouter",
+      "kind": "error",
+      "label": "in-stream error event with empty choices, followed by an empty-delta chunk with usage",
+      "raw": "data: {\n  \"id\": \"gen-1790884916-d0qFpUtt9VekhqYFOsCP\",\n  \"object\": \"chat.completion.chunk\",\n  \"choices\": [],\n  \"error\": {\n    \"code\": 403,\n    \"message\": \"Alignment plugin: the reply broke these rules: rules[0]: \\\"Do not say a refund is issued or approved.\\\"\",\n    \"metadata\": {\n      \"error_type\": \"permission_denied\",\n      \"alignment\": {\n        \"calls\": [\n          {\n            \"call\": 1,\n            \"outcome\": \"blocked\",\n            \"rules\": [\n              {\n                \"applicable\": true,\n                \"probability\": 0.97,\n                \"broken\": true\n              },\n              {\n                \"applicable\": true,\n                \"probability\": 0.02,\n                \"broken\": false\n              }\n            ]\n          }\n        ],\n        \"rejected\": {\n          \"role\": \"assistant\",\n          \"content\": \"Yes, you will receive a full refund for the damaged mug.\",\n          \"refusal\": null\n        }\n      }\n    }\n  }\n}\n\ndata: {\n  \"id\": \"gen-1790884916-d0qFpUtt9VekhqYFOsCP\",\n  \"object\": \"chat.completion.chunk\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"delta\": {\n        \"content\": \"\",\n        \"role\": \"assistant\"\n      },\n      \"finish_reason\": null,\n      \"native_finish_reason\": null\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 74,\n    \"completion_tokens\": 14,\n    \"total_tokens\": 88\n  }\n}",
+      "meaning": "Two stream events for a reply blocked by the alignment plugin: an error event (choices is an empty array, top-level error with code 403 and metadata) and then a chunk with an empty delta and usage. The page prints each JSON payload pretty-printed across several lines after a single 'data: ' prefix; kept as printed, so it is not valid SSE framing line by line. The page does not state the HTTP status next to this example.",
+      "source": "https://openrouter.ai/docs/guides/features/plugins/alignment.md",
+      "quote_context": "With `stream: true`, the same request yields two events, the error event and a chunk with an empty delta and `usage`, and the stream closes:"
+    },
+    {
+      "provider": "OpenRouter",
+      "kind": "stream",
+      "label": "OpenAPI example chunk: role and content delta",
+      "raw": "{\"choices\":[{\"delta\":{\"content\":\"Hello\",\"role\":\"assistant\"},\"finish_reason\":null,\"index\":0}],\"created\":1677652288,\"id\":\"chatcmpl-123\",\"model\":\"openai/gpt-4\",\"object\":\"chat.completion.chunk\"}",
+      "meaning": "Example value of the ChatStreamChunk schema: delta with content and role, finish_reason null. Joined into one line from the pretty-printed OpenAPI document, key order kept; no 'data: ' prefix in the spec.",
+      "source": "https://openrouter.ai/openapi.json",
+      "quote_context": "components.schemas.ChatStreamChunk.example"
+    },
+    {
+      "provider": "OpenRouter",
+      "kind": "stream",
+      "label": "OpenAPI example tool-call delta element (not a full chunk)",
+      "raw": "{\"function\":{\"arguments\":\"{\\\"location\\\": \\\"...\\\"}\",\"name\":\"get_weather\"},\"id\":\"call_abc123\",\"index\":0,\"type\":\"function\"}",
+      "meaning": "Example value of the ChatStreamToolCall schema, one element of delta.tool_calls: function name and arguments, id, index, type. Joined into one line from the pretty-printed OpenAPI document, key order kept.",
+      "source": "https://openrouter.ai/openapi.json",
+      "quote_context": "components.schemas.ChatStreamToolCall.example"
+    },
+    {
+      "provider": "Mistral",
+      "kind": "stream",
+      "label": "first chunk: role with empty content",
+      "raw": "{\n  \"id\": \"59060ef9339a4112b2c9e57e3ee6199d\",\n  \"model\": \"mistral-large-latest\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"delta\": {\n        \"role\": \"assistant\",\n        \"content\": \"\"\n      },\n      \"finish_reason\": null\n    }\n  ],\n  \"object\": \"chat.completion.chunk\",\n  \"created\": 1764258570,\n  \"usage\": null\n}",
+      "meaning": "First streamed chunk: delta carries role \"assistant\" and empty content; usage null. Shown pretty-printed and without the 'data: ' prefix; kept as printed.",
+      "source": "https://docs.mistral.ai/inference/conversations/chat-completion.md",
+      "quote_context": "curl request with \"stream\": true, then <TabItem value=\"output\" label=\"output\">"
+    },
+    {
+      "provider": "Mistral",
+      "kind": "stream",
+      "label": "content delta",
+      "raw": "{\n  \"id\": \"59060ef9339a4112b2c9e57e3ee6199d\",\n  \"model\": \"mistral-large-latest\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"delta\": {\n        \"content\": \"3\"\n      },\n      \"finish_reason\": null\n    }\n  ],\n  \"object\": \"chat.completion.chunk\",\n  \"created\": 1764258570,\n  \"usage\": null\n}",
+      "meaning": "Answer text delta (delta.content = \"3\"); finish_reason null; usage null. Shown pretty-printed and without the 'data: ' prefix; kept as printed.",
+      "source": "https://docs.mistral.ai/inference/conversations/chat-completion.md",
+      "quote_context": "curl request with \"stream\": true, then <TabItem value=\"output\" label=\"output\">"
+    },
+    {
+      "provider": "Mistral",
+      "kind": "stream",
+      "label": "final chunk: content, finish_reason stop, usage",
+      "raw": "{\n  \"id\": \"59060ef9339a4112b2c9e57e3ee6199d\",\n  \"model\": \"mistral-large-latest\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"delta\": {\n        \"content\": \"00\"\n      },\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"object\": \"chat.completion.chunk\",\n  \"created\": 1764258570,\n  \"usage\": {\n    \"prompt_tokens\": 19,\n    \"completion_tokens\": 7,\n    \"total_tokens\": 26\n  }\n}",
+      "meaning": "Last chunk: carries a final content delta, finish_reason \"stop\" and the usage totals on the same chunk. Shown pretty-printed and without the 'data: ' prefix; kept as printed.",
+      "source": "https://docs.mistral.ai/inference/conversations/chat-completion.md",
+      "quote_context": "curl request with \"stream\": true, then <TabItem value=\"output\" label=\"output\">"
+    },
+    {
+      "provider": "Mistral",
+      "kind": "stream",
+      "label": "whole documented output: five chunk objects back to back",
+      "raw": "{\n  \"id\": \"59060ef9339a4112b2c9e57e3ee6199d\",\n  \"model\": \"mistral-large-latest\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"delta\": {\n        \"role\": \"assistant\",\n        \"content\": \"\"\n      },\n      \"finish_reason\": null\n    }\n  ],\n  \"object\": \"chat.completion.chunk\",\n  \"created\": 1764258570,\n  \"usage\": null\n}\n{\n  \"id\": \"59060ef9339a4112b2c9e57e3ee6199d\",\n  \"model\": \"mistral-large-latest\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"delta\": {\n        \"content\": \"3\"\n      },\n      \"finish_reason\": null\n    }\n  ],\n  \"object\": \"chat.completion.chunk\",\n  \"created\": 1764258570,\n  \"usage\": null\n}\n{\n  \"id\": \"59060ef9339a4112b2c9e57e3ee6199d\",\n  \"model\": \"mistral-large-latest\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"delta\": {\n        \"content\": \"84\"\n      },\n      \"finish_reason\": null\n    }\n  ],\n  \"object\": \"chat.completion.chunk\",\n  \"created\": 1764258570,\n  \"usage\": null\n}\n{\n  \"id\": \"59060ef9339a4112b2c9e57e3ee6199d\",\n  \"model\": \"mistral-large-latest\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"delta\": {\n        \"content\": \"4\"\n      },\n      \"finish_reason\": null\n    }\n  ],\n  \"object\": \"chat.completion.chunk\",\n  \"created\": 1764258570,\n  \"usage\": null\n}\n{\n  \"id\": \"59060ef9339a4112b2c9e57e3ee6199d\",\n  \"model\": \"mistral-large-latest\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"delta\": {\n        \"content\": \"00\"\n      },\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"object\": \"chat.completion.chunk\",\n  \"created\": 1764258570,\n  \"usage\": {\n    \"prompt_tokens\": 19,\n    \"completion_tokens\": 7,\n    \"total_tokens\": 26\n  }\n}",
+      "meaning": "The complete output tab: five chat.completion.chunk objects printed one after another with no separator and no [DONE] line. Shown pretty-printed and without the 'data: ' prefix; kept as printed.",
+      "source": "https://docs.mistral.ai/inference/conversations/chat-completion.md",
+      "quote_context": "curl request with \"stream\": true, then <TabItem value=\"output\" label=\"output\">"
+    },
+    {
+      "provider": "Mistral",
+      "kind": "error",
+      "label": "error response format",
+      "raw": "{\n  \"object\": \"error\",\n  \"message\": \"A human-readable description of the error.\",\n  \"type\": \"invalid_request_error\",\n  \"param\": \"model\",\n  \"code\": \"unknown_model\"\n}",
+      "meaning": "General error body: flat object with object \"error\", message, type, param, code (no nested error key). The page gives no status for this example.",
+      "source": "https://docs.mistral.ai/resources/error-glossary.md",
+      "quote_context": "All errors return a JSON body with this structure:"
+    },
+    {
+      "provider": "Groq",
+      "kind": "error",
+      "label": "error object structure",
+      "raw": "{\n  \"error\": {\n    \"message\": \"String - description of the specific error\",\n    \"type\": \"invalid_request_error\"\n  }\n}",
+      "meaning": "General error body: {\"error\": {message, type}}. The message value is a placeholder description, as printed.",
+      "source": "https://console.groq.com/docs/errors.md",
+      "quote_context": "The error object follows a specific structure, providing a clear and actionable message alongside an error type classification:"
+    },
+    {
+      "provider": "Groq",
+      "kind": "error",
+      "label": "invalid tool call generated, with failed_generation",
+      "status": 400,
+      "raw": "{\n  \"error\": {\n    \"message\": \"Invalid tool call generated\",\n    \"type\": \"invalid_request_error\",\n    \"failed_generation\": {\n      \"reason\": \"Tool call arguments are not valid JSON\",\n      \"tool_call_id\": \"call_abc123\",\n      \"attempted_arguments\": \"{'location': 'New York'}\"\n    }\n  }\n}",
+      "meaning": "Tool call validation failure: error with message, type and a failed_generation object explaining the failure.",
+      "source": "https://console.groq.com/docs/tool-use/local-tool-calling.md",
+      "quote_context": "Groq API returns a **400 error** with an explanation in the `\"failed_generation\"` field of the response body. **Example error response:**"
+    },
+    {
+      "provider": "Groq",
+      "kind": "error",
+      "label": "model blocked at the organization level",
+      "status": 403,
+      "raw": "{\n  \"error\": {\n    \"message\": \"The model `openai/gpt-oss-120b` is blocked at the organization level. Please have the org admin enable this model in the org settings at https://console.groq.com/settings/limits\",\n    \"type\": \"permissions_error\",\n    \"code\": \"model_permission_blocked_org\"\n  }\n}",
+      "meaning": "Permission error with message, type \"permissions_error\" and a code.",
+      "source": "https://console.groq.com/docs/model-permissions.md",
+      "quote_context": "Requests to restricted models return a 403 error ... When a model is blocked at the organization level:"
+    },
+    {
+      "provider": "Groq",
+      "kind": "error",
+      "label": "model blocked at the project level",
+      "status": 403,
+      "raw": "{\n  \"error\": {\n    \"message\": \"The model `openai/gpt-oss-120b` is blocked at the project level. Please have a project admin enable this model in the project settings at https://console.groq.com/settings/project/limits\",\n    \"type\": \"permissions_error\",\n    \"code\": \"model_permission_blocked_project\"\n  }\n}",
+      "meaning": "Permission error with message, type \"permissions_error\" and a code.",
+      "source": "https://console.groq.com/docs/model-permissions.md",
+      "quote_context": "Requests to restricted models return a 403 error ... When a model is blocked at the project level:"
+    },
+    {
+      "provider": "DeepSeek",
+      "kind": "stream",
+      "label": "first chunk: role with empty content",
+      "raw": "data: {\"id\":\"071f229d-daa0-4557-a580-106a22e8df73\",\"object\":\"chat.completion.chunk\",\"created\":1793084907,\"model\":\"deepseek-flash\",\"system_fingerprint\":\"e72d3c7f663d3e1383b00b3884cb4501\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null}],\"usage\":null}",
+      "meaning": "First streamed chunk: delta carries role \"assistant\" and empty content; usage null.",
+      "source": "https://api-docs.deepseek.com/api/create-chat-completion.md",
+      "quote_context": "### 200 (Streaming) ... OK, returns a streamed sequence of `chat completion chunk` objects ... **Example**"
+    },
+    {
+      "provider": "DeepSeek",
+      "kind": "stream",
+      "label": "content delta",
+      "raw": "data: {\"id\":\"071f229d-daa0-4557-a580-106a22e8df73\",\"object\":\"chat.completion.chunk\",\"created\":1793084907,\"model\":\"deepseek-flash\",\"system_fingerprint\":\"e72d3c7f663d3e1383b00b3884cb4501\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hello\"},\"logprobs\":null,\"finish_reason\":null}],\"usage\":null}",
+      "meaning": "Answer text delta (delta.content = \"Hello\"); usage null.",
+      "source": "https://api-docs.deepseek.com/api/create-chat-completion.md",
+      "quote_context": "### 200 (Streaming) ... OK, returns a streamed sequence of `chat completion chunk` objects ... **Example**"
+    },
+    {
+      "provider": "DeepSeek",
+      "kind": "stream",
+      "label": "content delta containing an emoji",
+      "raw": "data: {\"id\":\"071f229d-daa0-4557-a580-106a22e8df73\",\"object\":\"chat.completion.chunk\",\"created\":1793084907,\"model\":\"deepseek-flash\",\"system_fingerprint\":\"e72d3c7f663d3e1383b00b3884cb4501\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" 👋\"},\"logprobs\":null,\"finish_reason\":null}],\"usage\":null}",
+      "meaning": "Answer text delta whose content holds a non-ASCII character written literally in the JSON.",
+      "source": "https://api-docs.deepseek.com/api/create-chat-completion.md",
+      "quote_context": "### 200 (Streaming) ... OK, returns a streamed sequence of `chat completion chunk` objects ... **Example**"
+    },
+    {
+      "provider": "DeepSeek",
+      "kind": "stream",
+      "label": "final chunk: empty content, finish_reason stop, usage",
+      "raw": "data: {\"id\":\"071f229d-daa0-4557-a580-106a22e8df73\",\"object\":\"chat.completion.chunk\",\"created\":1793084907,\"model\":\"deepseek-flash\",\"system_fingerprint\":\"e72d3c7f663d3e1383b00b3884cb4501\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\"},\"logprobs\":null,\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":7,\"completion_tokens\":11,\"total_tokens\":18,\"prompt_tokens_details\":{\"cached_tokens\":0},\"prompt_cache_hit_tokens\":0,\"prompt_cache_miss_tokens\":7}}",
+      "meaning": "Last chunk before [DONE]: empty content, finish_reason \"stop\" and the usage totals. The page states no separate usage-only chunk is emitted.",
+      "source": "https://api-docs.deepseek.com/api/create-chat-completion.md",
+      "quote_context": "### 200 (Streaming) ... OK, returns a streamed sequence of `chat completion chunk` objects ... **Example**"
+    },
+    {
+      "provider": "DeepSeek",
+      "kind": "stream",
+      "label": "[DONE] terminator",
+      "raw": "data: [DONE]",
+      "meaning": "Stream terminator.",
+      "source": "https://api-docs.deepseek.com/api/create-chat-completion.md",
+      "quote_context": "### 200 (Streaming) ... OK, returns a streamed sequence of `chat completion chunk` objects ... **Example**"
+    },
+    {
+      "provider": "DeepSeek",
+      "kind": "stream",
+      "label": "whole documented stream, with blank-line event separators",
+      "raw": "data: {\"id\":\"071f229d-daa0-4557-a580-106a22e8df73\",\"object\":\"chat.completion.chunk\",\"created\":1793084907,\"model\":\"deepseek-flash\",\"system_fingerprint\":\"e72d3c7f663d3e1383b00b3884cb4501\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null}],\"usage\":null}\n\ndata: {\"id\":\"071f229d-daa0-4557-a580-106a22e8df73\",\"object\":\"chat.completion.chunk\",\"created\":1793084907,\"model\":\"deepseek-flash\",\"system_fingerprint\":\"e72d3c7f663d3e1383b00b3884cb4501\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hello\"},\"logprobs\":null,\"finish_reason\":null}],\"usage\":null}\n\ndata: {\"id\":\"071f229d-daa0-4557-a580-106a22e8df73\",\"object\":\"chat.completion.chunk\",\"created\":1793084907,\"model\":\"deepseek-flash\",\"system_fingerprint\":\"e72d3c7f663d3e1383b00b3884cb4501\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"!\"},\"logprobs\":null,\"finish_reason\":null}],\"usage\":null}\n\ndata: {\"id\":\"071f229d-daa0-4557-a580-106a22e8df73\",\"object\":\"chat.completion.chunk\",\"created\":1793084907,\"model\":\"deepseek-flash\",\"system_fingerprint\":\"e72d3c7f663d3e1383b00b3884cb4501\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" 👋\"},\"logprobs\":null,\"finish_reason\":null}],\"usage\":null}\n\ndata: {\"id\":\"071f229d-daa0-4557-a580-106a22e8df73\",\"object\":\"chat.completion.chunk\",\"created\":1793084907,\"model\":\"deepseek-flash\",\"system_fingerprint\":\"e72d3c7f663d3e1383b00b3884cb4501\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" How\"},\"logprobs\":null,\"finish_reason\":null}],\"usage\":null}\n\ndata: {\"id\":\"071f229d-daa0-4557-a580-106a22e8df73\",\"object\":\"chat.completion.chunk\",\"created\":1793084907,\"model\":\"deepseek-flash\",\"system_fingerprint\":\"e72d3c7f663d3e1383b00b3884cb4501\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" can\"},\"logprobs\":null,\"finish_reason\":null}],\"usage\":null}\n\ndata: {\"id\":\"071f229d-daa0-4557-a580-106a22e8df73\",\"object\":\"chat.completion.chunk\",\"created\":1793084907,\"model\":\"deepseek-flash\",\"system_fingerprint\":\"e72d3c7f663d3e1383b00b3884cb4501\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" I\"},\"logprobs\":null,\"finish_reason\":null}],\"usage\":null}\n\ndata: {\"id\":\"071f229d-daa0-4557-a580-106a22e8df73\",\"object\":\"chat.completion.chunk\",\"created\":1793084907,\"model\":\"deepseek-flash\",\"system_fingerprint\":\"e72d3c7f663d3e1383b00b3884cb4501\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" help\"},\"logprobs\":null,\"finish_reason\":null}],\"usage\":null}\n\ndata: {\"id\":\"071f229d-daa0-4557-a580-106a22e8df73\",\"object\":\"chat.completion.chunk\",\"created\":1793084907,\"model\":\"deepseek-flash\",\"system_fingerprint\":\"e72d3c7f663d3e1383b00b3884cb4501\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" you\"},\"logprobs\":null,\"finish_reason\":null}],\"usage\":null}\n\ndata: {\"id\":\"071f229d-daa0-4557-a580-106a22e8df73\",\"object\":\"chat.completion.chunk\",\"created\":1793084907,\"model\":\"deepseek-flash\",\"system_fingerprint\":\"e72d3c7f663d3e1383b00b3884cb4501\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" today\"},\"logprobs\":null,\"finish_reason\":null}],\"usage\":null}\n\ndata: {\"id\":\"071f229d-daa0-4557-a580-106a22e8df73\",\"object\":\"chat.completion.chunk\",\"created\":1793084907,\"model\":\"deepseek-flash\",\"system_fingerprint\":\"e72d3c7f663d3e1383b00b3884cb4501\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"?\"},\"logprobs\":null,\"finish_reason\":null}],\"usage\":null}\n\ndata: {\"id\":\"071f229d-daa0-4557-a580-106a22e8df73\",\"object\":\"chat.completion.chunk\",\"created\":1793084907,\"model\":\"deepseek-flash\",\"system_fingerprint\":\"e72d3c7f663d3e1383b00b3884cb4501\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\"},\"logprobs\":null,\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":7,\"completion_tokens\":11,\"total_tokens\":18,\"prompt_tokens_details\":{\"cached_tokens\":0},\"prompt_cache_hit_tokens\":0,\"prompt_cache_miss_tokens\":7}}\n\ndata: [DONE]",
+      "meaning": "The complete streaming example as printed: role chunk, ten content chunks, finish chunk with usage, [DONE], each separated by a blank line.",
+      "source": "https://api-docs.deepseek.com/api/create-chat-completion.md",
+      "quote_context": "### 200 (Streaming) ... OK, returns a streamed sequence of `chat completion chunk` objects ... **Example**"
+    },
+    {
+      "provider": "DeepSeek",
+      "kind": "stream",
+      "label": "SSE comment keepalive",
+      "raw": ": keep-alive",
+      "meaning": "Keepalive: SSE comment returned continuously on streaming requests while the request waits for the server. Taken from an inline code span in a sentence, not from a code block.",
+      "source": "https://api-docs.deepseek.com/quick_start/rate_limit.md",
+      "quote_context": "Streaming requests: Continuously return SSE keep-alive comments"
+    },
+    {
+      "provider": "vLLM",
+      "kind": "stream",
+      "label": "reasoning delta in delta.reasoning (latest docs)",
+      "raw": "{\n    \"id\": \"chatcmpl-123\",\n    \"object\": \"chat.completion.chunk\",\n    \"created\": 1694268190,\n    \"model\": \"deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B\",\n    \"system_fingerprint\": \"fp_44709d6fcb\",\n    \"choices\": [\n        {\n            \"index\": 0,\n            \"delta\": {\n                \"role\": \"assistant\",\n                \"reasoning\": \"is\",\n            },\n            \"logprobs\": null,\n            \"finish_reason\": null\n        }\n    ]\n}",
+      "meaning": "Reasoning delta from a reasoning parser: delta carries role and a \"reasoning\" string. The page says `reasoning` used to be called `reasoning_content`. Shown pretty-printed and without the 'data: ' prefix; kept as printed, including the trailing comma after the reasoning value, which makes it invalid as strict JSON.",
+      "source": "https://docs.vllm.ai/en/latest/features/reasoning_outputs/",
+      "quote_context": "The `reasoning` field is available in the `delta` field in chat completion response chunks."
+    },
+    {
+      "provider": "vLLM",
+      "kind": "stream",
+      "label": "reasoning delta in delta.reasoning_content (v0.10.2 docs)",
+      "raw": "{\n    \"id\": \"chatcmpl-123\",\n    \"object\": \"chat.completion.chunk\",\n    \"created\": 1694268190,\n    \"model\": \"deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B\",\n    \"system_fingerprint\": \"fp_44709d6fcb\",\n    \"choices\": [\n        {\n            \"index\": 0,\n            \"delta\": {\n                \"role\": \"assistant\",\n                \"reasoning_content\": \"is\",\n            },\n            \"logprobs\": null,\n            \"finish_reason\": null\n        }\n    ]\n}",
+      "meaning": "Reasoning delta as documented for an older release: delta carries role and a \"reasoning_content\" string. Shown pretty-printed and without the 'data: ' prefix; kept as printed, including the trailing comma after the reasoning value, which makes it invalid as strict JSON.",
+      "source": "https://docs.vllm.ai/en/v0.10.2/features/reasoning_outputs.html",
+      "quote_context": "The `reasoning_content` field is available in the `delta` field in chat completion response chunks."
+    },
+    {
+      "provider": "LM Studio",
+      "kind": "stream",
+      "label": "tool-call deltas as Python SDK objects (not wire JSON)",
+      "raw": "ChoiceDeltaToolCall(index=0, id='814890118', function=ChoiceDeltaToolCallFunction(arguments='', name='get_current_weather'), type='function')\nChoiceDeltaToolCall(index=0, id=None, function=ChoiceDeltaToolCallFunction(arguments='{\"', name=None), type=None)\nChoiceDeltaToolCall(index=0, id=None, function=ChoiceDeltaToolCallFunction(arguments='location', name=None), type=None)\nChoiceDeltaToolCall(index=0, id=None, function=ChoiceDeltaToolCallFunction(arguments='\":\"', name=None), type=None)\nChoiceDeltaToolCall(index=0, id=None, function=ChoiceDeltaToolCallFunction(arguments='San Francisco', name=None), type=None)\nChoiceDeltaToolCall(index=0, id=None, function=ChoiceDeltaToolCallFunction(arguments='\"}', name=None), type=None)",
+      "meaning": "Tool call streamed in pieces through /v1/chat/completions. Each line is the OpenAI Python SDK repr of chunk.choices[0].delta.tool_calls[0] for one chunk, not the JSON sent on the wire: the first carries id, name and type with empty arguments, later ones carry argument fragments with id, name and type None.",
+      "source": "https://lmstudio.ai/docs/developer/openai-compat/tools",
+      "quote_context": "the streamed `ChoiceDeltaToolCall` in each `chunk.choices[0].delta.tool_calls[0]` object will look like:"
+    },
+    {
+      "provider": "Ollama",
+      "kind": "error",
+      "label": "error message body (error is a plain string)",
+      "raw": "{\n  \"error\": \"the model failed to generate a response\"\n}",
+      "meaning": "General error body: {\"error\": \"<message>\"} with the message as a plain string, not an object. The page covers Ollama endpoints in general and does not single out /v1/chat/completions or give a status for this example.",
+      "source": "https://docs.ollama.com/api/errors.md",
+      "quote_context": "Errors are returned in the `application/json` format with the following structure, with the error message in the `error` property:"
+    },
+    {
+      "provider": "Ollama",
+      "kind": "error",
+      "label": "error mid-stream in the native NDJSON API (not SSE)",
+      "raw": "{\"model\":\"gemma4\",\"created_at\":\"2025-10-26T17:21:21.196249Z\",\"response\":\" Yes\",\"done\":false}\n{\"model\":\"gemma4\",\"created_at\":\"2025-10-26T17:21:21.207235Z\",\"response\":\".\",\"done\":false}\n{\"model\":\"gemma4\",\"created_at\":\"2025-10-26T17:21:21.219166Z\",\"response\":\"I\",\"done\":false}\n{\"model\":\"gemma4\",\"created_at\":\"2025-10-26T17:21:21.231094Z\",\"response\":\"can\",\"done\":false}\n{\"error\":\"an error was encountered while running the model\"}",
+      "meaning": "Error after the response has started: four native-API NDJSON stream objects followed by an object with only an error string; the page says the status code of the response will not be changed, without naming it. This is the application/x-ndjson format of the native API, not an OpenAI-compatible SSE stream.",
+      "source": "https://docs.ollama.com/api/errors.md",
+      "quote_context": "If an error occurs mid-stream, the error will be returned as an object in the `application/x-ndjson` format with an `error` property."
+    }
+  ]
+}

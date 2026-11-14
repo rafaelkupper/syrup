@@ -288,6 +288,70 @@ struct OpenAICompatibleTransformerTests {
         #expect(sent.withLock { $0 } == (answers ? [0.3, nil, nil] : [0.3, nil, 0.3, nil]))
     }
 
+    /// Hand-built shapes (synthetic, from the Astra review of `a3c29a1`). Whether a rejection is
+    /// remembered depends on which parameter it blames, not on its wording: one that mentions
+    /// temperature and names no other parameter is remembered once the retry answers; one that blames
+    /// another parameter is not, whatever words it uses.
+    @Test(arguments: [
+        (#"{"error":{"message":"temperature is deprecated for this model","type":"invalid_request_error"}}"#, true),
+        (#"{"error":{"message":"temperature may only be set to 1 when thinking is enabled"}}"#, true),
+        (#"{"error":{"message":"Unsupported content in messages: temperature report unavailable.","param":"messages"}}"#, false),
+        // A proxy's plain-text reply names no parameter.
+        ("Unsupported parameter: temperature", true),
+        // Reported for LiteLLM's proxy (not verified): its null written as the string "None".
+        (#"{"error":{"message":"temperature is deprecated for this model","param":"None","code":"400"}}"#, true),
+    ], [true, false])
+    func aRejectionIsRememberedByTheParameterItBlames(_ rejection: (body: String, remembered: Bool), streamed: Bool) async throws {
+        let sent = Mutex<[Double?]>([])
+        let session = Self.stubbedSession { request in
+            let temperature = try Self.jsonBody(from: request)["temperature"] as? Double
+            sent.withLock { $0.append(temperature) }
+            if temperature != nil { return Self.response(statusCode: 400, body: rejection.body) }
+            return Self.jsonAnswer("Hello")
+        }
+        defer { StubURLProtocol.reset() }
+        let configuration = OpenAICompatibleConfiguration(
+            baseURL: try #require(URL(string: "https://example.com/v1")), apiKey: "test-key", model: "blame-\(UUID())"
+        )
+        for _ in 0..<2 {
+            let transformer = OpenAICompatibleTransformer(configuration: configuration, session: session)
+            let output = streamed
+                ? try await transformer.transform("hello", instruction: "Polish it.")
+                : try await transformer.transformWithUsage("hello", instruction: "Polish it.").text
+            #expect(output == "Hello")
+        }
+        #expect(sent.withLock { $0 } == (rejection.remembered ? [0.3, nil, nil] : [0.3, nil, 0.3, nil]))
+    }
+
+    /// Hand-built shapes. A retry whose reply holds no answer (a server that ignores `stream` and
+    /// returns empty content, or a non-streamed reply with empty content) does not remember the
+    /// rejection.
+    @Test(arguments: [true, false])
+    func aRetryWithAnEmptyAnswerDoesNotRememberTheRejection(streamed: Bool) async throws {
+        let sent = Mutex<[Double?]>([])
+        let session = Self.stubbedSession { request in
+            let temperature = try Self.jsonBody(from: request)["temperature"] as? Double
+            sent.withLock { $0.append(temperature) }
+            if temperature != nil {
+                return Self.response(statusCode: 400, body: #"{"error":{"param":"temperature","code":"unsupported_value"}}"#)
+            }
+            return Self.jsonAnswer("")
+        }
+        defer { StubURLProtocol.reset() }
+        let configuration = OpenAICompatibleConfiguration(
+            baseURL: try #require(URL(string: "https://example.com/v1")), apiKey: "test-key", model: "empty-\(UUID())"
+        )
+        for _ in 0..<2 {
+            let transformer = OpenAICompatibleTransformer(configuration: configuration, session: session)
+            if streamed {
+                _ = try? await transformer.transform("hello", instruction: "Polish it.")
+            } else {
+                _ = try? await transformer.transformWithUsage("hello", instruction: "Polish it.")
+            }
+        }
+        #expect(sent.withLock { $0 } == [0.3, nil, 0.3, nil])
+    }
+
     @Test
     func anotherRejectedParameterIsNotRetried() async throws {
         let requests = Mutex(0)
