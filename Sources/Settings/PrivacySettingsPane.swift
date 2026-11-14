@@ -38,10 +38,7 @@ struct PrivacySettingsPane: View {
         }
         .formStyle(.grouped)
         .task {
-            _ = await RetiredGlossaryLearning.launchCleanup?.value
-            retiredLearningLeftovers = await Task.detached(priority: .utility) {
-                RetiredGlossaryLearning.remainingFolders()
-            }.value
+            retiredLearningLeftovers = await RetiredGlossaryLearning.leftoversAfterLaunchCleanup()
         }
         .task(id: settings.baseURL + "\n" + settings.modelName) {
             resolvedEndpointHost = try? await OpenAICompatibleSettingsConfigurationResolver.configuration(
@@ -182,7 +179,7 @@ struct PrivacySettingsPane: View {
             Text(RetiredGlossaryLearning.leftoverDescription(for: retiredLearningLeftovers))
         }
         if retiredLearningDeletionFailed {
-            Text("Couldn't delete them. You can delete them in Finder.")
+            Text("Couldn't delete these files. You can delete them in Finder.")
                 .foregroundStyle(.red)
         }
     }

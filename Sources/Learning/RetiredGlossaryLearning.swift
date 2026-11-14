@@ -12,7 +12,8 @@ enum RetiredGlossaryLearning {
     @MainActor static var launchCleanup: Task<[URL], Never>?
     private static let logger = Logger(subsystem: "org.syrup.SyrupApp", category: "GlossaryLearning")
 
-    /// Deletes both folders and the setting, and returns the folders still on disk.
+    /// Deletes both folders and the setting, and returns the folders not known to be gone
+    /// (`remainingFolders`).
     @discardableResult
     static func removeLeftovers(
         inSupportFolder supportFolder: URL? = nil,
@@ -52,20 +53,31 @@ enum RetiredGlossaryLearning {
         } catch {
             let error = error as NSError
             let posix = (error.userInfo[NSUnderlyingErrorKey] as? NSError).flatMap { $0.domain == NSPOSIXErrorDomain ? $0.code : nil }
-            return error.code == NSFileReadNoSuchFileError || posix == Int(ENOENT) || posix == Int(ENOTDIR)
+            return (error.domain == NSCocoaErrorDomain && error.code == NSFileReadNoSuchFileError)
+                || posix == Int(ENOENT) || posix == Int(ENOTDIR)
         }
     }
 
-    /// Privacy's description of what is left, naming only the folders still there.
+    /// What Privacy shows: read after the launch cleanup has finished, never while it is deleting.
+    @MainActor
+    static func leftoversAfterLaunchCleanup(inSupportFolder supportFolder: URL? = nil) async -> [URL] {
+        _ = await launchCleanup?.value
+        return await Task.detached(priority: .utility) {
+            remainingFolders(inSupportFolder: supportFolder)
+        }.value
+    }
+
+    /// Privacy's description of what is left, naming only the folders reported. "May": a folder that
+    /// cannot be inspected is reported without knowing what it holds.
     static func leftoverDescription(for remaining: [URL]) -> String {
         let names = Set(remaining.map(\.lastPathComponent))
         let what = switch (names.contains("Recordings"), names.contains("WhisperModels")) {
-        case (true, true): "recordings and a comparison model"
-        case (true, false): "recordings"
-        default: "a comparison model"
+        case (true, true): "Recordings and a comparison model"
+        case (true, false): "Recordings"
+        default: "A comparison model"
         }
-        let pronoun = names.contains("Recordings") ? "They" : "It"
-        return "An earlier version kept \(what) on this Mac. \(pronoun) could not be deleted yet; Syrup tries again at each launch."
+        let pronoun = names.contains("Recordings") ? "them" : "it"
+        return "\(what) from an earlier version may still be on this Mac. Syrup could not delete \(pronoun) yet and tries again at each launch."
     }
 
     static func defaultSupportFolder(fileManager: FileManager = .default) -> URL {

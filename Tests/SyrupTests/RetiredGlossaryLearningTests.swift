@@ -143,6 +143,44 @@ struct RetiredGlossaryLearningTests {
         #expect(exists("kept.wav", in: outside))
     }
 
+    /// A support path that is a file holds no folders. The system answers "not a directory", which
+    /// means missing, so nothing is reported.
+    @Test func aSupportPathThatIsAFileReportsNothing() throws {
+        let support = fileManager.temporaryDirectory.appending(path: testDomainName("RetiredLearning"), directoryHint: .notDirectory)
+        defer { try? fileManager.removeItem(at: support) }
+        try Data("x".utf8).write(to: support)
+        let suite = testDomainName("RetiredLearning")
+        let defaults = try #require(TestDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        #expect(RetiredGlossaryLearning.remainingFolders(inSupportFolder: support).isEmpty)
+        #expect(RetiredGlossaryLearning.removeLeftovers(inSupportFolder: support, userDefaults: defaults).isEmpty)
+        #expect(fileManager.fileExists(atPath: support.path(percentEncoded: false)), "The file itself is not touched")
+    }
+
+    /// Privacy reads the folders after the launch cleanup, so a deletion still under way is not shown
+    /// as one that failed. The cleanup here is held until the read has had ample time to finish.
+    @MainActor
+    @Test func privacyReadsTheFoldersOnlyAfterTheLaunchCleanup() async throws {
+        let support = supportFolder()
+        defer { try? fileManager.removeItem(at: support) }
+        try writeLeftovers(in: support)
+        let gate = AsyncStream<Void>.makeStream()
+        RetiredGlossaryLearning.launchCleanup = Task.detached {
+            for await _ in gate.stream { break }
+            for name in RetiredGlossaryLearning.folders { try? FileManager.default.removeItem(at: support.appending(path: name)) }
+            return []
+        }
+        defer { RetiredGlossaryLearning.launchCleanup = nil }
+
+        let read = Task { await RetiredGlossaryLearning.leftoversAfterLaunchCleanup(inSupportFolder: support) }
+        for _ in 0..<20 { await Task.yield() }
+        try await Task.sleep(for: .milliseconds(100))
+        gate.continuation.yield()
+
+        #expect(await read.value.isEmpty, "Read before the launch cleanup finished")
+    }
+
     @Test func launchWithNothingLeftOverChangesNothing() throws {
         let support = supportFolder()
         defer { try? fileManager.removeItem(at: support) }

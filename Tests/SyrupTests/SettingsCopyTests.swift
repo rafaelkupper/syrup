@@ -279,10 +279,10 @@ struct RetiredLearningCopyTests {
         let support = URL(filePath: "/Syrup", directoryHint: .isDirectory)
         let recordings = support.appending(path: "Recordings"), model = support.appending(path: "WhisperModels")
         #expect(RetiredGlossaryLearning.leftoverDescription(for: [recordings, model])
-            == "An earlier version kept recordings and a comparison model on this Mac. They could not be deleted yet; Syrup tries again at each launch.")
+            == "Recordings and a comparison model from an earlier version may still be on this Mac. Syrup could not delete them yet and tries again at each launch.")
         #expect(RetiredGlossaryLearning.leftoverDescription(for: [recordings])
-            == "An earlier version kept recordings on this Mac. They could not be deleted yet; Syrup tries again at each launch.")
+            == "Recordings from an earlier version may still be on this Mac. Syrup could not delete them yet and tries again at each launch.")
         #expect(RetiredGlossaryLearning.leftoverDescription(for: [model])
-            == "An earlier version kept a comparison model on this Mac. It could not be deleted yet; Syrup tries again at each launch.")
+            == "A comparison model from an earlier version may still be on this Mac. Syrup could not delete it yet and tries again at each launch.")
     }
 }
