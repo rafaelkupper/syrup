@@ -10,8 +10,16 @@ struct SpeechModelControls: View {
             Text("Requires Apple silicon")
                 .foregroundStyle(.secondary)
         case .notDownloaded:
-            Button("Download (\(model.engine.downloadSize ?? ""))") {
-                model.download()
+            HStack(spacing: 8) {
+                Button("Download (\(model.engine.downloadSize ?? ""))") {
+                    model.download()
+                }
+                // A cancelled download keeps what it fetched for the next attempt; this lets it go.
+                if model.hasPartialDownload {
+                    Button("Delete Partial Download", role: .destructive) {
+                        model.remove()
+                    }
+                }
             }
         case .downloading(let progress):
             HStack(spacing: 8) {

@@ -134,6 +134,47 @@ struct SpeechModelRegressionTests {
         #expect(fixture.calls.values.isEmpty)
     }
 
+    /// A cancelled download keeps its finished files in staging for the next attempt. The manager
+    /// reports them, at once and at the next launch, so Settings can offer to delete them, and Delete
+    /// removes them.
+    @Test func aPartialDownloadIsReportedAndDeleteRemovesIt() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: testDomainName("SpeechModelPartial"), directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let started = Signal()
+        let operations = SpeechModelManager.Operations(
+            modelsExist: { RegressionFixture.isComplete($0) },
+            download: { directory, _ in
+                // As the live download does: files arrive in staging, and the model moves into place
+                // only when complete.
+                let staging = SpeechModelManager.stagingDirectory(for: directory)
+                try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+                try Data("part".utf8).write(to: staging.appending(path: "part"))
+                started.fire()
+                try await Task.sleep(for: .seconds(3_600))
+            },
+            load: { _ in },
+            unload: {}
+        )
+        let manager = SpeechModelManager(engine: .parakeetUltra, operations: operations, isSupported: true, storageDirectory: root)
+        let staging = SpeechModelManager.stagingDirectory(for: manager.directory)
+        #expect(manager.hasPartialDownload == false)
+
+        manager.download()
+        await started.wait()
+        manager.cancelDownload()
+        await manager.waitUntilIdle()
+        #expect(manager.state == .notDownloaded)
+        #expect(manager.hasPartialDownload)
+        let relaunched = SpeechModelManager(engine: .parakeetUltra, operations: operations, isSupported: true, storageDirectory: root)
+        #expect(relaunched.hasPartialDownload)
+
+        manager.remove()
+        await manager.waitUntilIdle()
+        #expect(manager.hasPartialDownload == false)
+        #expect(FileManager.default.fileExists(atPath: staging.path(percentEncoded: false)) == false)
+        #expect(manager.state == .notDownloaded)
+    }
+
     /// A cancelled download that is slow to stop reports progress after the next download started:
     /// the next download's bar must not move. Its own report does move it.
     @Test func lateProgressFromACancelledDownloadDoesNotMoveTheNextOne() async throws {

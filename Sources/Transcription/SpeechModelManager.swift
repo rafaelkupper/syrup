@@ -19,6 +19,9 @@ final class SpeechModelManager: SpeechModelProviding {
 
     let engine: SpeechEngine
     private(set) var state: SpeechModelState
+    /// Files a cancelled or failed download left in staging for the next attempt. Read at launch and
+    /// whenever the work drains, so Settings can offer to delete them.
+    private(set) var hasPartialDownload: Bool
     let directory: URL
     @ObservationIgnored private let operations: Operations
     @ObservationIgnored private let fileManager: FileManager
@@ -50,6 +53,7 @@ final class SpeechModelManager: SpeechModelProviding {
             operations.modelsExist(directory) ? .downloaded : .notDownloaded
         }
         self.state = state
+        hasPartialDownload = fileManager.fileExists(atPath: Self.stagingDirectory(for: directory).path(percentEncoded: false))
         machine = SpeechModelMachine(state: state)
     }
 
@@ -139,6 +143,8 @@ final class SpeechModelManager: SpeechModelProviding {
                     removeReplacedDirectory()
                 case .checkDisk:
                     events.append(.settled(modelOnDisk: operations.modelsExist(directory)))
+                    let partial = fileManager.fileExists(atPath: Self.stagingDirectory(for: directory).path(percentEncoded: false))
+                    if hasPartialDownload != partial { hasPartialDownload = partial }
                 }
             }
         }
