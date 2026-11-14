@@ -58,8 +58,9 @@ struct ProviderCorpusTests {
     }
 
     /// No documented error, from any provider, is read as a rejection of `temperature` or of
-    /// streaming: those are the only rejections the transformer retries or remembers. Today no
-    /// documented error mentions either, so this guards entries added to the corpus later.
+    /// streaming: those are the only rejections the transformer retries or remembers. No documented
+    /// error mentions either; most name no parameter, so this also guards that a rejection naming no
+    /// parameter counts only when it mentions temperature.
     @Test(arguments: ProviderCorpus.errors)
     func noDocumentedErrorReadsAsATemperatureOrStreamingRejection(_ example: ProviderErrorCase) {
         let data = Data(example.body.utf8)

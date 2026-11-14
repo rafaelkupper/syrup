@@ -419,7 +419,7 @@ enum ProviderCorpus {
             provider: #"OpenRouter"#, label: #"non-streaming response with error embedded in the choice"#,
             source: #"https://openrouter.ai/docs/api_reference/errors-and-debugging.md"#,
             nearby: #"For non-streaming requests where a provider error occurs, the error is embedded in the final response alongside any partial content:"#,
-            note: #"Printed pretty; compacted onto one line."#,
+            note: #"Printed pretty; compacted onto one line. The page shows no status beside it; 200 follows from its description of a non-streamed reply that carries the error in its choice."#,
             status: 200, body: #"{"choices":[{"message":{"role":"assistant","content":"partial output..."},"finish_reason":"error","error":{"code":502,"message":"Provider disconnected mid-stream","metadata":{"error_type":"provider_unavailable"}}}]}"#,
             expected: .providerError
         ),

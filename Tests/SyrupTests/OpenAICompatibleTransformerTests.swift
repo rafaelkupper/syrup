@@ -300,6 +300,17 @@ struct OpenAICompatibleTransformerTests {
         ("Unsupported parameter: temperature", true),
         // Reported for LiteLLM's proxy (not verified): its null written as the string "None".
         (#"{"error":{"message":"temperature is deprecated for this model","param":"None","code":"400"}}"#, true),
+        (#"{"error":{"message":"temperature is not allowed","param":"null"}}"#, true),
+        // Moonshot Kimi's wording, as reported for K3 models (Fable review of `a3c29a1`).
+        (#"{"error":{"message":"invalid temperature: only 1 is allowed for this model","type":"invalid_request_error"}}"#, true),
+        // Mistral's flat error style puts `param` at the top level.
+        (#"{"object":"error","message":"Invalid value","type":"invalid_request_error","param":"temperature","code":"invalid_value"}"#, true),
+        (#"{"error":{"message":"bad temperature value","param":" temperature "}}"#, true),
+        (#"{"error":{"message":"bad temperature value","param":"Temperature"}}"#, true),
+        (#"{"error":{"message":"bad temperature value","param":"generation_config.temperature"}}"#, true),
+        (#"{"error":{"message":"temperature is not allowed","param":""}}"#, true),
+        // A flat body whose top-level `param` blames another parameter.
+        (#"{"object":"error","message":"The temperature report is missing.","param":"messages","code":"invalid_value"}"#, false),
     ], [true, false])
     func aRejectionIsRememberedByTheParameterItBlames(_ rejection: (body: String, remembered: Bool), streamed: Bool) async throws {
         let sent = Mutex<[Double?]>([])
@@ -348,6 +359,58 @@ struct OpenAICompatibleTransformerTests {
             } else {
                 _ = try? await transformer.transformWithUsage("hello", instruction: "Polish it.")
             }
+        }
+        #expect(sent.withLock { $0 } == [0.3, nil, 0.3, nil])
+    }
+
+    /// Hand-built shapes (from the Muse re-check of `61f14c9`). A streamed retry that starts answering
+    /// has shown the endpoint takes the request without temperature, so it is remembered even if its
+    /// stream then fails; one that only reasons has not answered, so it is not.
+    @Test(arguments: [true, false])
+    func aStreamedRetryIsRememberedOnceItsAnswerTextStarts(answersBeforeFailing: Bool) async throws {
+        let sent = Mutex<[Double?]>([])
+        let session = Self.stubbedSession { request in
+            let temperature = try Self.jsonBody(from: request)["temperature"] as? Double
+            sent.withLock { $0.append(temperature) }
+            if temperature != nil {
+                return Self.response(statusCode: 400, body: #"{"error":{"param":"temperature","code":"unsupported_value"}}"#)
+            }
+            let first = answersBeforeFailing
+                ? #"data: {"choices":[{"delta":{"content":"Hel"}}]}"#
+                : #"data: {"choices":[{"delta":{"reasoning_content":"Thinking."}}]}"#
+            return Self.eventStream(first + "\n\n" + #"data: {"error":{"message":"The server is overloaded."}}"# + "\n\n")
+        }
+        defer { StubURLProtocol.reset() }
+        let configuration = OpenAICompatibleConfiguration(
+            baseURL: try #require(URL(string: "https://example.com/v1")), apiKey: "test-key", model: "partial-\(UUID())"
+        )
+        for _ in 0..<2 {
+            let transformer = OpenAICompatibleTransformer(configuration: configuration, session: session)
+            _ = try? await transformer.transform("hello", instruction: "Polish it.")
+        }
+        #expect(sent.withLock { $0 } == (answersBeforeFailing ? [0.3, nil, nil] : [0.3, nil, 0.3, nil]))
+    }
+
+    /// Hand-built shapes (from the Astra re-check of `61f14c9`). A streamed retry whose answer is only
+    /// whitespace fails as empty, so it does not remember the rejection either.
+    @Test
+    func aStreamedRetryWithOnlyWhitespaceDoesNotRememberTheRejection() async throws {
+        let sent = Mutex<[Double?]>([])
+        let session = Self.stubbedSession { request in
+            let temperature = try Self.jsonBody(from: request)["temperature"] as? Double
+            sent.withLock { $0.append(temperature) }
+            if temperature != nil {
+                return Self.response(statusCode: 400, body: #"{"error":{"param":"temperature","code":"unsupported_value"}}"#)
+            }
+            return Self.eventStream(#"data: {"choices":[{"delta":{"content":"  "}}]}"# + "\n\ndata: [DONE]\n\n")
+        }
+        defer { StubURLProtocol.reset() }
+        let configuration = OpenAICompatibleConfiguration(
+            baseURL: try #require(URL(string: "https://example.com/v1")), apiKey: "test-key", model: "whitespace-\(UUID())"
+        )
+        for _ in 0..<2 {
+            let transformer = OpenAICompatibleTransformer(configuration: configuration, session: session)
+            _ = try? await transformer.transform("hello", instruction: "Polish it.")
         }
         #expect(sent.withLock { $0 } == [0.3, nil, 0.3, nil])
     }

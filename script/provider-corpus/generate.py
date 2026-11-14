@@ -10,10 +10,18 @@ import json
 import pathlib
 import re
 
+import hashlib
+import sys
+
 HERE = pathlib.Path(__file__).resolve().parent
 OUTPUT = HERE.parent.parent / "Tests" / "SyrupTests" / "ProviderCorpus.swift"
 corpus = json.loads((HERE / "corpus.json").read_text())
 ENTRIES = corpus["entries"]
+# The tables below are keyed by entry position. If corpus.json gains, loses, or reorders entries, the
+# positions no longer match; recheck every table, then update this digest of the entries' labels.
+LABELS_DIGEST = "d0d7bb981b4d262cd4348bd9642031ba7f070207aa9eb8b1eb8e613d5f992640"
+_labels = "\n".join(entry["provider"] + "|" + entry["label"] for entry in ENTRIES)
+assert hashlib.sha256(_labels.encode()).hexdigest() == LABELS_DIGEST, "corpus.json entries changed; recheck the tables"
 
 
 def compact(value):
@@ -97,6 +105,7 @@ EXCLUDED = {
     46: "Ollama's native NDJSON API, not SSE",
 }
 ERROR_NOTES = {
+    19: "Printed pretty; compacted onto one line. The page shows no status beside it; 200 follows from its description of a non-streamed reply that carries the error in its choice.",
     12: "Printed pretty; compacted onto one line. The page says an appropriate status is returned without naming it; 400 is the body's `error.code`, which OpenRouter sets to the status.",
 }
 # entry index: (status shown with the example, or None; the error it maps to, or None).
@@ -176,5 +185,12 @@ for index, reason in sorted(EXCLUDED.items()):
     entry = ENTRIES[index]
     out.append("        (%s, %s, %s, %s)," % (swift(entry["provider"]), swift(entry["label"]), swift(entry["source"]), swift(reason)))
 out += ["    ]", "}"]
-OUTPUT.write_text("\n".join(out) + "\n")
-print("%d streams, %d errors, %d excluded -> %s" % (len(STREAMS), len(ERRORS), len(EXCLUDED), OUTPUT))
+text = "\n".join(out) + "\n"
+if "--check" in sys.argv:
+    # CI: the checked-in Swift file must be what this script makes from corpus.json.
+    if OUTPUT.read_text() != text:
+        sys.exit("ProviderCorpus.swift is out of date; run python3 -I script/provider-corpus/generate.py")
+    print("ProviderCorpus.swift matches corpus.json")
+else:
+    OUTPUT.write_text(text)
+    print("%d streams, %d errors, %d excluded -> %s" % (len(STREAMS), len(ERRORS), len(EXCLUDED), OUTPUT))
