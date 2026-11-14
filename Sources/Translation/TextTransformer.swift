@@ -130,7 +130,7 @@ final class AppSettingsTransformerProvider: TransformerSnapshotting {
                 let configuration = try openAICompatibleConfiguration()
                 let session = session
                 return TransformerSnapshot(
-                    permitsUnfinalizedInput: PauseTransformation.isLoopback(configuration.baseURL)
+                    permitsUnfinalizedInput: EndpointPolicy.isLoopback(configuration.baseURL)
                 ) { _ in
                     OpenAICompatibleTransformer(configuration: configuration, session: session)
                 }

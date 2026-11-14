@@ -15,7 +15,7 @@ struct RecoveryReliabilityTests {
         settings.updateWorkflow(id: settings.activeWorkflow.id) { $0.translationProvider = .appleOnDevice }
         let provider = RecoveryRoutingProvider(failFirst: true)
         let history = HistoryStore()
-        let state = AppState(
+        let state = AppState.fixture(
             settings: settings, history: history, audioRecorder: FakeRecorder(),
             transcriber: FakeTranscriber(.success("Private fixture input")), transformerProvider: provider,
             pasteboard: SpyPasteboard(), feedback: SpyFeedback(), autoPaster: SpyAutoPaster(),
@@ -98,7 +98,7 @@ struct RecoveryReliabilityTests {
         typist.postsTextOnAppend = true
         let pasteboard = SpyPasteboard()
         let feedback = SpyFeedback()
-        let state = AppState(
+        let state = AppState.fixture(
             settings: settings, audioRecorder: FakeRecorder(), transcriber: FakeTranscriber(.success("Fixture input")),
             transformer: try transformer(session: session), pasteboard: pasteboard, feedback: feedback,
             autoPaster: SpyAutoPaster(), streamingTypistFactory: { typist },
@@ -253,7 +253,7 @@ struct RecoveryReliabilityTests {
         let gate = RecoveryCaptureGate()
         let transformer = FakeTextTransformer(.success("Complete fixture output"))
         let paster = SpyAutoPaster()
-        let state = AppState(
+        let state = AppState.fixture(
             settings: settings, audioRecorder: FakeRecorder(), transcriber: FakeTranscriber(.success("unused")),
             transformer: transformer, pasteboard: SpyPasteboard(), feedback: SpyFeedback(), autoPaster: paster,
             maximumRecordingDurationNanoseconds: 0, recordingClock: FastForwardClock(), selectionReader: reader,
@@ -280,7 +280,7 @@ struct RecoveryReliabilityTests {
         let history = HistoryStore(persistenceEnabled: true, storageDirectory: directory)
         let transformer = FakeTextTransformer(.success("Transformed fixture output"))
         let pasteboard = RecoverablePasteboard()
-        let state = AppState(
+        let state = AppState.fixture(
             settings: settings, history: history, audioRecorder: FakeRecorder(),
             transcriber: FakeTranscriber(.success("unused")), transformer: transformer,
             pasteboard: pasteboard, feedback: SpyFeedback(), autoPaster: SpyAutoPaster(),
@@ -351,7 +351,7 @@ struct RecoveryReliabilityTests {
         let gate = RecoveryCaptureGate()
         reader.gate = gate
         let transformer = FakeTextTransformer(.success("unused"))
-        let state = AppState(
+        let state = AppState.fixture(
             settings: settings, audioRecorder: FakeRecorder(), transcriber: FakeTranscriber(.success("unused")),
             transformer: transformer, pasteboard: SpyPasteboard(), feedback: SpyFeedback(), autoPaster: SpyAutoPaster(),
             maximumRecordingDurationNanoseconds: 0, recordingClock: FastForwardClock(), selectionReader: reader
@@ -376,7 +376,7 @@ struct RecoveryReliabilityTests {
         reader.source = DeliveryTarget(checkCurrent: { false })
         var recaptures = 0
         let paster = SpyAutoPaster()
-        let state = AppState(
+        let state = AppState.fixture(
             settings: settings, audioRecorder: FakeRecorder(), transcriber: FakeTranscriber(.success("unused")),
             transformer: FakeTextTransformer(.success("Complete fixture output")), pasteboard: SpyPasteboard(),
             feedback: SpyFeedback(), autoPaster: paster, maximumRecordingDurationNanoseconds: 0, recordingClock: FastForwardClock(),
@@ -397,7 +397,7 @@ struct RecoveryReliabilityTests {
             $0.includeSelectionContext = voice
         }
         let transformer = FakeTextTransformer(.success("Complete fixture output"))
-        let state = AppState(
+        let state = AppState.fixture(
             settings: settings, audioRecorder: FakeRecorder(), transcriber: FakeTranscriber(.success("Fixture voice")),
             transformer: transformer, pasteboard: SpyPasteboard(), feedback: SpyFeedback(), autoPaster: SpyAutoPaster(),
             errorResetDelayNanoseconds: 60_000_000_000, maximumRecordingDurationNanoseconds: 0, recordingClock: FastForwardClock(),
@@ -430,7 +430,7 @@ struct RecoveryReliabilityTests {
         feedback: SpyFeedback = SpyFeedback(),
         cue: (any RecordingCuePresenting)? = nil
     ) -> AppState {
-        AppState(
+        AppState.fixture(
             settings: settings, history: history, audioRecorder: FakeRecorder(),
             transcriber: FakeTranscriber(.success("Fixture input")), transformer: transformer,
             pasteboard: pasteboard, feedback: feedback, autoPaster: SpyAutoPaster(),

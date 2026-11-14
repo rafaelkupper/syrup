@@ -93,14 +93,10 @@ struct SyrupApp: App {
         let whisperModelManager = WhisperModelManager()
         let speechModels = SpeechModelCatalog.live()
         speechModels.replaceRetiredParakeetV3()
-        let appState = AppState(
+        let appState = AppState.production(
             settings: AppSettings(defaultMicrophoneIDProvider: AudioInputDevice.defaultSelectionID),
             speechModels: speechModels.installed,
-            usageStats: UsageStatsStore(fileURL: UsageStatsStore.defaultFileURL()),
-            installHotkeys: true,
-            recordingCue: RecordingCueController(),
-            recordingArchive: recordingArchive,
-            outputDucker: OutputDucker()
+            recordingArchive: recordingArchive
         )
         appState.restoreOutputVolumeAfterCrash()
         _appState = State(initialValue: appState)
@@ -203,5 +199,44 @@ struct SyrupApp: App {
         .windowResizability(.contentSize)
         .defaultLaunchBehavior(showsOnboardingAtLaunch ? .presented : .suppressed)
         .restorationBehavior(.disabled)
+    }
+}
+
+extension AppState {
+    /// The production services. Only the app entry point builds them; tests inject their own.
+    static func production(
+        settings: AppSettings,
+        speechModels: [SpeechEngine: InstalledSpeechModel],
+        recordingArchive: any RecordingArchiving
+    ) -> AppState {
+        let transcriberAssetManager = TranscriberAssetManager()
+        let keychainStore = KeychainStore()
+        return AppState(
+            settings: settings,
+            transcriberAssetManager: transcriberAssetManager,
+            history: HistoryStore(persistenceEnabled: settings.persistHistory),
+            keychainStore: keychainStore,
+            audioRecorder: AudioRecorder(settings: settings),
+            transcriber: AppleTranscriber(assetManager: transcriberAssetManager),
+            speechModels: speechModels,
+            usageStats: UsageStatsStore(fileURL: UsageStatsStore.defaultFileURL()),
+            transformerProvider: AppSettingsTransformerProvider(settings: settings, keychainStore: keychainStore),
+            pasteboard: ClipboardWriter(),
+            feedback: AppFeedback(),
+            metrics: PipelineMetricsRecorder(),
+            autoPaster: AutoPaster(),
+            streamingTypistFactory: { StreamingTypist() },
+            selectionReader: SelectionReader(),
+            processActivity: ProcessInfo.processInfo,
+            recordingCue: RecordingCueController(),
+            recordingArchive: recordingArchive,
+            outputDucker: OutputDucker(),
+            frontmostApplication: { includeBundleID in
+                let app = NSWorkspace.shared.frontmostApplication
+                return (includeBundleID ? app?.bundleIdentifier : nil, app?.processIdentifier)
+            },
+            captureDeliveryTarget: { await DeliveryTarget.capture(processID: $0) },
+            installHotkeys: true
+        )
     }
 }

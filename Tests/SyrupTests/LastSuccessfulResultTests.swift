@@ -25,7 +25,7 @@ struct LastSuccessfulResultTests {
             outcome: .success, provider: .openAICompatible
         ))
         let clipboard = SpyPasteboard()
-        let state = AppState(
+        let state = AppState.fixture(
             settings: settings, history: history, audioRecorder: FakeRecorder(),
             transcriber: FakeTranscriber(.success("unused")),
             transformer: StaticErrorTextTransformer(error: TranslationError.timedOut),

@@ -245,7 +245,7 @@ private final class CaretFitFixture {
         let transformer: any TextTransformer = streaming
             ? FakeStreamingTextTransformer(atomicOutput: output, deltas: ["En", "tão ", "vamos."])
             : FakeTextTransformer(.success(output))
-        return AppState(settings: settings, audioRecorder: FakeRecorder(), transcriber: FakeTranscriber(.success("fixture")),
+        return AppState.fixture(settings: settings, audioRecorder: FakeRecorder(), transcriber: FakeTranscriber(.success("fixture")),
             transformer: transformer, pasteboard: clipboard, feedback: feedback, autoPaster: paster,
             streamingTypistFactory: { realTypist ?? self.typist }, maximumRecordingDurationNanoseconds: 0,
             autoPasteDelayNanoseconds: 0, recordingClock: FastForwardClock(),

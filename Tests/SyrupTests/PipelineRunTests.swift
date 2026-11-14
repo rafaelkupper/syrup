@@ -96,7 +96,7 @@ struct PipelineRunTests {
         let fitted = SentenceFit.apply(output, context: context, protectedTerms: [])
         #expect(fitted != output)
         let clipboard = FailingOncePasteboard()
-        let state = AppState(
+        let state = AppState.fixture(
             settings: settings, audioRecorder: FakeRecorder(), transcriber: FakeTranscriber(.success("fixture")),
             transformer: FakeTextTransformer(.success(output)), pasteboard: clipboard, feedback: SpyFeedback(),
             autoPaster: SpyAutoPaster(isTrusted: true), maximumRecordingDurationNanoseconds: 0,
@@ -129,7 +129,7 @@ struct PipelineRunTests {
             outcome: .failed(message: userMessage(for: error)), provider: .openAICompatible
         ))
         let feedback = SpyFeedback()
-        let state = AppState(
+        let state = AppState.fixture(
             settings: settings, history: history, audioRecorder: FakeRecorder(),
             transcriber: FakeTranscriber(.success("fixture")),
             transformerProvider: StaticTransformerProvider(transformer: FailedTextTransformer(error: error)),
@@ -151,7 +151,7 @@ struct PipelineRunTests {
         let (settings, defaults) = try settings()
         defer { defaults.removePersistentDomain(forName: suite) }
         let feedback = SpyFeedback()
-        let state = AppState(
+        let state = AppState.fixture(
             settings: settings, audioRecorder: FakeRecorder(), transcriber: FakeTranscriber(.success("fixture")),
             transformer: FakeTextTransformer(.failure(.transformer)), pasteboard: SpyPasteboard(),
             feedback: feedback, autoPaster: SpyAutoPaster(), maximumRecordingDurationNanoseconds: 0,
@@ -174,7 +174,7 @@ struct PipelineRunTests {
         let recorder = FakeRecorder()
         let reader = SuspendedSelectionReader()
         let clipboard = SpyPasteboard()
-        let state = AppState(
+        let state = AppState.fixture(
             settings: settings, audioRecorder: recorder, transcriber: FakeTranscriber(.success("fixture")),
             transformer: FakeTextTransformer(.success("Done")), pasteboard: clipboard, feedback: SpyFeedback(),
             autoPaster: SpyAutoPaster(), maximumRecordingDurationNanoseconds: 0,
@@ -203,7 +203,7 @@ struct PipelineRunTests {
         let paster = SpyAutoPaster(isTrusted: true)
         let feedback = SpyFeedback()
         let recorder = FakeRecorder()
-        let state = AppState(
+        let state = AppState.fixture(
             settings: settings, audioRecorder: recorder, transcriber: FakeTranscriber(.success("fixture")),
             transformer: FakeTextTransformer(.success("Done")), pasteboard: clipboard, feedback: feedback,
             autoPaster: paster, maximumRecordingDurationNanoseconds: 0,
@@ -238,7 +238,7 @@ struct PipelineRunTests {
         settings.updateWorkflow(id: settings.activeWorkflow.id) { $0.includeSelectionContext = true }
         let reader = SuspendedSelectionReader()
         let transformer = FakeTextTransformer(.success("Done"))
-        let state = AppState(
+        let state = AppState.fixture(
             settings: settings, audioRecorder: FakeRecorder(), transcriber: FakeTranscriber(.success("fixture")),
             transformer: transformer, pasteboard: SpyPasteboard(), feedback: SpyFeedback(),
             autoPaster: SpyAutoPaster(), maximumRecordingDurationNanoseconds: 0,
@@ -262,7 +262,7 @@ struct PipelineRunTests {
         settings.glossaryLearningEnabled = true
         let archive = HeldDiscardArchive()
         let recorder = FakeRecorder()
-        let state = AppState(
+        let state = AppState.fixture(
             settings: settings, audioRecorder: recorder, transcriber: FakeTranscriber(.suspended),
             transformer: FakeTextTransformer(.success("never")), pasteboard: SpyPasteboard(), feedback: SpyFeedback(),
             autoPaster: SpyAutoPaster(), maximumRecordingDurationNanoseconds: 0, recordingClock: FastForwardClock(),
@@ -285,7 +285,7 @@ struct PipelineRunTests {
         defer { defaults.removePersistentDomain(forName: suite) }
         let recorder = FakeRecorder()
         let clipboard = SpyPasteboard()
-        let state = AppState(
+        let state = AppState.fixture(
             settings: settings, audioRecorder: recorder, transcriber: FakeTranscriber(.suspended),
             transformer: FakeTextTransformer(.success("never")), pasteboard: clipboard, feedback: SpyFeedback(),
             autoPaster: SpyAutoPaster(), maximumRecordingDurationNanoseconds: 0, recordingClock: FastForwardClock()

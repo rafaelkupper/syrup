@@ -153,6 +153,10 @@ enum SpeechEngine: String, CaseIterable, Identifiable, Sendable, Codable {
         "ja", "ko", "nb", "nl", "pl", "pt", "ro", "ru", "sk", "sv", "tr", "uk", "vi", "zh",
     ]
 
+    /// Canary 180M Flash's languages. `CanaryModel.languages` holds the same set for the model itself;
+    /// a test keeps the two equal, because Core cannot see the Transcription folder.
+    static let canaryLanguageCodes: Set<String> = ["en", "de", "es", "fr"]
+
     /// Workflows saved by 0.9 or earlier may have chosen Parakeet v3, which Ultra replaced.
     init(from decoder: any Decoder) throws {
         let rawValue = try decoder.singleValueContainer().decode(String.self)
@@ -179,7 +183,7 @@ enum SpeechEngine: String, CaseIterable, Identifiable, Sendable, Codable {
         case .parakeetUnifiedEN:
             return code == "en"
         case .canaryFlash:
-            return code.map(CanaryModel.languages.contains) ?? false
+            return code.map(Self.canaryLanguageCodes.contains) ?? false
         }
     }
 }

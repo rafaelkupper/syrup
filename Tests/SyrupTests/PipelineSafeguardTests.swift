@@ -63,7 +63,7 @@ struct PipelineSafeguardTests {
         let pasteboard = SpyPasteboard()
         let paster = SpyAutoPaster()
         var sameEditor = true
-        let state = AppState(settings: settings, audioRecorder: FakeRecorder(),
+        let state = AppState.fixture(settings: settings, audioRecorder: FakeRecorder(),
             transcriber: FakeTranscriber(.success("input")), transformer: FakeTextTransformer(.success("output")),
             pasteboard: pasteboard, feedback: SpyFeedback(), autoPaster: paster,
             maximumRecordingDurationNanoseconds: 0,
@@ -191,7 +191,7 @@ struct PipelineSafeguardTests {
         let paster = SpyAutoPaster(isTrusted: false)
         let (stream, continuation) = AsyncThrowingStream<String, any Error>.makeStream()
         defer { continuation.finish() }
-        let state = AppState(settings: settings, audioRecorder: FakeRecorder(),
+        let state = AppState.fixture(settings: settings, audioRecorder: FakeRecorder(),
             transcriber: FakeTranscriber(.success("fixture")),
             transformer: FakeStreamingTextTransformer(stream: stream), pasteboard: pasteboard,
             feedback: SpyFeedback(), autoPaster: paster, maximumRecordingDurationNanoseconds: 0, recordingClock: FastForwardClock(),
@@ -238,7 +238,7 @@ struct PipelineSafeguardTests {
 
     private func appState(settings: AppSettings? = nil, history: HistoryStore = HistoryStore(),
                           pasteboard: SpyPasteboard = SpyPasteboard()) -> AppState {
-        AppState(settings: settings ?? fixtureSettings(), history: history, audioRecorder: FakeRecorder(),
+        AppState.fixture(settings: settings ?? fixtureSettings(), history: history, audioRecorder: FakeRecorder(),
             transcriber: FakeTranscriber(.success("fixture")), transformer: FakeTextTransformer(.success("fixture")),
             pasteboard: pasteboard, feedback: SpyFeedback(), autoPaster: SpyAutoPaster(), maximumRecordingDurationNanoseconds: 0, recordingClock: FastForwardClock())
     }

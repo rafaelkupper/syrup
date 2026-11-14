@@ -20,7 +20,7 @@ struct TypedDeliveryTests {
             frontmostApplicationID: { "review.fixture.editor" },
             eventPoster: { posted.append($0); return true }
         )
-        let state = AppState(
+        let state = AppState.fixture(
             settings: settings, audioRecorder: FakeRecorder(),
             transcriber: FakeTranscriber(.success("hello")),
             transformer: FakeStreamingTextTransformer(deltas: deltas),
@@ -53,7 +53,7 @@ struct TypedDeliveryTests {
         let clipboard = SpyPasteboard()
         let paster = SpyAutoPaster()
         let processID = ownProcess ? ProcessInfo.processInfo.processIdentifier : 1
-        let state = AppState(
+        let state = AppState.fixture(
             settings: settings, audioRecorder: FakeRecorder(),
             transcriber: FakeTranscriber(.success("hello")),
             transformer: FakeTextTransformer(.success("olá")),

@@ -127,7 +127,7 @@ struct FnKeyHotkeyTests {
         ) {
             let settings = AppSettings(userDefaults: UserDefaults(suiteName: suite)!, defaultMicrophoneIDProvider: { "" })
             settings.hotkeyMode = mode
-            let state = AppState(
+            let state = AppState.fixture(
                 settings: settings, audioRecorder: FakeRecorder(),
                 transcriber: FakeTranscriber(.success("fixture")), transformer: transformer,
                 pasteboard: pasteboard, feedback: SpyFeedback(), autoPaster: SpyAutoPaster(),

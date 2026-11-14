@@ -31,7 +31,7 @@ struct SmartSpacingTests {
             reads.withLock { $0 += 1 }
             return precedingWord
         })
-        let state = AppState(settings: settings, audioRecorder: FakeRecorder(),
+        let state = AppState.fixture(settings: settings, audioRecorder: FakeRecorder(),
                              transcriber: FakeTranscriber(.success("hello")),
                              transformer: FakeTextTransformer(.success("result")),
                              pasteboard: clipboard, feedback: SpyFeedback(), autoPaster: paster,
@@ -63,7 +63,7 @@ struct SmartSpacingTests {
         settings.streamingDeliveryEnabled = true
         let clipboard = SpyPasteboard(), typist = SpyStreamingTypist()
         typist.postsTextOnAppend = true
-        let state = AppState(settings: settings, audioRecorder: FakeRecorder(),
+        let state = AppState.fixture(settings: settings, audioRecorder: FakeRecorder(),
                              transcriber: FakeTranscriber(.success("hello")),
                              transformer: FakeStreamingTextTransformer(atomicOutput: "result more", deltas: ["result", " more"]),
                              pasteboard: clipboard, feedback: SpyFeedback(), autoPaster: SpyAutoPaster(),

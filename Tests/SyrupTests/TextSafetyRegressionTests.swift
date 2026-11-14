@@ -19,7 +19,7 @@ struct TextSafetyRegressionTests {
         let id = settings.addWorkflow(from: template)
         settings.updateWorkflow(id: id) { $0.dictationLocaleID = locale }
         let clipboard = SpyPasteboard()
-        let state = AppState(settings: settings, audioRecorder: FakeRecorder(),
+        let state = AppState.fixture(settings: settings, audioRecorder: FakeRecorder(),
                              transcriber: FakeTranscriber(.success(spoken)),
                              transformer: QueuedTextTransformer([]),
                              pasteboard: clipboard, feedback: SpyFeedback(),

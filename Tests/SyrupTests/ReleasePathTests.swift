@@ -614,7 +614,7 @@ struct ReleasePathTimingTests {
         let clock = ManualRecordingClock()
         let transcriber = CountingTranscriber()
         let pasteboard = SpyPasteboard()
-        let state = AppState(
+        let state = AppState.fixture(
             settings: makeRecordingSettings(),
             history: historyWithResult(),
             audioRecorder: recorder,
@@ -891,7 +891,7 @@ private final class RecordingFixture {
         self.history = history
         self.transcriber = transcriber
         self.transformer = transformer
-        state = AppState(
+        state = AppState.fixture(
             settings: settings,
             history: history,
             audioRecorder: recorder,

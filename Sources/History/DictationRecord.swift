@@ -6,39 +6,7 @@ struct DictationRecord: Identifiable, Equatable, Sendable, Codable {
         case failed(message: String)
     }
 
-    enum TransformationSnapshot: Equatable, Sendable, Codable {
-        case translation(targetLanguage: String, toneInstruction: String)
-        case custom(workflowName: String, instruction: String)
-        case revision(adjustment: String, instruction: String)
-        case contextual(workflowName: String, instruction: String)
-
-        var displayName: String {
-            switch self {
-            case .translation:
-                "Translate"
-            case .custom(let workflowName, _):
-                workflowName
-            case .revision:
-                "Revise"
-            case .contextual(let workflowName, _):
-                workflowName
-            }
-        }
-
-        var instruction: String {
-            switch self {
-            case .translation(let targetLanguage, let toneInstruction):
-                PromptBuilder.systemPrompt(
-                    targetLanguage: targetLanguage,
-                    toneInstruction: toneInstruction
-                )
-            case .custom(_, let instruction):
-                instruction
-            case .revision(_, let instruction), .contextual(_, let instruction):
-                instruction
-            }
-        }
-    }
+    typealias TransformationSnapshot = Syrup.TransformationSnapshot
 
     let id: UUID
     let finishedAt: Date

@@ -17,12 +17,12 @@ typealias AutoPasteSleeper = @Sendable (UInt64) async throws -> Void
 final class AppState {
     typealias PipelineState = Syrup.PipelineState
 
-    private static let minimumHold: Duration = .milliseconds(300)
+    static let minimumHold: Duration = .milliseconds(300)
     private static let outputVolumeLogger = Logger(subsystem: "org.syrup.SyrupApp", category: "OutputVolume")
 
     /// A finished result whose clipboard write failed, kept so Copy Result can deliver it later.
     /// `output` is the exact result that history keeps; `delivered` is the sentence-fitted text.
-    private struct PendingClipboardResult {
+    struct PendingClipboardResult {
         let output: String
         let delivered: String
         let transcript: String
@@ -32,7 +32,7 @@ final class AppState {
 
     /// A finished transformation on its way out. History keeps `output`, so Copy Last and revisions
     /// see the exact result; the clipboard and editor receive `fitted.text`.
-    private struct CompletedOutput {
+    struct CompletedOutput {
         let output: String
         let fitted: FittedText
         let transcript: String
@@ -40,7 +40,7 @@ final class AppState {
     }
 
     private var pendingPasteID: UUID?
-    private var pendingClipboardResult: PendingClipboardResult?
+    var pendingClipboardResult: PendingClipboardResult?
 
     private(set) var pipelineState: PipelineState = .idle {
         willSet {
@@ -51,6 +51,16 @@ final class AppState {
             syncRecordingCue()
         }
     }
+    enum ProcessingPhase { case transcribing, translating }
+
+    /// The run phase files move a run on through this; only this file sets other states.
+    func enterProcessing(_ phase: ProcessingPhase) {
+        pipelineState = switch phase {
+        case .transcribing: .transcribing
+        case .translating: .translating
+        }
+    }
+
     /// Set while the onboarding's try-it page is open, so its first result lands there and not in Syrup's own window.
     var holdsPasteForOnboarding = false
 
@@ -76,63 +86,71 @@ final class AppState {
         }
     }
 
-    @ObservationIgnored private let audioRecorder: any AudioRecording
-    @ObservationIgnored private let transcriber: any Transcriber
-    @ObservationIgnored private let speechModels: [SpeechEngine: InstalledSpeechModel]
+    @ObservationIgnored let audioRecorder: any AudioRecording
+    @ObservationIgnored let transcriber: any Transcriber
+    @ObservationIgnored let speechModels: [SpeechEngine: InstalledSpeechModel]
     let usageStats: UsageStatsStore
-    @ObservationIgnored private let transformerProvider: any TransformerSnapshotting
-    @ObservationIgnored private let pasteboard: any PasteboardWriting
-    @ObservationIgnored private let feedback: any AppFeedbackProviding
-    @ObservationIgnored private let metrics: any PipelineMetricsRecording
-    @ObservationIgnored private let delivery: DeliveryCoordinator
+    @ObservationIgnored let transformerProvider: any TransformerSnapshotting
+    @ObservationIgnored let pasteboard: any PasteboardWriting
+    @ObservationIgnored let feedback: any AppFeedbackProviding
+    @ObservationIgnored let metrics: any PipelineMetricsRecording
+    @ObservationIgnored let delivery: DeliveryCoordinator
     @ObservationIgnored private var preparedHotkeyLocaleIDs: Set<String> = []
-    @ObservationIgnored private let captureDeliveryTarget: @MainActor (pid_t?) async -> DeliveryTarget?
-    @ObservationIgnored private let frontmostApplication: @MainActor (Bool) -> (bundleID: String?, processID: pid_t?)
-    @ObservationIgnored private let selectionReader: any SelectionReading
+    @ObservationIgnored let captureDeliveryTarget: @MainActor (pid_t?) async -> DeliveryTarget?
+    @ObservationIgnored let frontmostApplication: @MainActor (Bool) -> (bundleID: String?, processID: pid_t?)
+    @ObservationIgnored let selectionReader: any SelectionReading
     @ObservationIgnored private let errorResetDelayNanoseconds: UInt64
     @ObservationIgnored private let errorResetSleeper: ErrorResetSleeper
     @ObservationIgnored private let feedbackFlashDurationNanoseconds: UInt64
     @ObservationIgnored private let feedbackFlashSleeper: FeedbackFlashSleeper
-    @ObservationIgnored private let maximumRecordingDurationNanoseconds: UInt64?
-    @ObservationIgnored private let recordingDurationSleeper: RecordingDurationSleeper
-    @ObservationIgnored private let recordingClock: any RecordingClock
-    @ObservationIgnored private let processActivity: any ProcessActivityControlling
-    @ObservationIgnored private let outputDucker: OutputDucker?
-    @ObservationIgnored private var outputVolumeWork: Task<Void, Never>?
+    @ObservationIgnored let maximumRecordingDurationNanoseconds: UInt64?
+    @ObservationIgnored let recordingDurationSleeper: RecordingDurationSleeper
+    @ObservationIgnored let recordingClock: any RecordingClock
+    @ObservationIgnored let processActivity: any ProcessActivityControlling
+    @ObservationIgnored let outputDucker: OutputDucker?
+    @ObservationIgnored var outputVolumeWork: Task<Void, Never>?
     /// Recordings still being filed or discarded after their run ended, keyed by recording ID.
-    @ObservationIgnored private var recordingWork: [UUID: Task<Void, Never>] = [:]
-    @ObservationIgnored private let streamingTypistFactory: () -> any StreamingTyping
-    @ObservationIgnored private var activeRun: PipelineRun?
+    @ObservationIgnored var recordingWork: [UUID: Task<Void, Never>] = [:]
+    @ObservationIgnored let streamingTypistFactory: () -> any StreamingTyping
+    @ObservationIgnored var activeRun: PipelineRun?
     @ObservationIgnored var foregroundActivityChanged: ((Bool) -> Void)?
-    private var activeRunID: UUID? { activeRun?.id }
+    var activeRunID: UUID? { activeRun?.id }
     private var isRevisionRun: Bool { activeRun?.configuration.purpose.isRevision == true }
     @ObservationIgnored private var errorResetTask: Task<Void, Never>?
     @ObservationIgnored private var errorResetRunID: UUID?
     @ObservationIgnored private var feedbackFlashTask: Task<Void, Never>?
     @ObservationIgnored private var hotkeyController: HotkeyController?
-    @ObservationIgnored private let recordingCue: (any RecordingCuePresenting)?
+    @ObservationIgnored let recordingCue: (any RecordingCuePresenting)?
     @ObservationIgnored let recordingArchive: (any RecordingArchiving)?
     @ObservationIgnored private var didNotifyEmptySelectionContext = false
-    @ObservationIgnored private var didNotifySpeechEngineFallback = false
+    @ObservationIgnored var didNotifySpeechEngineFallback = false
     @ObservationIgnored private var didNotifyUntrustedSelectionContext = false
     @ObservationIgnored private var didRequestSelectionAccessibilityTrust = false
 
+    /// Every service is injected. Production wiring lives in `AppState.production` at the entry point,
+    /// so a test cannot reach the real clipboard, paste, notifications, or microphone by omission.
     init(
-        settings: AppSettings = AppSettings(),
-        transcriberAssetManager: TranscriberAssetManager = TranscriberAssetManager(),
-        history: HistoryStore? = nil,
-        keychainStore: KeychainStore = KeychainStore(),
-        audioRecorder: (any AudioRecording)? = nil,
-        transcriber: (any Transcriber)? = nil,
-        speechModels: [SpeechEngine: InstalledSpeechModel] = [:],
-        usageStats: UsageStatsStore? = nil,
-        transformer: (any TextTransformer)? = nil,
-        transformerProvider: (any TransformerSnapshotting)? = nil,
-        pasteboard: any PasteboardWriting = ClipboardWriter(),
-        feedback: any AppFeedbackProviding = AppFeedback(),
-        metrics: any PipelineMetricsRecording = PipelineMetricsRecorder(),
-        autoPaster: any AutoPasting = AutoPaster(),
-        streamingTypistFactory: @escaping () -> any StreamingTyping = { StreamingTypist() },
+        settings: AppSettings,
+        transcriberAssetManager: TranscriberAssetManager,
+        history: HistoryStore,
+        keychainStore: KeychainStore,
+        audioRecorder: any AudioRecording,
+        transcriber: any Transcriber,
+        speechModels: [SpeechEngine: InstalledSpeechModel],
+        usageStats: UsageStatsStore,
+        transformerProvider: any TransformerSnapshotting,
+        pasteboard: any PasteboardWriting,
+        feedback: any AppFeedbackProviding,
+        metrics: any PipelineMetricsRecording,
+        autoPaster: any AutoPasting,
+        streamingTypistFactory: @escaping () -> any StreamingTyping,
+        selectionReader: any SelectionReading,
+        processActivity: any ProcessActivityControlling,
+        recordingCue: (any RecordingCuePresenting)?,
+        recordingArchive: (any RecordingArchiving)?,
+        outputDucker: OutputDucker?,
+        frontmostApplication: @escaping @MainActor (Bool) -> (bundleID: String?, processID: pid_t?),
+        captureDeliveryTarget: @escaping @MainActor (pid_t?) async -> DeliveryTarget?,
         errorResetDelayNanoseconds: UInt64 = 4_000_000_000,
         errorResetSleeper: @escaping ErrorResetSleeper = { nanoseconds in
             try await Task.sleep(nanoseconds: nanoseconds)
@@ -150,36 +168,17 @@ final class AppState {
             try await Task.sleep(nanoseconds: nanoseconds)
         },
         recordingClock: any RecordingClock = ContinuousRecordingClock(),
-        processActivity: any ProcessActivityControlling = ProcessInfo.processInfo,
-        installHotkeys: Bool = false,
-        selectionReader: any SelectionReading = SelectionReader(),
-        recordingCue: (any RecordingCuePresenting)? = nil,
-        recordingArchive: (any RecordingArchiving)? = nil,
-        outputDucker: OutputDucker? = nil,
-        frontmostApplication: @escaping @MainActor (Bool) -> (bundleID: String?, processID: pid_t?) = { includeBundleID in
-            let app = NSWorkspace.shared.frontmostApplication
-            return (includeBundleID ? app?.bundleIdentifier : nil, app?.processIdentifier)
-        },
-        captureDeliveryTarget: @escaping @MainActor (pid_t?) async -> DeliveryTarget? = { await DeliveryTarget.capture(processID: $0) }
+        installHotkeys: Bool = false
     ) {
         self.settings = settings
         self.transcriberAssetManager = transcriberAssetManager
-        self.history = history ?? HistoryStore(persistenceEnabled: settings.persistHistory)
+        self.history = history
         self.keychainStore = keychainStore
-        self.audioRecorder = audioRecorder ?? AudioRecorder(settings: settings)
-        self.transcriber = transcriber ?? AppleTranscriber(assetManager: transcriberAssetManager)
+        self.audioRecorder = audioRecorder
+        self.transcriber = transcriber
         self.speechModels = speechModels
-        self.usageStats = usageStats ?? UsageStatsStore()
-        if let transformerProvider {
-            self.transformerProvider = transformerProvider
-        } else if let transformer {
-            self.transformerProvider = StaticTransformerProvider(transformer: transformer)
-        } else {
-            self.transformerProvider = AppSettingsTransformerProvider(
-                settings: settings,
-                keychainStore: keychainStore
-            )
-        }
+        self.usageStats = usageStats
+        self.transformerProvider = transformerProvider
         self.pasteboard = pasteboard
         self.feedback = feedback
         self.metrics = metrics
@@ -315,14 +314,14 @@ final class AppState {
 
     // MARK: - Events
 
-    private func command(for event: PipelineEvent) -> PipelineCommand {
+    func command(for event: PipelineEvent) -> PipelineCommand {
         PipelineTransitions.command(
             for: event, in: pipelineState,
             run: activeRun?.traits, hasLastResult: lastResult != nil
         )
     }
 
-    private func perform(_ command: PipelineCommand, stopReason: RunStopReason = .hotkey) {
+    func perform(_ command: PipelineCommand, stopReason: RunStopReason = .hotkey) {
         switch command {
         case .ignore:
             break
@@ -375,21 +374,9 @@ final class AppState {
 
     func startRevision() {
         guard pipelineState.acceptsNewRun, let baseOutput = lastResult else { return }
-        let activeConfiguration = settings.runConfiguration(workflowID: nil)
-
-        let configuration = RunConfiguration(
-            workflowID: activeConfiguration.workflowID,
-            workflowName: activeConfiguration.workflowName,
-            dictationLocaleID: activeConfiguration.dictationLocaleID,
-            instruction: "",
-            provider: activeConfiguration.provider,
-            transformation: .revision(adjustment: "", instruction: ""),
-            purpose: .revision(base: baseOutput),
-            speechVocabulary: activeConfiguration.speechVocabulary,
-            speechEngine: activeConfiguration.speechEngine,
-            corrections: activeConfiguration.corrections
-        )
-        startRevisionRun(configuration: configuration)
+        startRevisionRun(configuration: RunConfigurationBuilder.revision(
+            of: settings.runConfiguration(workflowID: nil), base: baseOutput
+        ))
     }
 
     private func cancelActiveRun() {
@@ -565,7 +552,7 @@ final class AppState {
         pipelineState = state
     }
 
-    private func startRun(workflowID: UUID? = nil) {
+    func startRun(workflowID: UUID? = nil) {
         let foreground = frontmostApplication(workflowID == nil && settings.workflowList.appRouting.isEmpty == false)
         let resolvedID = workflowID ?? settings.workflowList.routedWorkflowID(for: foreground.bundleID)
         let workflow = resolvedID.flatMap { id in
@@ -576,7 +563,8 @@ final class AppState {
         cancelSuccessFeedback()
         clearRunTracking()
 
-        let initialConfiguration = settings.runConfiguration(workflowID: workflow.id)
+        let inputs = settings.runInputs(for: workflow)
+        let initialConfiguration = RunConfigurationBuilder.configuration(for: inputs)
         let run = PipelineRun(
             configuration: initialConfiguration,
             triggerWorkflowID: workflowID,
@@ -590,9 +578,7 @@ final class AppState {
         )
         let prepareAfterSelection = workflow.includeSelectionContext && run.configuration.provider == .appleOnDevice
         let context = RunContextRequest(
-            workflow: workflow, foregroundPID: foreground.processID,
-            glossary: settings.glossaryList,
-            dictation: settings.dictationOptions(input: workflow.input, provider: initialConfiguration.provider),
+            inputs: inputs, foregroundPID: foreground.processID,
             prepareAfterSelection: prepareAfterSelection
         )
         beginRun(run, state: workflow.input == .voice ? .recording : .translating)
@@ -620,11 +606,9 @@ final class AppState {
     }
 
     private struct RunContextRequest {
-        let workflow: Workflow
-        let foregroundPID: pid_t?
-        let glossary: GlossaryList
         /// Read at the trigger with the rest of the run's settings, not after the selection read.
-        let dictation: DictationOptions
+        let inputs: RunInputs
+        let foregroundPID: pid_t?
         let prepareAfterSelection: Bool
     }
 
@@ -632,7 +616,7 @@ final class AppState {
     /// final configuration. Returns nil when the run ended or could not start.
     private func resolveRunContext(_ run: PipelineRun, _ request: RunContextRequest) async -> RunConfiguration? {
         let runID = run.id
-        let workflow = request.workflow
+        let workflow = request.inputs.workflow
         guard isCurrentRun(runID), Task.isCancelled == false else { return nil }
 
         var contextText: String?
@@ -683,21 +667,7 @@ final class AppState {
         }
         guard isCurrentRun(runID), Task.isCancelled == false else { return nil }
 
-        let base = run.configuration
-        let hasContext = workflow.input == .voice && workflow.includeSelectionContext && contextText != nil
-        let configuration = RunConfiguration(
-            workflowID: base.workflowID, workflowName: base.workflowName,
-            dictationLocaleID: base.dictationLocaleID,
-            instruction: PromptBuilder.instruction(
-                for: workflow.kind, glossary: request.glossary, context: hasContext ? contextText : nil,
-                dictation: request.dictation
-            ),
-            provider: base.provider,
-            transformation: workflow.input == .selection || hasContext
-                ? .contextual(workflowName: base.workflowName, instruction: base.instruction) : base.transformation,
-            purpose: base.purpose, contextText: contextText, speechVocabulary: base.speechVocabulary,
-            speechEngine: base.speechEngine, corrections: base.corrections
-        )
+        let configuration = RunConfigurationBuilder.configuration(for: request.inputs, contextText: contextText)
         if request.prepareAfterSelection { prepareTransformer(for: run, instruction: configuration.instruction) }
         return configuration
     }
@@ -744,314 +714,7 @@ final class AppState {
         }
     }
 
-    // MARK: - Pipelines
-
-    private func runSelectionPipeline(
-        runID: UUID,
-        configuration: RunConfiguration
-    ) async {
-        do {
-            guard isCurrentRun(runID), let selectedText = configuration.contextText else {
-                throw CancellationError()
-            }
-            try Task.checkCancellation()
-
-            _ = try await translateAndDeliver(
-                inputText: selectedText,
-                transcript: selectedText,
-                recordTranscript: "",
-                configuration: configuration,
-                runID: runID
-            )
-            finishRunSucceeded(runID)
-        } catch {
-            finishRunFailed(runID, error: error)
-        }
-    }
-
-    private func runPipeline(
-        runID: UUID,
-        resolvedConfiguration: Task<RunConfiguration?, Never>
-    ) async {
-        var transcriptionTask: Task<String, any Error>?
-        var appleTranscriptionTask: Task<String, any Error>?
-        var transformerTask: Task<any TextTransformer, Never>?
-        var provisionalRecordingID: UUID?
-        var recordingTeeSession: RecordingTeeSession?
-        defer {
-            resolvedConfiguration.cancel()
-            transcriptionTask?.cancel()
-            appleTranscriptionTask?.cancel()
-            transformerTask?.cancel()
-        }
-
-        do {
-            guard let run = activeRun, run.id == runID else { return }
-            try Task.checkCancellation()
-            if let failure = run.failure { throw failure }
-
-            audioRecorder.onFailure = { [weak self] error in
-                self?.recordingFailed(error, runID: runID)
-            }
-            let rawAudio = try await audioRecorder.start()
-            let levelCue = run.showRecordingCue ? recordingCue : nil
-            var audio = AudioLevelTap.attach(to: rawAudio, onOverflow: { [weak self] in
-                Task { @MainActor in self?.recordingFailed(AudioRecordingError.audioBufferOverflow, runID: runID) }
-            }) { [weak self, weak levelCue] level in
-                Task { @MainActor in
-                    guard self?.isCurrentRun(runID) == true else { return }
-                    levelCue?.updateLevel(level.smoothed)
-                    self?.receiveBufferLevel(dBFS: level.dBFS, runID: runID)
-                }
-            }
-            if let capture = run.pauseAudio {
-                audio = capture.attach(to: audio) { [weak run] in
-                    run?.pauseCheckTask?.cancel()
-                    run?.pauseCheckTask = nil
-                }
-            }
-            if settings.glossaryLearningEnabled, let recordingArchive {
-                do {
-                    let fileURL = try await recordingArchive.beginEntry(id: runID)
-                    provisionalRecordingID = runID
-                    let session = RecordingTee.attach(to: audio, fileURL: fileURL, onOverflow: { [weak self] in
-                        Task { @MainActor in self?.recordingFailed(AudioRecordingError.audioBufferOverflow, runID: runID) }
-                    })
-                    recordingTeeSession = session
-                    audio = session.stream
-                } catch {
-                    // Archiving is best-effort and must never fail a dictation. A pending cleanup
-                    // also refuses new entries here, so retention caps stay enforceable.
-                }
-            }
-            guard isCurrentRun(runID) else {
-                throw CancellationError()
-            }
-            metrics.end(.hotkeyToRecordingStarted, runID: runID)
-            if run.lowersOtherAudio {
-                changeOutputVolume { try await $0.lower() }
-            }
-            try Task.checkCancellation()
-
-            // Audio is already buffering. The selection and editor reads finish here, before the
-            // instruction is used by transcription vocabulary or an early transformation.
-            let resolved = await withTaskCancellationHandler {
-                await resolvedConfiguration.value
-            } onCancel: {
-                resolvedConfiguration.cancel()
-            }
-            guard let configuration = resolved, isCurrentRun(runID) else { throw CancellationError() }
-            try Task.checkCancellation()
-
-            transformerTask = run.preparedTransformer
-            run.transformationInstruction = configuration.instruction
-            let locale = Locale(identifier: configuration.dictationLocaleID)
-            metrics.begin(.transcriptionWindow, runID: runID)
-            var onPartialTranscript: (@Sendable (String) -> Void)?
-            if recordingCue != nil && run.showRecordingCue && run.showLiveTranscript {
-                onPartialTranscript = { [weak self] text in
-                    Task { @MainActor in
-                        guard let self, self.isCurrentRun(runID) else { return }
-                        if run.showRecordingCue && run.showLiveTranscript {
-                            self.recordingCue?.updateTranscript(text)
-                        }
-                    }
-                }
-            }
-            let speechModel = run.speechModel
-            if let parakeetTranscriber = speechModel.transcriber {
-                let (previewAudio, finalAudio) = AudioFanOut.split(audio)
-                let streams = configuration.speechEngine.isStreaming
-                let preview = Task {
-                    try await transcriber.transcribe(previewAudio, request: TranscriptionRequest(
-                        locale: locale, vocabulary: configuration.speechVocabulary,
-                        onPartialTranscript: streams ? nil : onPartialTranscript, preferFastResults: true
-                    ))
-                }
-                appleTranscriptionTask = preview
-                transcriptionTask = Task {
-                    let parakeetText: String?
-                    do {
-                        parakeetText = try await parakeetTranscriber.transcribe(finalAudio, request: TranscriptionRequest(
-                            locale: locale, vocabulary: configuration.speechVocabulary,
-                            onPartialTranscript: streams ? onPartialTranscript : nil
-                        ))
-                    } catch is CancellationError {
-                        throw CancellationError()
-                    } catch {
-                        parakeetText = nil
-                    }
-                    if let parakeetText, parakeetText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
-                        return parakeetText
-                    }
-                    do {
-                        return try await withTaskCancellationHandler {
-                            try await preview.value
-                        } onCancel: {
-                            preview.cancel()
-                        }
-                    } catch is CancellationError {
-                        throw CancellationError()
-                    } catch _ where parakeetText != nil {
-                        return ""
-                    } catch {
-                        recordingFailed(error, runID: runID)
-                        throw error
-                    }
-                }
-            } else {
-                transcriptionTask = Task {
-                    do {
-                        return try await transcriber.transcribe(audio, request: TranscriptionRequest(
-                            locale: locale, vocabulary: configuration.speechVocabulary,
-                            onPartialTranscript: onPartialTranscript, preferFastResults: run.preferFastTranscription
-                        ))
-                    } catch {
-                        recordingFailed(error, runID: runID)
-                        throw error
-                    }
-                }
-            }
-            try Task.checkCancellation()
-
-            await waitForStopRecording()
-            guard isCurrentRun(runID) else { throw CancellationError() }
-            try Task.checkCancellation()
-
-            if let failure = run.failure { throw failure }
-            try await audioRecorder.finish()
-            guard isCurrentRun(runID) else { throw CancellationError() }
-            metrics.end(.releaseToRecorderStopped, runID: runID)
-            if run.lowersOtherAudio {
-                changeOutputVolume { try await $0.restore() }
-            }
-            pipelineState = .transcribing
-
-            guard let activeTranscriptionTask = transcriptionTask else {
-                throw CancellationError()
-            }
-            let transcript = try await withTaskCancellationHandler {
-                try await activeTranscriptionTask.value
-            } onCancel: {
-                activeTranscriptionTask.cancel()
-            }
-            metrics.end(.transcriptionWindow, runID: runID)
-            metrics.end(.releaseToTranscript, runID: runID)
-            transcriptionTask = nil
-            if provisionalRecordingID == nil {
-                appleTranscriptionTask?.cancel()
-                appleTranscriptionTask = nil
-            }
-            guard isCurrentRun(runID) else { throw CancellationError() }
-            try Task.checkCancellation()
-
-            if let failure = run.failure { throw failure }
-            let rawTranscript = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-            let trimmedTranscript = PauseTransformation.input(transcript, corrections: configuration.corrections)
-            guard trimmedTranscript.isEmpty == false else {
-                throw PipelineError.emptyTranscript
-            }
-            if let notice = speechModel.fallbackNotice, didNotifySpeechEngineFallback == false {
-                didNotifySpeechEngineFallback = true
-                feedback.notifyError(message: notice)
-            }
-            let transformationInput: String
-            let resolvedConfiguration: RunConfiguration
-            switch configuration.purpose {
-            case .dictation, .transcribeOnly:
-                transformationInput = trimmedTranscript
-                resolvedConfiguration = configuration
-            case .revision(let base):
-                let instruction = PromptBuilder.compose(
-                    base: PromptBuilder.revisionInstruction(adjustment: trimmedTranscript),
-                    glossary: run.glossaryBlock,
-                    context: nil,
-                    contract: PromptBuilder.outputContract
-                )
-                transformationInput = base
-                resolvedConfiguration = RunConfiguration(
-                    workflowID: configuration.workflowID,
-                    workflowName: configuration.workflowName,
-                    dictationLocaleID: configuration.dictationLocaleID,
-                    instruction: instruction,
-                    provider: configuration.provider,
-                    transformation: .revision(
-                        adjustment: trimmedTranscript,
-                        instruction: instruction
-                    ),
-                    purpose: configuration.purpose,
-                    contextText: configuration.contextText,
-                    speechVocabulary: configuration.speechVocabulary,
-                    speechEngine: configuration.speechEngine
-                )
-            }
-
-            if case .transcribeOnly(let cleanup, let symbols) = resolvedConfiguration.purpose {
-                let output = TranscriptCleanup.apply(trimmedTranscript, localeID: configuration.dictationLocaleID,
-                                                     cleanup: cleanup, spokenSymbols: symbols)
-                guard output.isEmpty == false else { throw PipelineError.emptyTranscript }
-                try Task.checkCancellation()
-                _ = try await commitAtomicOutput(output, transcript: trimmedTranscript, configuration: configuration,
-                                                 runID: runID, recordReleaseToClipboard: true)
-            } else {
-                pipelineState = .translating
-                let earlyOutput = try await pauseTransformationOutput(for: transformationInput, run: run)
-                if let earlyOutput {
-                    _ = try await commitAtomicOutput(earlyOutput, transcript: trimmedTranscript,
-                        configuration: resolvedConfiguration, runID: runID, recordReleaseToClipboard: true)
-                } else {
-                    _ = try await translateAndDeliver(
-                        inputText: transformationInput,
-                        transcript: trimmedTranscript,
-                        configuration: resolvedConfiguration,
-                        runID: runID,
-                        preparedTransformerTask: transformerTask,
-                        recordReleaseToClipboard: true
-                    )
-                }
-            }
-            transformerTask = nil
-            recordUsage(rawTranscript: rawTranscript, transcript: trimmedTranscript, configuration: configuration, run: run)
-            if let recordingID = provisionalRecordingID, let recordingArchive {
-                let tee = recordingTeeSession
-                let appleTranscription = appleTranscriptionTask
-                appleTranscriptionTask = nil
-                recordingWork[recordingID] = Task { [weak self, settings] in
-                    defer { self?.recordingWork[recordingID] = nil }
-                    let archived = await tee?.waitForCompletion() ?? false
-                    let appleTranscript = if let appleTranscription {
-                        ((try? await appleTranscription.value) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-                    } else {
-                        rawTranscript
-                    }
-                    if archived, settings.glossaryLearningEnabled, appleTranscript.isEmpty == false {
-                        await recordingArchive.commitEntry(id: recordingID, localeID: configuration.dictationLocaleID, appleTranscript: appleTranscript)
-                    } else {
-                        await recordingArchive.discardEntry(id: recordingID)
-                    }
-                }
-            }
-            provisionalRecordingID = nil
-
-            if run.lowersOtherAudio, let outputVolumeWork {
-                _ = try? await withOperationTimeout(.seconds(1), error: CancellationError()) {
-                    await outputVolumeWork.value
-                }
-            }
-            finishRunSucceeded(runID)
-        } catch {
-            if isCurrentRun(runID) {
-                audioRecorder.stop()
-            }
-            await recordingTeeSession?.cancelAndWait()
-            if let provisionalRecordingID {
-                await recordingArchive?.discardEntry(id: provisionalRecordingID)
-            }
-            finishRunFailed(runID, error: error)
-        }
-    }
-
-    private func finishRunSucceeded(_ runID: UUID) {
+    func finishRunSucceeded(_ runID: UUID) {
         guard isCurrentRun(runID) else { return }
         pipelineState = .idle
         showSuccessFeedback()
@@ -1059,7 +722,7 @@ final class AppState {
     }
 
     /// Cancellation ends quietly; any other error is shown and clears itself after a delay.
-    private func finishRunFailed(_ runID: UUID, error: any Error) {
+    func finishRunFailed(_ runID: UUID, error: any Error) {
         guard isCurrentRun(runID) else { return }
         if error is CancellationError {
             cancelSuccessFeedback()
@@ -1070,352 +733,6 @@ final class AppState {
             scheduleErrorReset(for: runID)
             finishRun(runID, keepErrorReset: true)
         }
-    }
-
-    /// Counts only. The transcript is measured here and goes no further.
-    private func recordUsage(rawTranscript: String, transcript: String, configuration: RunConfiguration, run: PipelineRun) {
-        guard settings.keepsUsageStats else { return }
-        var fixes = Correction.replacementCount(configuration.corrections, in: rawTranscript)
-        switch configuration.purpose {
-        case .revision:
-            return
-        case .transcribeOnly(let cleanup, _):
-            if cleanup {
-                fixes += TranscriptCleanup.fillerCount(in: transcript, localeID: configuration.dictationLocaleID)
-            }
-        case .dictation:
-            break
-        }
-        let recorded = run.voicedDuration > .zero
-            ? run.voicedDuration
-            : run.releasedAt.map { run.triggeredAt.duration(to: $0) } ?? .zero
-        let parts = recorded.components
-        let frontmost = frontmostApplication(true).bundleID
-        usageStats.record(
-            words: UsageStats.wordCount(in: transcript),
-            seconds: Double(parts.seconds) + Double(parts.attoseconds) / 1e18,
-            fixes: fixes,
-            appBundleID: frontmost == Bundle.main.bundleIdentifier ? nil : frontmost
-        )
-    }
-
-    // MARK: - Transformation and delivery
-
-    private func translateAndDeliver(
-        inputText: String,
-        transcript: String,
-        recordTranscript: String? = nil,
-        configuration: RunConfiguration,
-        runID: UUID,
-        preparedTransformerTask: Task<any TextTransformer, Never>? = nil,
-        recordReleaseToClipboard: Bool = false
-    ) async throws -> String {
-        guard isCurrentRun(runID) else { throw CancellationError() }
-        try Task.checkCancellation()
-        let transformerTask: Task<any TextTransformer, Never>
-        if let preparedTransformerTask = preparedTransformerTask ?? activeRun?.preparedTransformer {
-            transformerTask = preparedTransformerTask
-        } else {
-            metrics.begin(.translationConfiguration, runID: runID)
-            let snapshot = transformerProvider.snapshot(for: configuration.provider)
-            transformerTask = Task { [metrics] in
-                let transformer = await snapshot.transformer(instruction: configuration.instruction)
-                await MainActor.run {
-                    metrics.end(.translationConfiguration, runID: runID)
-                }
-                return transformer
-            }
-        }
-
-        let transformer = await withTaskCancellationHandler {
-            await transformerTask.value
-        } onCancel: {
-            transformerTask.cancel()
-        }
-        guard isCurrentRun(runID) else {
-            throw CancellationError()
-        }
-        try Task.checkCancellation()
-
-        let recordedTranscript = recordTranscript ?? transcript
-        if let run = activeRun,
-           (run.streamingDeliveryEnabled && run.autoPasteEnabled && autoPaster.isTrusted)
-                || (run.showRecordingCue && recordingCue != nil),
-           let streamingTransformer = transformer as? any StreamingTextTransformer,
-           let streamedText = try await streamAndDeliver(
-               inputText: inputText,
-               transcript: recordedTranscript,
-               configuration: configuration,
-               runID: runID,
-               transformer: streamingTransformer,
-               recordReleaseToClipboard: recordReleaseToClipboard
-           ) {
-            return streamedText
-        }
-
-        let transformedText: String
-        do {
-            metrics.begin(.translation, runID: runID)
-            transformedText = try await transformer.transform(
-                inputText,
-                instruction: configuration.instruction
-            )
-            metrics.end(.translation, runID: runID)
-        } catch {
-            throw recordFailedDelivery(error, transcript: recordedTranscript, inputText: inputText,
-                                       configuration: configuration, runID: runID)
-        }
-
-        return try await commitAtomicOutput(transformedText, transcript: recordedTranscript,
-            configuration: configuration, runID: runID, recordReleaseToClipboard: recordReleaseToClipboard)
-    }
-
-    private func commitAtomicOutput(
-        _ transformedText: String, transcript: String, configuration: RunConfiguration,
-        runID: UUID, recordReleaseToClipboard: Bool
-    ) async throws -> String {
-        guard let run = activeRun, run.id == runID else {
-            throw CancellationError()
-        }
-        try Task.checkCancellation()
-        let fitted = await delivery.sentenceFit(for: transformedText, run: run)
-        guard isCurrentRun(runID) else { throw CancellationError() }
-        try Task.checkCancellation()
-
-        try commit(
-            CompletedOutput(output: transformedText, fitted: fitted, transcript: transcript, configuration: configuration),
-            runID: runID, recordReleaseToClipboard: recordReleaseToClipboard
-        )
-        metrics.recordDeliveryMode(.atomic, runID: runID)
-        try await delivery.autoPaste(fitted.text, run: run, knownContext: fitted.context,
-                                     isCurrentRun: currentRunCheck(runID))
-        return transformedText
-    }
-
-    /// The single commit point for every delivered result: clipboard, history, and the point after
-    /// which cancel no longer applies. A failed clipboard write keeps the result for Copy Result.
-    private func commit(_ completed: CompletedOutput, runID: UUID, recordReleaseToClipboard: Bool) throws {
-        if let failure = activeRun?.failure { throw failure }
-        metrics.begin(.clipboardWrite, runID: runID)
-        do {
-            try pasteboard.write(completed.fitted.text)
-            pendingClipboardResult = nil
-        } catch {
-            pendingClipboardResult = PendingClipboardResult(
-                output: completed.output,
-                delivered: completed.fitted.text,
-                transcript: completed.transcript,
-                transformation: completed.configuration.transformation,
-                provider: completed.configuration.provider
-            )
-            throw error
-        }
-        metrics.end(.clipboardWrite, runID: runID)
-        if recordReleaseToClipboard {
-            metrics.end(.releaseToClipboard, runID: runID)
-        }
-
-        appendRecord(
-            transcript: completed.transcript,
-            output: completed.output,
-            transformation: completed.configuration.transformation,
-            outcome: .success
-        )
-        activeRun?.deliveryCommitted = true
-    }
-
-    /// Records a failed transformation once, in history and on the run, and returns the error to show.
-    /// When streamed text already reached the editor, the message says partial text may remain.
-    private func recordFailedDelivery(
-        _ error: any Error, transcript: String, inputText: String,
-        configuration: RunConfiguration, runID: UUID, typist: (any StreamingTyping)? = nil
-    ) -> any Error {
-        let postedText = typist?.hasPostedText == true
-        let deliveryError: any Error = postedText ? PipelineError.streamingFailed(userMessage(for: error)) : error
-        guard isCurrentRun(runID), Task.isCancelled == false else { return deliveryError }
-        activeRun?.failedRecordID = appendRecord(
-            transcript: transcript,
-            output: configuration.purpose.isRevision ? inputText : nil,
-            transformation: configuration.transformation,
-            outcome: .failed(message: userMessage(for: deliveryError))
-        )
-        if postedText {
-            metrics.recordDeliveryMode(.streamedPartial, runID: runID)
-        }
-        return deliveryError
-    }
-
-    private func currentRunCheck(_ runID: UUID) -> @MainActor () -> Bool {
-        { [weak self] in self?.isCurrentRun(runID) == true }
-    }
-
-    private func streamAndDeliver(
-        inputText: String,
-        transcript: String,
-        configuration: RunConfiguration,
-        runID: UUID,
-        transformer: any StreamingTextTransformer,
-        recordReleaseToClipboard: Bool
-    ) async throws -> String? {
-        guard let run = activeRun, run.id == runID else { throw CancellationError() }
-        let typesIntoEditor = run.streamingDeliveryEnabled && run.autoPasteEnabled && autoPaster.isTrusted
-            && delivery.targetIsCurrent(run)
-        let typist: any StreamingTyping = typesIntoEditor ? streamingTypistFactory() : PreviewOnlyTypist()
-        typist.setTargetValidator { [weak self, weak run] in
-            guard let self, let run else { return false }
-            return self.isCurrentRun(runID) && self.delivery.targetIsCurrent(run)
-        }
-        typist.onTextPosted = { [metrics] in metrics.end(.firstVisibleOutput, runID: runID) }
-        do {
-            try typist.start()
-        } catch {
-            return nil
-        }
-        let keepsWrapperQuotes = ModelOutputNormalizer.requestsQuotes(
-            input: inputText,
-            instruction: configuration.instruction
-        )
-        typist.setKeepsWrapperQuotes(keepsWrapperQuotes)
-        activeRun?.streamingTypist = typist
-        defer {
-            clearStreamingTypistOwnership(ifOwnedBy: typist)
-        }
-
-        var fullText = ""
-        var receivedFirstDelta = false
-        var contextPending = typesIntoEditor && (run.smartSpacingEnabled || run.matchesSentenceAtCaret)
-        var typedContext: CaretContext?
-        var readTypedContext = false
-        var atomicFallbackText: String?
-        metrics.begin(.translation, runID: runID)
-        metrics.begin(.streamingFirstDelta, runID: runID)
-        metrics.begin(.firstVisibleOutput, runID: runID)
-
-        do {
-            for try await delta in transformer.transformStream(
-                inputText,
-                instruction: configuration.instruction
-            ) {
-                guard isCurrentRun(runID) else {
-                    throw CancellationError()
-                }
-                try Task.checkCancellation()
-
-                if receivedFirstDelta == false {
-                    receivedFirstDelta = true
-                    metrics.end(.streamingFirstDelta, runID: runID)
-                }
-                fullText += delta
-                if run.showRecordingCue, recordingCue?.updateOutput(fullText) == true {
-                    metrics.end(.firstVisibleOutput, runID: runID)
-                }
-                if contextPending, !delta.isEmpty {
-                    contextPending = false
-                    let context: CaretContext?
-                    if run.matchesSentenceAtCaret || delta.first?.isWhitespace == false {
-                        context = await run.deliveryTarget?.caretContext(readsSentence: run.matchesSentenceAtCaret)
-                    } else {
-                        context = nil
-                    }
-                    guard isCurrentRun(runID), !Task.isCancelled else { throw CancellationError() }
-                    typedContext = context
-                    readTypedContext = run.matchesSentenceAtCaret
-                    if run.smartSpacingEnabled, delta.first?.isWhitespace == false, context?.precedingWordCharacter == true {
-                        typist.addLeadingSpace()
-                    }
-                    if run.matchesSentenceAtCaret, let context {
-                        typist.setSentenceFit(context: context, protectedTerms: run.protectedTerms)
-                    }
-                }
-                typist.append(delta)
-            }
-            metrics.end(.translation, runID: runID)
-        } catch is CancellationError {
-            cancelStreamingTypist(ifOwnedBy: typist)
-            if typist.hasPostedText {
-                metrics.recordDeliveryMode(.streamedPartial, runID: runID)
-            }
-            throw CancellationError()
-        } catch StreamingTransformError.requiresAtomicFallback {
-            cancelStreamingTypist(ifOwnedBy: typist)
-            do {
-                atomicFallbackText = try await transformer.transformAfterStreamingFallback(
-                    inputText,
-                    instruction: configuration.instruction
-                )
-                metrics.end(.translation, runID: runID)
-            } catch is CancellationError {
-                throw CancellationError()
-            } catch {
-                throw recordFailedDelivery(error, transcript: transcript, inputText: inputText,
-                                           configuration: configuration, runID: runID, typist: typist)
-            }
-        } catch {
-            cancelStreamingTypist(ifOwnedBy: typist)
-            throw recordFailedDelivery(error, transcript: transcript, inputText: inputText,
-                                       configuration: configuration, runID: runID, typist: typist)
-        }
-
-        guard isCurrentRun(runID) else {
-            cancelStreamingTypist(ifOwnedBy: typist)
-            throw CancellationError()
-        }
-        try Task.checkCancellation()
-
-        let transformedText: String
-        if let atomicFallbackText {
-            transformedText = atomicFallbackText
-        } else {
-            typist.finish()
-            transformedText = ModelOutputNormalizer.normalize(
-                fullText,
-                keepsWrapperQuotes: keepsWrapperQuotes
-            )
-        }
-        guard transformedText.isEmpty == false else {
-            throw recordFailedDelivery(TranslationError.emptyResponse, transcript: transcript, inputText: inputText,
-                                       configuration: configuration, runID: runID, typist: typist)
-        }
-
-        // The typist fitted what it typed with the context it read; reuse it so the clipboard matches.
-        let fitted: FittedText
-        if readTypedContext {
-            fitted = FittedText(text: typedContext.map {
-                SentenceFit.apply(transformedText, context: $0, protectedTerms: run.protectedTerms)
-            } ?? transformedText, context: typedContext)
-        } else {
-            fitted = await delivery.sentenceFit(for: transformedText, run: run)
-            guard isCurrentRun(runID) else { throw CancellationError() }
-            try Task.checkCancellation()
-        }
-
-        try commit(
-            CompletedOutput(output: transformedText, fitted: fitted, transcript: transcript, configuration: configuration),
-            runID: runID, recordReleaseToClipboard: recordReleaseToClipboard
-        )
-
-        if typist.hasPostedText == false, (atomicFallbackText != nil || typesIntoEditor == false) {
-            try await delivery.autoPaste(fitted.text, run: run, knownContext: fitted.context,
-                                         isCurrentRun: currentRunCheck(runID))
-        }
-
-        if atomicFallbackText != nil {
-            if typist.hasPostedText {
-                metrics.recordDeliveryMode(.streamedPartial, runID: runID)
-                feedback.notifyError(message: "Streaming stopped - the full result was copied.")
-            } else {
-                metrics.recordDeliveryMode(.atomic, runID: runID)
-            }
-            return transformedText
-        }
-
-        if let stopReason = typist.stopReason {
-            metrics.recordDeliveryMode(.streamedPartial, runID: runID)
-            delivery.notifyStreamingStopped(stopReason)
-        } else {
-            metrics.recordDeliveryMode(typesIntoEditor ? .streamed : .atomic, runID: runID)
-        }
-        return transformedText
     }
 
     // MARK: - Retry
@@ -1429,42 +746,15 @@ final class AppState {
     func retryTranslation(recordID: UUID, using provider: TranslationProvider) {
         guard pipelineState.acceptsNewRun,
               let record = history.records.first(where: { $0.id == recordID }),
-              record.canRetry else {
+              record.canRetry,
+              let (configuration, inputText) = RunConfigurationBuilder.retry(
+                  transformation: record.transformation, transcript: record.transcript, output: record.output,
+                  provider: provider, activeWorkflow: settings.activeWorkflow, glossary: settings.glossaryList,
+                  dictation: settings.dictationOptions(input: .voice, provider: provider)
+              ) else {
             return
         }
 
-        let inputText: String
-        let purpose: RunPurpose
-        switch record.transformation {
-        case .revision:
-            guard let baseOutput = record.output else { return }
-            inputText = baseOutput
-            purpose = .revision(base: baseOutput)
-        case .translation, .custom, .contextual:
-            inputText = record.transcript
-            purpose = .dictation
-        }
-
-        let retryInstruction: String
-        if case .translation(let targetLanguage, let toneInstruction) = record.transformation {
-            retryInstruction = PromptBuilder.systemPrompt(
-                targetLanguage: targetLanguage,
-                toneInstruction: toneInstruction,
-                glossary: settings.glossaryList,
-                dictation: settings.dictationOptions(input: .voice, provider: provider)
-            )
-        } else {
-            retryInstruction = record.transformation.instruction
-        }
-        let configuration = RunConfiguration(
-            workflowID: settings.activeWorkflow.id,
-            workflowName: record.transformation.displayName,
-            dictationLocaleID: settings.activeWorkflow.dictationLocaleID,
-            instruction: retryInstruction,
-            provider: provider,
-            transformation: record.transformation,
-            purpose: purpose
-        )
         let run = PipelineRun(
             configuration: configuration,
             triggerWorkflowID: nil,
@@ -1491,32 +781,12 @@ final class AppState {
         }
     }
 
-    private func retryPipeline(
-        record: DictationRecord,
-        inputText: String,
-        configuration: RunConfiguration,
-        runID: UUID
-    ) async {
-        do {
-            _ = try await translateAndDeliver(
-                inputText: inputText,
-                transcript: record.transcript,
-                configuration: configuration,
-                runID: runID,
-                recordReleaseToClipboard: false
-            )
-            finishRunSucceeded(runID)
-        } catch {
-            finishRunFailed(runID, error: error)
-        }
-    }
-
     func setPersistHistory(_ isEnabled: Bool) async {
         if await history.setPersistenceEnabled(isEnabled) { settings.persistHistory = isEnabled }
     }
 
     @discardableResult
-    private func appendRecord(
+    func appendRecord(
         transcript: String,
         output: String?,
         transformation: DictationRecord.TransformationSnapshot,
@@ -1549,200 +819,6 @@ final class AppState {
         presentError(error)
         scheduleErrorReset(for: runID)
         finishRun(runID, keepErrorReset: true)
-    }
-
-    private func recordingFailed(_ error: any Error, runID: UUID) {
-        guard let run = activeRun, run.id == runID, run.deliveryCommitted == false else { return }
-        if run.failure == nil { run.failure = error }
-        run.cancelPauseTransformation()
-        if pipelineState == .recording {
-            audioRecorder.stop()
-            requestStopRecording(.failure)
-        }
-    }
-
-    private func waitForStopRecording() async {
-        await withCheckedContinuation { continuation in
-            if activeRun?.recordingPhase == .stopping {
-                continuation.resume()
-            } else {
-                activeRun?.stopWaiter = continuation
-            }
-        }
-    }
-
-    private func requestStopRecording(_ reason: RunStopReason) {
-        guard let run = activeRun else { return }
-
-        switch (run.recordingPhase, reason) {
-        case (.capturing, .hotkey) where run.hotkeyMode == .hold
-            && run.triggeredAt.duration(to: recordingClock.now) < Self.minimumHold:
-            cancelRequested()
-        case (.capturing, _):
-            metrics.begin(.releaseToRecorderStopped, runID: run.id)
-            metrics.begin(.releaseToTranscript, runID: run.id)
-            metrics.begin(.releaseToClipboard, runID: run.id)
-            run.releasedAt = recordingClock.now
-            run.stopPauseTranscription()
-            metrics.recordQuietBeforeRelease(run.lastLoudAt.duration(to: recordingClock.now), runID: run.id)
-            if reason == .hotkey, run.lastBufferWasQuiet == false {
-                run.recordingPhase = .releaseTail
-                scheduleReleaseTailDeadline(for: run)
-            } else {
-                stopRecording(run)
-            }
-        case (.releaseTail, .failure):
-            stopRecording(run)
-        case (.releaseTail, _), (.stopping, _):
-            break
-        }
-    }
-
-    private func scheduleReleaseTailDeadline(for run: PipelineRun) {
-        let runID = run.id
-        let clock = recordingClock
-        let deadline = clock.now + ReleaseTail.deadline
-        run.releaseTailDeadline = Task { [weak self] in
-            do {
-                try await clock.sleep(until: deadline)
-            } catch {
-                return
-            }
-
-            self?.receiveReleaseTail(.deadlineReached, runID: runID)
-        }
-    }
-
-    private func receiveBufferLevel(dBFS: Double, runID: UUID) {
-        guard let run = activeRun, run.id == runID else { return }
-        run.lastBufferWasQuiet = ReleaseTail.decision(after: .bufferLevel(dBFS: dBFS)) == .finish
-        let now = recordingClock.now
-        if let last = run.lastLevelAt, run.lastBufferWasQuiet == false {
-            run.voicedDuration += last.duration(to: now)
-        }
-        run.lastLevelAt = now
-        if run.recordingPhase == .capturing {
-            if run.lastBufferWasQuiet {
-                if run.quietSince == nil { run.quietSince = now }
-                schedulePauseTransformation(for: run)
-            } else {
-                run.lastLoudAt = now
-                run.quietSince = nil
-                run.pauseCheckedQuiet = false
-                run.pauseCheckTask?.cancel()
-                run.pauseCheckTask = nil
-            }
-        }
-        receiveReleaseTail(.bufferLevel(dBFS: dBFS), runID: runID)
-    }
-
-    private func schedulePauseTransformation(for run: PipelineRun) {
-        guard run.pauseTransformationEligible, run.recordingPhase == .capturing,
-              run.failure == nil, run.pauseCheckTask == nil, !run.pauseCheckedQuiet,
-              let capture = run.pauseAudio, capture.isCapturing,
-              let quietSince = run.quietSince else { return }
-        let clock = recordingClock
-        let transcriber = transcriber
-        run.pauseCheckTask = Task { [weak self, weak run] in
-            do {
-                try await clock.sleep(until: quietSince + PauseTransformation.quietDuration)
-                try Task.checkCancellation()
-                guard let self, let run else { return }
-                guard self.isCurrentRun(run.id), run.recordingPhase == .capturing,
-                      run.failure == nil, let audio = capture.snapshot() else {
-                    run.pauseCheckTask = nil
-                    return
-                }
-                run.pauseCheckedQuiet = true
-                let transcript = try await transcriber.transcribe(audio, request: TranscriptionRequest(
-                    locale: Locale(identifier: run.configuration.dictationLocaleID),
-                    vocabulary: run.configuration.speechVocabulary,
-                    preferFastResults: run.preferFastTranscription
-                ))
-                try Task.checkCancellation()
-                guard self.isCurrentRun(run.id), run.recordingPhase == .capturing,
-                      run.failure == nil, capture.isCapturing else { return }
-                run.pauseCheckTask = nil
-                let input = PauseTransformation.input(transcript, corrections: run.configuration.corrections)
-                guard !input.isEmpty, let snapshot = run.providerSnapshot else { return }
-                if let previous = run.pauseAttempt, PauseTransformation.sameInput(previous.input, input) { return }
-                run.pauseAttempt?.task.cancel()
-                run.pauseAttemptCount += 1
-                run.pauseAttempt = PauseTransformationAttempt(input: input, instruction: run.transformationInstruction,
-                    provider: run.configuration.provider, snapshot: snapshot, clock: clock)
-            } catch {
-                if !Task.isCancelled { run?.pauseCheckTask = nil }
-            }
-        }
-    }
-
-    private func pauseTransformationOutput(for input: String, run: PipelineRun) async throws -> String? {
-        guard run.pauseTransformationEligible else { return nil }
-        guard let attempt = run.pauseAttempt else {
-            run.pauseOutcome = PauseTransformationOutcome.none
-            return nil
-        }
-        guard PauseTransformation.sameInput(attempt.input, input) else {
-            attempt.task.cancel()
-            run.pauseOutcome = .miss
-            return nil
-        }
-        let output = await withTaskCancellationHandler {
-            await attempt.task.value
-        } onCancel: {
-            attempt.task.cancel()
-        }
-        guard isCurrentRun(run.id) else { throw CancellationError() }
-        try Task.checkCancellation()
-        run.pauseOutcome = output == nil ? .failed : .hit
-        if let output { metrics.recordDuration(.translation, duration: output.duration, runID: run.id) }
-        return output?.text
-    }
-
-    private func receiveReleaseTail(_ event: ReleaseTail.Event, runID: UUID) {
-        guard let run = activeRun, run.id == runID, run.recordingPhase == .releaseTail,
-              ReleaseTail.decision(after: event) == .finish else { return }
-
-        stopRecording(run)
-    }
-
-    private func stopRecording(_ run: PipelineRun) {
-        run.recordingPhase = .stopping
-        run.releaseTailDeadline?.cancel()
-        run.resumeStopWaiter()
-    }
-
-    private func scheduleRecordingDurationLimit(for runID: UUID) {
-        activeRun?.recordingDurationTask?.cancel()
-
-        let duration = maximumRecordingDurationNanoseconds ?? settings.maximumRecordingDurationNanoseconds
-        guard duration > 0 else { return }
-
-        let sleeper = recordingDurationSleeper
-        activeRun?.recordingDurationTask = Task { [weak self] in
-            do {
-                try await sleeper(duration)
-            } catch {
-                return
-            }
-
-            self?.stopRecordingIfDurationExceeded(runID: runID)
-        }
-    }
-
-    private func stopRecordingIfDurationExceeded(runID: UUID) {
-        guard activeRunID == runID, pipelineState == .recording,
-              activeRun?.recordingPhase == .capturing else { return }
-
-        requestStopRecording(.durationLimit)
-        let duration = maximumRecordingDurationNanoseconds ?? settings.maximumRecordingDurationNanoseconds
-        feedback.notifyRecordingAutoStopped(afterSeconds: Int(duration / 1_000_000_000))
-    }
-
-    private func resumeStopWaiter() {
-        let continuation = activeRun?.stopWaiter
-        activeRun?.stopWaiter = nil
-        continuation?.resume()
     }
 
     // MARK: - Run bookkeeping
@@ -1809,7 +885,7 @@ final class AppState {
         changeOutputVolume { try await $0.restoreAfterCrash() }
     }
 
-    private func changeOutputVolume(_ change: @escaping @Sendable (OutputDucker) async throws -> Void) {
+    func changeOutputVolume(_ change: @escaping @Sendable (OutputDucker) async throws -> Void) {
         guard let outputDucker else { return }
         let previous = outputVolumeWork
         outputVolumeWork = Task {
@@ -1829,14 +905,14 @@ final class AppState {
         typist?.cancel()
     }
 
-    private func cancelStreamingTypist(ifOwnedBy typist: any StreamingTyping) {
+    func cancelStreamingTypist(ifOwnedBy typist: any StreamingTyping) {
         guard isActiveStreamingTypist(typist) else { return }
 
         activeRun?.streamingTypist = nil
         typist.cancel()
     }
 
-    private func clearStreamingTypistOwnership(ifOwnedBy typist: any StreamingTyping) {
+    func clearStreamingTypistOwnership(ifOwnedBy typist: any StreamingTyping) {
         guard isActiveStreamingTypist(typist) else { return }
         activeRun?.streamingTypist = nil
     }
@@ -1846,7 +922,7 @@ final class AppState {
         return ObjectIdentifier(activeStreamingTypist) == ObjectIdentifier(typist)
     }
 
-    private func isCurrentRun(_ runID: UUID) -> Bool {
+    func isCurrentRun(_ runID: UUID) -> Bool {
         activeRunID == runID
     }
 

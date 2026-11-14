@@ -39,7 +39,7 @@ struct WorkflowAbilitiesTests {
         let clipboard = SpyPasteboard()
         let cue = WorkflowCue()
         var identityRequests: [Bool] = []
-        let state = AppState(settings: settings, audioRecorder: FakeRecorder(), transcriber: transcriber,
+        let state = AppState.fixture(settings: settings, audioRecorder: FakeRecorder(), transcriber: transcriber,
                              transformer: transformer, pasteboard: clipboard, feedback: SpyFeedback(),
                              maximumRecordingDurationNanoseconds: 0, recordingClock: FastForwardClock(),
                              recordingCue: cue,
@@ -96,7 +96,7 @@ struct WorkflowAbilitiesTests {
         let archive = SpyRecordingArchive()
         let history = HistoryStore(persistenceEnabled: true, storageDirectory: directory)
         let feedback = SpyFeedback()
-        let state = AppState(settings: settings, history: history,
+        let state = AppState.fixture(settings: settings, history: history,
                              keychainStore: KeychainStore(storageDirectory: directory.appending(path: "secrets")),
                              audioRecorder: FakeRecorder(), transcriber: FakeTranscriber(.success("  Um, hello  ")),
                              transformerProvider: UntouchableProvider(), pasteboard: clipboard, feedback: feedback,
@@ -149,7 +149,7 @@ struct WorkflowAbilitiesTests {
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
         settings.addWorkflow(from: WorkflowTemplate(id: "local", name: "Local", kind: .transcribeOnly(cleanup: true)))
         let clipboard = SpyPasteboard(), transcriber = FakeTranscriber(.suspended)
-        let state = AppState(settings: settings, audioRecorder: FakeRecorder(), transcriber: transcriber,
+        let state = AppState.fixture(settings: settings, audioRecorder: FakeRecorder(), transcriber: transcriber,
                              transformerProvider: UntouchableProvider(), pasteboard: clipboard,
                              feedback: SpyFeedback(), maximumRecordingDurationNanoseconds: 0,
                              recordingClock: FastForwardClock())
@@ -169,7 +169,7 @@ struct WorkflowAbilitiesTests {
         settings.addWorkflow(from: WorkflowTemplate(id: "local", name: "Local", kind: .transcribeOnly(cleanup: true)))
         settings.updateWorkflow(id: settings.activeWorkflow.id) { $0.dictationLocaleID = "en-US" }
         let clipboard = SpyPasteboard()
-        let state = AppState(settings: settings, audioRecorder: FakeRecorder(), transcriber: FakeTranscriber(.success("Um...")),
+        let state = AppState.fixture(settings: settings, audioRecorder: FakeRecorder(), transcriber: FakeTranscriber(.success("Um...")),
                              transformerProvider: UntouchableProvider(), pasteboard: clipboard,
                              feedback: SpyFeedback(), maximumRecordingDurationNanoseconds: 0,
                              recordingClock: FastForwardClock())
@@ -187,7 +187,7 @@ struct WorkflowAbilitiesTests {
         settings.addWorkflow(from: WorkflowTemplate(id: "local", name: "Local", kind: .transcribeOnly(cleanup: false)))
         let transcriber = QueuedTranscriber(["original words", "make it shorter"])
         let transformer = QueuedTextTransformer(["shorter"]), clipboard = SpyPasteboard()
-        let state = AppState(settings: settings, audioRecorder: FakeRecorder(), transcriber: transcriber,
+        let state = AppState.fixture(settings: settings, audioRecorder: FakeRecorder(), transcriber: transcriber,
                              transformer: transformer, pasteboard: clipboard, feedback: SpyFeedback(),
                              maximumRecordingDurationNanoseconds: 0, recordingClock: FastForwardClock())
         await dictate(state)
@@ -263,7 +263,7 @@ struct WorkflowAbilitiesTests {
             await probe.record(locale)
             return .installed(locale)
         })
-        let state = AppState(settings: settings, transcriberAssetManager: manager,
+        let state = AppState.fixture(settings: settings, transcriberAssetManager: manager,
                              audioRecorder: FakeRecorder(), transcriber: FakeTranscriber(.success("text")),
                              transformer: FakeTextTransformer(.failure(.transformer)),
                              pasteboard: SpyPasteboard(), feedback: SpyFeedback())
@@ -291,7 +291,7 @@ struct WorkflowAbilitiesTests {
         }
         let transformer = QueuedTextTransformer(["transformed"])
         let clipboard = SpyPasteboard()
-        let state = AppState(settings: settings, audioRecorder: FakeRecorder(),
+        let state = AppState.fixture(settings: settings, audioRecorder: FakeRecorder(),
                              transcriber: FakeTranscriber(.success("open code")), transformer: transformer,
                              pasteboard: clipboard, feedback: SpyFeedback(),
                              maximumRecordingDurationNanoseconds: 0, recordingClock: FastForwardClock())

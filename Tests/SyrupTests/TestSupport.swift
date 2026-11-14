@@ -818,3 +818,79 @@ actor ManualResetSleeper {
         cancellationWaiters = remaining
     }
 }
+
+extension AppState {
+    /// An `AppState` whose every service is a fake unless the test passes one. Labels and order
+    /// match the production initializer, plus `transformer:` for a fixed transformer.
+    static func fixture(
+        settings: AppSettings,
+        transcriberAssetManager: TranscriberAssetManager = TranscriberAssetManager(),
+        history: HistoryStore? = nil,
+        keychainStore: KeychainStore? = nil,
+        audioRecorder: (any AudioRecording)? = nil,
+        transcriber: (any Transcriber)? = nil,
+        speechModels: [SpeechEngine: InstalledSpeechModel] = [:],
+        usageStats: UsageStatsStore = UsageStatsStore(),
+        transformer: (any TextTransformer)? = nil,
+        transformerProvider: (any TransformerSnapshotting)? = nil,
+        pasteboard: any PasteboardWriting = SpyPasteboard(),
+        feedback: any AppFeedbackProviding = SpyFeedback(),
+        metrics: any PipelineMetricsRecording = SpyPipelineMetrics(),
+        autoPaster: any AutoPasting = SpyAutoPaster(isTrusted: false),
+        streamingTypistFactory: @escaping () -> any StreamingTyping = { SpyStreamingTypist() },
+        errorResetDelayNanoseconds: UInt64 = 4_000_000_000,
+        errorResetSleeper: @escaping ErrorResetSleeper = { try await Task.sleep(nanoseconds: $0) },
+        feedbackFlashDurationNanoseconds: UInt64 = 1_000_000_000,
+        feedbackFlashSleeper: @escaping FeedbackFlashSleeper = { try await Task.sleep(nanoseconds: $0) },
+        maximumRecordingDurationNanoseconds: UInt64? = nil,
+        recordingDurationSleeper: @escaping RecordingDurationSleeper = { try await Task.sleep(nanoseconds: $0) },
+        autoPasteDelayNanoseconds: UInt64 = 50_000_000,
+        autoPasteSleeper: @escaping AutoPasteSleeper = { try await Task.sleep(nanoseconds: $0) },
+        recordingClock: any RecordingClock = ContinuousRecordingClock(),
+        processActivity: any ProcessActivityControlling = ProcessInfo.processInfo,
+        installHotkeys: Bool = false,
+        selectionReader: any SelectionReading = FakeSelectionReader(.empty),
+        recordingCue: (any RecordingCuePresenting)? = nil,
+        recordingArchive: (any RecordingArchiving)? = nil,
+        outputDucker: OutputDucker? = nil,
+        frontmostApplication: @escaping @MainActor (Bool) -> (bundleID: String?, processID: pid_t?) = { _ in (nil, nil) },
+        captureDeliveryTarget: @escaping @MainActor (pid_t?) async -> DeliveryTarget? = { _ in nil }
+    ) -> AppState {
+        AppState(
+            settings: settings,
+            transcriberAssetManager: transcriberAssetManager,
+            history: history ?? HistoryStore(),
+            keychainStore: keychainStore ?? KeychainStore(
+                storageDirectory: FileManager.default.temporaryDirectory.appending(path: "SyrupTestSecrets-\(UUID().uuidString)")
+            ),
+            audioRecorder: audioRecorder ?? FakeRecorder(),
+            transcriber: transcriber ?? FakeTranscriber(.success("")),
+            speechModels: speechModels,
+            usageStats: usageStats,
+            transformerProvider: transformerProvider
+                ?? StaticTransformerProvider(transformer: transformer ?? FakeTextTransformer(.success(""))),
+            pasteboard: pasteboard,
+            feedback: feedback,
+            metrics: metrics,
+            autoPaster: autoPaster,
+            streamingTypistFactory: streamingTypistFactory,
+            selectionReader: selectionReader,
+            processActivity: processActivity,
+            recordingCue: recordingCue,
+            recordingArchive: recordingArchive,
+            outputDucker: outputDucker,
+            frontmostApplication: frontmostApplication,
+            captureDeliveryTarget: captureDeliveryTarget,
+            errorResetDelayNanoseconds: errorResetDelayNanoseconds,
+            errorResetSleeper: errorResetSleeper,
+            feedbackFlashDurationNanoseconds: feedbackFlashDurationNanoseconds,
+            feedbackFlashSleeper: feedbackFlashSleeper,
+            maximumRecordingDurationNanoseconds: maximumRecordingDurationNanoseconds,
+            recordingDurationSleeper: recordingDurationSleeper,
+            autoPasteDelayNanoseconds: autoPasteDelayNanoseconds,
+            autoPasteSleeper: autoPasteSleeper,
+            recordingClock: recordingClock,
+            installHotkeys: installHotkeys
+        )
+    }
+}

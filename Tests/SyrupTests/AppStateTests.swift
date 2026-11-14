@@ -2845,7 +2845,7 @@ private func makeState(
     selectionReader: any SelectionReading = FakeSelectionReader(.empty),
     recordingArchive: (any RecordingArchiving)? = nil
 ) -> AppState {
-    AppState(
+    AppState.fixture(
         settings: settings ?? makeTestSettings(),
         history: history,
         audioRecorder: recorder,

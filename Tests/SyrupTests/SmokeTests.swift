@@ -9,7 +9,7 @@ struct SmokeTests {
         let suiteName = "SyrupSmokeTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suiteName))
         defer { defaults.removePersistentDomain(forName: suiteName) }
-        let state = AppState(settings: AppSettings(userDefaults: defaults))
+        let state = AppState.fixture(settings: AppSettings(userDefaults: defaults))
 
         #expect(state.menuBarSymbol == "waveform")
     }

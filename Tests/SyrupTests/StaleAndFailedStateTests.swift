@@ -47,7 +47,7 @@ struct StaleAndFailedStateTests {
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
-        let state = AppState(settings: settings, audioRecorder: FakeRecorder(),
+        let state = AppState.fixture(settings: settings, audioRecorder: FakeRecorder(),
             transcriber: FakeTranscriber(.success("fixture")), transformer: FakeTextTransformer(.success("fixture")),
             pasteboard: SpyPasteboard(), feedback: SpyFeedback(), autoPaster: SpyAutoPaster())
         let registration = CorrectionHotkeyRegistration()
@@ -74,7 +74,7 @@ struct StaleAndFailedStateTests {
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
-        let state = AppState(settings: settings,
+        let state = AppState.fixture(settings: settings,
             transcriberAssetManager: TranscriberAssetManager(prepare: { _ in .installed("fixture") }),
             audioRecorder: FakeRecorder(), transcriber: FakeTranscriber(.success("fixture")),
             transformer: FakeTextTransformer(.success("fixture")), pasteboard: SpyPasteboard(),
@@ -223,7 +223,7 @@ struct StaleAndFailedStateTests {
         let cue = AuditCue()
         let transcriber = FakeTranscriber(.suspended)
         let clipboard = SpyPasteboard()
-        let state = AppState(settings: settings, audioRecorder: recorder, transcriber: transcriber,
+        let state = AppState.fixture(settings: settings, audioRecorder: recorder, transcriber: transcriber,
             transformer: FakeTextTransformer(.success("truncated output")), pasteboard: clipboard,
             feedback: SpyFeedback(), autoPaster: SpyAutoPaster(), maximumRecordingDurationNanoseconds: 0, recordingClock: FastForwardClock(),
             recordingCue: cue)
@@ -254,7 +254,7 @@ struct StaleAndFailedStateTests {
         let recorder = AuditFailureRecorder()
         let transcriber = FakeTranscriber(.suspended)
         let clipboard = SpyPasteboard()
-        let state = AppState(settings: settings, audioRecorder: recorder, transcriber: transcriber,
+        let state = AppState.fixture(settings: settings, audioRecorder: recorder, transcriber: transcriber,
             transformer: FakeTextTransformer(.success("truncated output")), pasteboard: clipboard,
             feedback: SpyFeedback(), autoPaster: SpyAutoPaster(), maximumRecordingDurationNanoseconds: 0, recordingClock: FastForwardClock())
         state.triggerPressed()

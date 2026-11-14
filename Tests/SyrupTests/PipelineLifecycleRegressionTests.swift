@@ -33,7 +33,7 @@ struct PipelineLifecycleRegressionTests {
             await permission.wait()
         }, captureSessionFactory: { _, _ in capture })
         let recorder = StartObservingRecorder(realRecorder)
-        let state = AppState(settings: settings, audioRecorder: recorder,
+        let state = AppState.fixture(settings: settings, audioRecorder: recorder,
             transcriber: FakeTranscriber(.success("fixture")), transformer: FakeTextTransformer(.success("fixture")),
             pasteboard: SpyPasteboard(), feedback: SpyFeedback(), autoPaster: SpyAutoPaster(), maximumRecordingDurationNanoseconds: 0, recordingClock: FastForwardClock())
         state.triggerPressed()
@@ -52,7 +52,7 @@ struct PipelineLifecycleRegressionTests {
         defer { UserDefaults.standard.removePersistentDomain(forName: name) }
         let archive = ReviewCleanupArchive()
         let recorder = FakeRecorder()
-        let state = AppState(settings: settings, audioRecorder: recorder,
+        let state = AppState.fixture(settings: settings, audioRecorder: recorder,
             transcriber: RestartTranscriber(), transformer: FakeTextTransformer(.success("fixture")),
             pasteboard: SpyPasteboard(), feedback: SpyFeedback(), autoPaster: SpyAutoPaster(), maximumRecordingDurationNanoseconds: 0, recordingClock: FastForwardClock(),
             recordingArchive: archive)
@@ -74,7 +74,7 @@ struct PipelineLifecycleRegressionTests {
         defer { UserDefaults.standard.removePersistentDomain(forName: name) }
         let recorder = FakeRecorder()
         let transcriber = FakeTranscriber(.failure(.speechPermission))
-        let state = AppState(settings: settings, audioRecorder: recorder,
+        let state = AppState.fixture(settings: settings, audioRecorder: recorder,
             transcriber: transcriber, transformer: FakeTextTransformer(.success("fixture")),
             pasteboard: SpyPasteboard(), feedback: SpyFeedback(), autoPaster: SpyAutoPaster(), maximumRecordingDurationNanoseconds: 0, recordingClock: FastForwardClock())
         state.triggerPressed()

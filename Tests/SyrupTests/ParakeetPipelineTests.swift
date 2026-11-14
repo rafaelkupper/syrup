@@ -333,7 +333,7 @@ private final class Harness {
             id: UUID(), name: "Dictate", kind: kind, dictationLocaleID: locale,
             translationProvider: nil, speechEngine: engine
         )])
-        state = AppState(
+        state = AppState.fixture(
             settings: settings, audioRecorder: recorder, transcriber: apple, speechModels: [engine == .apple ? .parakeetUltra : engine: InstalledSpeechModel(transcriber: parakeet, models: models)],
             transformer: FakeTextTransformer(.failure(.transformer)), pasteboard: clipboard,
             feedback: feedback, maximumRecordingDurationNanoseconds: 0, recordingClock: clock, recordingCue: recordingCue,

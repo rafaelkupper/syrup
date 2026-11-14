@@ -378,7 +378,7 @@ private func makeCueState(
     history: HistoryStore = HistoryStore(),
     settings: AppSettings? = nil
 ) -> AppState {
-    AppState(
+    AppState.fixture(
         settings: settings ?? makeCueTestSettings(),
         history: history,
         audioRecorder: FakeRecorder(),

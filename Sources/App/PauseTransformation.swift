@@ -14,10 +14,6 @@ enum PauseTransformation {
         return corrections.isEmpty ? trimmed
             : Correction.apply(corrections, to: trimmed).trimmingCharacters(in: .whitespacesAndNewlines)
     }
-
-    static func isLoopback(_ url: URL) -> Bool {
-        EndpointPolicy.isLoopback(url)
-    }
 }
 
 @MainActor

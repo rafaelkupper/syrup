@@ -48,7 +48,7 @@ struct EarlyTransformationNote: Equatable {
             false
         case .openAICompatible:
             URL(string: baseURL.trimmingCharacters(in: .whitespacesAndNewlines))
-                .map(PauseTransformation.isLoopback) ?? false
+                .map(EndpointPolicy.isLoopback) ?? false
         }
     }
 

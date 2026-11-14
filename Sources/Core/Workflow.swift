@@ -339,7 +339,7 @@ struct RunConfiguration: Equatable, Sendable {
     let dictationLocaleID: String
     let instruction: String
     let provider: TranslationProvider
-    let transformation: DictationRecord.TransformationSnapshot
+    let transformation: TransformationSnapshot
     var purpose: RunPurpose = .dictation
     var contextText: String? = nil
     var speechVocabulary: [String] = []

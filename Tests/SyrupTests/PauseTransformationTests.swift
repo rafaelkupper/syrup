@@ -7,13 +7,13 @@ struct PauseTransformationPolicyTests {
     @Test(arguments: ["http://localhost:11434/v1", "http://LOCALHOST/v1", "http://127.0.0.1/v1",
                       "http://127.255.10.99/v1", "http://[::1]:1234/v1"])
     func loopbackURLsAreLocal(_ value: String) throws {
-        #expect(PauseTransformation.isLoopback(try #require(URL(string: value))))
+        #expect(EndpointPolicy.isLoopback(try #require(URL(string: value))))
     }
 
     @Test(arguments: ["http://localhost.example/v1", "http://192.0.2.1/v1", "https://api.openai.com/v1",
                       "http://128.0.0.1", "http://127.0.0.256", "http://[::ffff:127.0.0.1]", "http://127.1"])
     func otherURLsAreNotLocal(_ value: String) throws {
-        #expect(!PauseTransformation.isLoopback(try #require(URL(string: value))))
+        #expect(!EndpointPolicy.isLoopback(try #require(URL(string: value))))
     }
 
     @Test func equalityIsByteExact() {
@@ -541,7 +541,7 @@ private final class PauseFixture {
         transcriber = PartialPauseTranscriber(final: final)
         self.attempt = attempt
         provider = PauseProvider(local: local, prepared: prepared, attempt: attempt)
-        state = AppState(settings: settings, history: history, audioRecorder: recorder, transcriber: transcriber,
+        state = AppState.fixture(settings: settings, history: history, audioRecorder: recorder, transcriber: transcriber,
                          transformerProvider: provider, pasteboard: pasteboard, feedback: SpyFeedback(), metrics: metrics,
                          autoPaster: autoPaster, maximumRecordingDurationNanoseconds: 0, autoPasteDelayNanoseconds: 0, recordingClock: clock,
                          recordingCue: PauseCue(),

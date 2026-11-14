@@ -18,41 +18,6 @@ enum HotkeyMode: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-enum TranslationProvider: String, CaseIterable, Identifiable, Sendable, Codable {
-    case openAICompatible = "openai_compatible"
-    case codexCLI = "codex_cli"
-    case appleOnDevice = "apple_on_device"
-
-    var id: String { rawValue }
-
-    var displayName: String {
-        switch self {
-        case .openAICompatible:
-            "OpenAI-compatible"
-        case .codexCLI:
-            "Codex CLI"
-        case .appleOnDevice:
-            "Apple On-Device"
-        }
-    }
-
-    /// Spoken self-corrections and formatting commands. Apple's on-device model misses them
-    /// too often to offer (docs/verification/2026-11-09-model-comparison), so its runs never
-    /// ask for them. Other providers depend on the chosen model, so the user opts in.
-    var supportsSpokenEdits: Bool { self != .appleOnDevice }
-
-    var latencyHint: String {
-        switch self {
-        case .openAICompatible:
-            "Low latency: direct API request."
-        case .codexCLI:
-            "Slower: launches the Codex CLI for each translation."
-        case .appleOnDevice:
-            "Fast and private: runs entirely on this Mac."
-        }
-    }
-}
-
 @MainActor
 @Observable
 final class AppSettings {
@@ -504,55 +469,26 @@ final class AppSettings {
         return DictationOptions(selfCorrections: handlesSelfCorrections, spokenFormatting: handlesSpokenFormatting)
     }
 
-    func runConfiguration(
-        workflowID: UUID?,
-        contextText: String? = nil
-    ) -> RunConfiguration {
-        let workflow = workflowID.flatMap { id in
-            workflowList.workflows.first { $0.id == id }
-        } ?? activeWorkflow
-        let dictation = dictationOptions(for: workflow)
-        let snapshotInstruction = PromptBuilder.instruction(
-            for: workflow.kind,
+    /// The settings a run of `workflow` is built from, read at the trigger.
+    func runInputs(for workflow: Workflow) -> RunInputs {
+        RunInputs(
+            workflow: workflow,
+            provider: provider(for: workflow),
             glossary: glossaryList,
-            dictation: dictation
-        )
-        let instructionContext = workflow.input == .voice && workflow.includeSelectionContext
-            ? contextText
-            : nil
-        let instruction = PromptBuilder.instruction(
-            for: workflow.kind,
-            glossary: glossaryList,
-            context: instructionContext,
-            dictation: dictation
-        )
-        let provider = provider(for: workflow)
-
-        return RunConfiguration(
-            workflowID: workflow.id,
-            workflowName: workflow.name,
-            dictationLocaleID: workflow.dictationLocaleID,
-            instruction: instruction,
-            provider: provider,
-            transformation: Self.snapshot(
-                for: workflow,
-                instruction: snapshotInstruction,
-                hasSelectionContext: instructionContext != nil
-            ),
-            purpose: {
-                if case .transcribeOnly(let cleanup, let symbols) = workflow.kind {
-                    return .transcribeOnly(cleanup: cleanup, spokenSymbols: symbols)
-                }
-                return .dictation
-            }(),
-            contextText: contextText,
+            dictation: dictationOptions(for: workflow),
             speechVocabulary: Self.composedSpeechVocabulary(
                 glossary: glossaryList,
                 includeCommonTechTerms: includeCommonTechTerms
-            ),
-            speechEngine: workflow.speechEngine,
-            corrections: workflow.corrections
+            )
         )
+    }
+
+    func workflow(id: UUID?) -> Workflow {
+        id.flatMap { id in workflowList.workflows.first { $0.id == id } } ?? activeWorkflow
+    }
+
+    func runConfiguration(workflowID: UUID?, contextText: String? = nil) -> RunConfiguration {
+        RunConfigurationBuilder.configuration(for: runInputs(for: workflow(id: workflowID)), contextText: contextText)
     }
 
     private func persistWorkflowList() {
@@ -674,30 +610,5 @@ final class AppSettings {
             translationProvider: nil
         )
         return WorkflowList(workflows: [workflow])
-    }
-
-    private static func snapshot(
-        for workflow: Workflow,
-        instruction: String,
-        hasSelectionContext: Bool
-    ) -> DictationRecord.TransformationSnapshot {
-        if workflow.input == .selection || hasSelectionContext {
-            return .contextual(
-                workflowName: workflow.name,
-                instruction: instruction
-            )
-        }
-
-        switch workflow.kind {
-        case .translation(let targetLanguage, let tonePreset, let customToneText):
-            return .translation(
-                targetLanguage: targetLanguage,
-                toneInstruction: tonePreset.instruction(customText: customToneText)
-            )
-        case .custom:
-            return .custom(workflowName: workflow.name, instruction: instruction)
-        case .transcribeOnly:
-            return .contextual(workflowName: workflow.name, instruction: "")
-        }
     }
 }
