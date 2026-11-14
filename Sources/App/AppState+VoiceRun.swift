@@ -43,9 +43,9 @@ extension AppState {
             try await deliverTranscript(transcript, configuration: configuration, run: run, work: work)
             work.transformer = nil
             recordUsage(rawTranscript: transcript.raw, transcript: transcript.text, configuration: configuration, run: run)
-            if run.lowersOtherAudio, let outputVolumeWork {
+            if run.lowersOtherAudio, let pendingVolumeChange = outputVolume.pending {
                 _ = try? await withOperationTimeout(.seconds(1), error: CancellationError()) {
-                    await outputVolumeWork.value
+                    await pendingVolumeChange.value
                 }
             }
             finishRunSucceeded(runID)
@@ -91,7 +91,7 @@ extension AppState {
         }
         metrics.end(.hotkeyToRecordingStarted, runID: runID)
         if run.lowersOtherAudio {
-            changeOutputVolume { try await $0.lower() }
+            outputVolume.lower()
         }
         try Task.checkCancellation()
         return audio
@@ -205,7 +205,7 @@ extension AppState {
         guard isCurrentRun(runID) else { throw CancellationError() }
         metrics.end(.releaseToRecorderStopped, runID: runID)
         if run.lowersOtherAudio {
-            changeOutputVolume { try await $0.restore() }
+            outputVolume.restore()
         }
         enterProcessing(.transcribing)
 

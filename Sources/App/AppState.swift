@@ -1,7 +1,6 @@
 import AppKit
 import Foundation
 import Observation
-import OSLog
 
 typealias ErrorResetSleeper = @Sendable (UInt64) async throws -> Void
 typealias FeedbackFlashSleeper = @Sendable (UInt64) async throws -> Void
@@ -17,7 +16,6 @@ final class AppState {
     typealias PipelineState = Syrup.PipelineState
 
     static let minimumHold: Duration = .milliseconds(300)
-    private static let outputVolumeLogger = Logger(subsystem: "org.syrup.SyrupApp", category: "OutputVolume")
 
     /// A finished result whose clipboard write failed, kept so Copy Result can deliver it later.
     /// `output` is the exact result that history keeps; `delivered` is the sentence-fitted text.
@@ -106,8 +104,7 @@ final class AppState {
     @ObservationIgnored let recordingDurationSleeper: RecordingDurationSleeper
     @ObservationIgnored let recordingClock: any RecordingClock
     @ObservationIgnored let processActivity: any ProcessActivityControlling
-    @ObservationIgnored let outputDucker: OutputDucker?
-    @ObservationIgnored var outputVolumeWork: Task<Void, Never>?
+    @ObservationIgnored let outputVolume: OutputVolumeChain
     /// Run tasks that have not returned yet, keyed by run ID. See `launch`.
     @ObservationIgnored private var runTasks: [UUID: Task<Void, Never>] = [:]
     @ObservationIgnored let streamingTypistFactory: () -> any StreamingTyping
@@ -204,7 +201,7 @@ final class AppState {
         self.processActivity = processActivity
         self.recordingCue = recordingCue
         settings.privacyOptIns.attach(history: history)
-        self.outputDucker = outputDucker
+        self.outputVolume = OutputVolumeChain(ducker: outputDucker)
 
         if let appFeedback = feedback as? AppFeedback {
             appFeedback.actionHandler = self
@@ -390,7 +387,7 @@ final class AppState {
             cancelActiveRun()
         }
         // Runs still unwinding get a bounded wait so quitting never hangs.
-        let pending = Array(runTasks.values) + [outputVolumeWork].compactMap { $0 }
+        let pending = Array(runTasks.values) + [outputVolume.pending].compactMap { $0 }
         if pending.isEmpty == false {
             _ = try? await withOperationTimeout(.seconds(2), error: CancellationError()) {
                 for task in pending { await task.value }
@@ -731,7 +728,7 @@ final class AppState {
     func waitForPendingWork() async {
         var finished: Set<Task<Void, Never>> = []
         while true {
-            let pending = (Array(runTasks.values) + [outputVolumeWork].compactMap { $0 })
+            let pending = (Array(runTasks.values) + [outputVolume.pending].compactMap { $0 })
                 .filter { finished.contains($0) == false }
             guard pending.isEmpty == false else { return }
             for task in pending {
@@ -911,7 +908,7 @@ final class AppState {
         run.resumeStopWaiter()
         run.endActivity()
         if run.lowersOtherAudio {
-            changeOutputVolume { try await $0.restore() }
+            outputVolume.restore()
         }
         activeRun = nil
         foregroundActivityChanged?(false)
@@ -919,21 +916,7 @@ final class AppState {
     }
 
     func restoreOutputVolumeAfterCrash() {
-        changeOutputVolume { try await $0.restoreAfterCrash() }
-    }
-
-    func changeOutputVolume(_ change: @escaping @Sendable (OutputDucker) async throws -> Void) {
-        guard let outputDucker else { return }
-        let previous = outputVolumeWork
-        outputVolumeWork = Task {
-            await previous?.value
-            do {
-                try await change(outputDucker)
-            } catch {
-                let code = (error as? OutputVolumeError).map { String(describing: $0) } ?? "unknown"
-                Self.outputVolumeLogger.error("output_volume_failed error=\(code, privacy: .public)")
-            }
-        }
+        outputVolume.restoreAfterCrash()
     }
 
     private func cancelActiveStreamingTypist() {
