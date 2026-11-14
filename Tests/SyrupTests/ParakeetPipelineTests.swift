@@ -259,10 +259,9 @@ struct ParakeetPipelineTests {
         let apple = FakeTranscriber(appleSucceeds ? .success("apple words") : .failure(.transcriber))
         let harness = try Harness(apple: apple, parakeet: FakeTranscriber(.success("parakeet words")), archive: archive)
         await harness.dictate()
-        for _ in 0..<1000 {
+        await harness.wait {
             let snapshot = await archive.snapshot()
-            if snapshot.commits.count + snapshot.discardedEntryIDs.count == 1 { break }
-            await Task.yield()
+            return snapshot.commits.count + snapshot.discardedEntryIDs.count == 1
         }
         let snapshot = await archive.snapshot()
         #expect(harness.clipboard.writes == ["parakeet words"])

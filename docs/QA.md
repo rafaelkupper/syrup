@@ -22,7 +22,7 @@ Record results in a dated `docs/verification/` file. Mark each check passed, fai
 ## Latency QA
 
 - Capture latency in a Release build when possible; Debug builds are useful for correctness but not final timing.
-- Before latency-focused work is accepted, run `script/test-isolated.sh -only-testing:SyrupTests/AppStateTests` and confirm the low-latency overlap regression gate stays green.
+- Before latency-focused work is accepted, run `script/test-isolated.sh -only-testing:SyrupTests/AppStateConfigurationTests` and confirm the low-latency overlap regression gate stays green.
 - Use Instruments signposts or Console logs filtered to subsystem `org.syrup.SyrupApp` and category `PipelineMetrics`.
 - Compare at least three inputs on the same machine and provider: a short phrase, a couple of sentences, and a long toggle-mode dictation.
 - Track `selection_capture`, `transcription_window`, `release_to_transcript`, `translation_configuration`, `translation`, `clipboard_write`, `auto_paste`, and `release_to_clipboard` before and after latency changes.
@@ -213,7 +213,8 @@ The following checks require the signed production app and have not been establi
 - Keep the Glossary tab open, complete a learning-enabled dictation, and confirm the pending count increases. Run analysis or clear recordings and confirm the count updates without reopening Settings.
 - Start a slow connection test, edit the URL or model, and start another test. The earlier completion must not replace the current status. Repeat after changing or removing the saved key.
 - Run Codex against a disposable account home and fixture endpoint. Confirm the invocation uses `--ephemeral` and creates no session transcript. Do not inspect personal Codex session contents for this check.
-- Use `StaleAndFailedStateTests` for synthetic CRLF, audio-overflow, credential-error, shortcut-registration, archive-count, and connection-status cases. Live speech, TCC, editor delivery, and signed-app behavior still require the manual checks above.
+- With Codex CLI selected, run a selected-text workflow on text that asks the model to run a shell command and print a local file. Confirm the result is the transformed text, with no file contents, and that the CLI's stderr shows no tool call. A run on 2026-11-13 with codex-cli 0.167.2 translated such text as data.
+- Use `OpenAISSEParsingTests`, `AudioFailureTests`, `ProviderCredentialTests`, `HotkeyPauseTests`, and `RecordingArchiveCountTests` for synthetic CRLF, audio-overflow, credential-error, shortcut-registration, archive-count, and connection-status cases. Live speech, TCC, editor delivery, and signed-app behavior still require the manual checks above.
 
 
 ## Delivery follow-up for 2026-11-01

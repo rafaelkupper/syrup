@@ -22,14 +22,14 @@ script/ci_test.sh
 # Existing production build; tests only:
 script/test-isolated.sh
 # Focused state-machine checks:
-script/test-isolated.sh -only-testing:SyrupTests/AppStateTests
+script/test-isolated.sh -only-testing:SyrupTests/AppStateTriggerTests
 ```
 
-The isolated script copies components to a temporary checkout and uses a distinct bundle identifier and ad-hoc signing, so test preference domains never mix with an installed Syrup. Its temporary directory is deleted on exit by default. Set `SYRUP_TEST_ROOT` only when keeping build/results for diagnosis is useful; delete that task-owned directory afterward. Under XCTest the entry point (`SyrupMain` in `Sources/App/SyrupApp.swift`) starts an inert host, so even a direct `xcodebuild test` never registers hotkeys, starts model downloads, or runs retention cleanup.
+The isolated script copies components to a temporary checkout and uses a distinct bundle identifier and ad-hoc signing, so test preference domains never mix with an installed Syrup. Each run gets its own token in that bundle identifier (`org.syrup.SyrupIsolatedTests.<token>`), and tests name every preference domain through `testDomainName(_:)` as `<prefix>.<token>.<UUID>`, so cleanup removes only its own run's files and those of runs whose script has exited. Concurrent runs keep each other's preferences. Its temporary directory is deleted on exit by default. Set `SYRUP_TEST_ROOT` only when keeping build/results for diagnosis is useful; delete that task-owned directory afterward. Under XCTest the entry point (`SyrupMain` in `Sources/App/SyrupApp.swift`) starts an inert host, so even a direct `xcodebuild test` never registers hotkeys, starts model downloads, or runs retention cleanup.
 
-`script/ci_test.sh` first runs `script/check-boundaries.sh`, which fails when an engine SDK (FluidAudio, WhisperKit, Sparkle, FoundationModels, KeyboardShortcuts) is imported outside its folders or when `Core/`, `Translation/`, or `Transcription/` imports SwiftUI or AppKit.
+`script/ci_test.sh` first runs `script/check-boundaries.sh`. It fails when an engine SDK (FluidAudio, WhisperKit, Sparkle, FoundationModels, KeyboardShortcuts), `Speech`, or `AVFoundation` is imported outside its folders, in any import form (`@_exported`, `@testable`, `import struct Module.Symbol`); when `Core/`, `Translation/`, or `Transcription/` imports SwiftUI or AppKit; when `Core/` names a type or free function declared in another folder; when a folder other than `Settings/`, `Onboarding/`, and `Hotkey/` names anything declared in `App/` (those three may use `AppState`, `UpdateController`, and `userMessage`); and when a `RunConfiguration` is built outside `RunConfigurationBuilder`. The type checks are grep-based over code with comments and string literals removed. `SYRUP_BOUNDARY_ROOT` points the script at another tree.
 
-Async tests wait with `eventually` and `settleRun` from `Tests/SyrupTests/TestSupport.swift`, which also holds the shared pipeline fakes. Prefer an explicit completion signal from a fake over waiting a fixed number of yields.
+Async tests wait with `eventually` and `settleRun` from `Tests/SyrupTests/TestSupport.swift`, which also holds the shared pipeline fakes and `AppState.fixture(...)`, an `AppState` whose every service is a fake unless the test passes one. Wait for a signal, not a number of yields: `AppState.waitForPendingWork()` before asserting that nothing else happens, `SpyPipelineMetrics.bufferLevelCount` for a captured buffer reaching the run, or a fake's own counter.
 
 There is no hosted CI. Run `script/ci_test.sh` locally for the production compilation and isolated suite. Tests use Swift Testing with protocol seams and controlled endpoint/process fixtures. Check the live microphone, speech permissions, editor focus, and pasted/typed output using [docs/QA.md](docs/QA.md).
 
@@ -37,11 +37,11 @@ There is no hosted CI. Run `script/ci_test.sh` locally for the production compil
 
 | Area | Responsibility |
 | --- | --- |
-| `Sources/App/` | Entry point and test host, menu, run state (`AppState`), the event table (`PipelineTransitions`), delivery (`DeliveryCoordinator`), user messages, feedback, timeouts, metrics |
+| `Sources/App/` | Entry point, production wiring (`AppState.production`) and test host, menu, run state (`AppState`), the voice run's phases (`AppState+VoiceRun`), transformation and the delivery commit (`AppState+Delivery`), the event table (`PipelineTransitions`), editor delivery (`DeliveryCoordinator`), user messages, feedback, metrics |
 | `Sources/Audio/`, `Sources/Transcription/` | Input devices, bounded live buffers, speech permission/assets, Apple transcription |
-| `Sources/Translation/` | Prompt composition, provider configuration, atomic and streamed output |
+| `Sources/Translation/` | Prompt composition, the one `RunConfiguration` builder, provider configuration, atomic and streamed output |
 | `Sources/Context/`, `Sources/Paste/`, `Sources/Clipboard/` | Opt-in selection, editor identity, paste/typing, clipboard commit/recovery |
-| `Sources/Core/` | Domain types and text rules with no UI: workflows and run configuration, glossary, corrections, transcript cleanup, the API-key store |
+| `Sources/Core/` | Domain types and text rules that use nothing from another folder: workflows and run configuration, providers, tones, speech engines, history snapshots, glossary, corrections, transcript cleanup, operation timeouts, the API-key store |
 | `Sources/Settings/`, `Sources/Hotkey/` | Preferences (`AppSettings`), settings panes, shortcuts |
 | `Sources/History/`, `Sources/Learning/` | Opt-in history, recording retention, Whisper cross-checks, proposals |
 | `Sources/Stats/`, `Sources/Onboarding/` | Usage counts for Home (on by default, no content), first-run window |

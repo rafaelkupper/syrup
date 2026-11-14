@@ -1,3 +1,12 @@
+// Measures how long the delivery-target focus check holds the main actor when the editor is hung.
+// It mirrors DeliveryTarget.isCurrent(): before 2026-11-13 the Accessibility read ran on the main
+// actor; now it runs on a detached task. Needs Accessibility trust for the terminal running it.
+//
+//   swiftc -O -swift-version 6 script/measure-focus-check.swift -o /tmp/measure-focus-check
+//   open -g -j -a TextEdit; sleep 2
+//   /tmp/measure-focus-check "$(pgrep -x TextEdit | head -1)"   # stops and resumes TextEdit itself
+//
+// Results for 2026-11-13 are in plans/syrup/2026-11-13/review-round-3.md.
 import AppKit
 import ApplicationServices
 
