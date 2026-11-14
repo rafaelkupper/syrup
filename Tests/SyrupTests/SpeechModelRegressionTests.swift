@@ -6,6 +6,7 @@ import Testing
 /// The two speech-model bugs round 11 reproduced, on the real manager with a real folder. Each fake
 /// operation can be held at the point where the bug happens.
 @MainActor
+@Suite(.timeLimit(.minutes(1)))
 struct SpeechModelRegressionTests {
     /// Delete fails (the folder above the model cannot be written), then the person presses Retry
     /// once it can be: Retry deletes again. It must not load or download the model they asked to delete.
@@ -42,6 +43,86 @@ struct SpeechModelRegressionTests {
 
         #expect(fixture.modelIsOnDisk)
         #expect(fixture.manager.state == .downloaded)
+    }
+
+    /// Load, then Delete before the load has started: the load is skipped, so the Delete does not wait
+    /// for a model to load (minutes for some models) only to unload it.
+    @Test func deleteRightAfterALoadRequestSkipsTheLoad() async throws {
+        let fixture = try RegressionFixture(modelOnDisk: true)
+        defer { fixture.clean() }
+
+        fixture.manager.loadIfDownloaded()
+        fixture.manager.remove()
+        await fixture.manager.waitUntilIdle()
+
+        #expect(fixture.calls.values == ["unload"])
+        #expect(fixture.manager.state == .notDownloaded)
+        #expect(fixture.modelIsOnDisk == false)
+    }
+
+    /// Download, then Cancel before the download has started: nothing is downloaded.
+    @Test func cancelRightAfterDownloadDownloadsNothing() async throws {
+        let fixture = try RegressionFixture(modelOnDisk: false)
+        defer { fixture.clean() }
+
+        fixture.manager.download()
+        fixture.manager.cancelDownload()
+        await fixture.manager.waitUntilIdle()
+
+        #expect(fixture.calls.values.isEmpty)
+        #expect(fixture.manager.state == .notDownloaded)
+        #expect(fixture.modelIsOnDisk == false)
+    }
+
+    /// A cancelled download that is slow to stop reports progress after the next download started:
+    /// the next download's bar must not move. Its own report does move it.
+    @Test func lateProgressFromACancelledDownloadDoesNotMoveTheNextOne() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: testDomainName("SpeechModelProgress"), directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let reporters = Mutex<[@Sendable (Double) -> Void]>([])
+        let firstStarted = Signal(), releaseFirst = Signal(), secondStarted = Signal(), releaseSecond = Signal()
+        let manager = SpeechModelManager(
+            engine: .parakeetUltra,
+            operations: .init(
+                modelsExist: { _ in false },
+                download: { _, report in
+                    let call = reporters.withLock { reporters in
+                        reporters.append(report)
+                        return reporters.count
+                    }
+                    if call == 1 {
+                        firstStarted.fire()
+                        await releaseFirst.wait()
+                        throw CancellationError()
+                    }
+                    secondStarted.fire()
+                    await releaseSecond.wait()
+                    throw CocoaError(.fileWriteUnknown)
+                },
+                load: { _ in },
+                unload: {}
+            ),
+            isSupported: true,
+            storageDirectory: root
+        )
+
+        manager.download()
+        await firstStarted.wait()
+        manager.cancelDownload()
+        manager.download()
+        releaseFirst.fire()
+        await secondStarted.wait()
+
+        let (first, second) = reporters.withLock { ($0[0], $0[1]) }
+        first(0.9)
+        await Task { @MainActor in }.value
+        #expect(manager.state == .downloading(0))
+        second(0.4)
+        await eventually { manager.state == .downloading(0.4) }
+        #expect(manager.state == .downloading(0.4))
+
+        releaseSecond.fire()
+        await manager.waitUntilIdle()
     }
 }
 

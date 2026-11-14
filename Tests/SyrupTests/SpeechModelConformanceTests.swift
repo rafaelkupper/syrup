@@ -3,18 +3,24 @@ import Synchronization
 import Testing
 @testable import Syrup
 
-/// Replays the explorer's shortest trace to every state it reached on the real `SpeechModelManager`,
-/// with a real folder, and checks after every step that the manager's state, the model on disk, and
-/// the older folder being replaced match what the machine predicts. Each fake operation waits for
+/// Replays every transition the explorer takes (the shortest trace to a state, then one more step) on
+/// the real `SpeechModelManager`, with a real folder, and checks after every step that the manager's
+/// state, the model on disk, and the older folder being replaced match what the machine predicts.
+/// States with a queue longer than one are reached but not expanded: the manager runs queued jobs
+/// the same way whatever the queue's length, and `SpeechModelExplorerTests` covers the machine's
+/// queue to three. A model on disk while replacing explores the same states as one without, since
+/// the older folder goes at once, so it is not replayed twice. Each fake operation waits for
 /// the test's command, so a step happens exactly where the trace puts it; a removal is made to fail
 /// with real file permissions.
 @MainActor
+@Suite(.timeLimit(.minutes(1)))
 struct SpeechModelConformanceTests {
-    @Test(arguments: [false, true], [false, true])
+    @Test(arguments: [(false, false), (false, true), (true, false)])
     func theManagerFollowsTheMachineOnEveryExploredTransition(modelOnDisk: Bool, replacing: Bool) async throws {
         var replayed = 0
         let start = SpeechModelExplorerTests.start(modelOnDisk: modelOnDisk, replacing: replacing)
-        for trace in SpeechModelExplorerTests.explore(from: [start]).traces {
+        // Progress reports are checked by the explorer alone: the fakes report none.
+        for trace in SpeechModelExplorerTests.explore(from: [start], maxQueue: 1).traces where trace.steps.contains(.report) == false {
             if let mismatch = try await Self.replay(trace.steps, from: start, modelOnDisk: modelOnDisk, replacing: replacing) {
                 Issue.record("\(trace.origin), then \(trace.steps.map(\.rawValue).joined(separator: ", ")): \(mismatch)")
                 return
@@ -31,29 +37,35 @@ struct SpeechModelConformanceTests {
         modelOnDisk: Bool, replacing: Bool
     ) async throws -> String? {
         let fixture = try ConformanceFixture(modelOnDisk: modelOnDisk, replacing: replacing)
-        defer { fixture.clean() }
+        let mismatch = await replay(steps, from: start, on: fixture)
+        await fixture.close()
+        return mismatch
+    }
+
+    private static func replay(
+        _ steps: [SpeechModelExplorerTests.Step], from start: SpeechModelExplorerTests.Node, on fixture: ConformanceFixture
+    ) async -> String? {
         var machine = start.machine
         var world = start.world
-        var waits = world.executing == nil ? 0 : 1
-        await fixture.settle(waits: waits, idle: machine.isIdle)
+        guard await fixture.settle(waits: world.waits, idle: machine.isIdle) else {
+            return "at the start: the fakes waited \(fixture.script.waits) times, expected \(world.waits)"
+        }
         if let mismatch = fixture.mismatch(machine, world) { return "at the start: \(mismatch)" }
 
         for (index, step) in steps.enumerated() {
-            let before = world
             _ = SpeechModelExplorerTests.perform(step, &machine, &world)
-            let finishes = [.succeed, .fail, .failKeepingModel, .failRemovingModel].contains(step)
-            if step == .land { waits += 1 }
-            if world.executing != nil, before.executing == nil || finishes { waits += 1 }
-
             switch step {
             case .download: fixture.manager.download()
             case .cancel: fixture.manager.cancelDownload()
             case .delete: fixture.manager.remove()
             case .load: fixture.manager.loadIfDownloaded()
             case .retry: fixture.manager.retry()
-            case .land, .succeed, .fail, .failKeepingModel, .failRemovingModel: fixture.script.send(step)
+            case .begin, .land, .succeed, .fail, .failKeepingModel, .failRemovingModel: fixture.script.send(step)
+            case .report: return "progress steps are not replayed"
             }
-            await fixture.settle(waits: waits, idle: machine.isIdle)
+            guard await fixture.settle(waits: world.waits, idle: machine.isIdle) else {
+                return "after step \(index + 1): the fakes waited \(fixture.script.waits) times, expected \(world.waits)"
+            }
             fixture.restorePermissions()
             if let mismatch = fixture.mismatch(machine, world) { return "after step \(index + 1): \(mismatch)" }
         }
@@ -61,32 +73,49 @@ struct SpeechModelConformanceTests {
     }
 }
 
-/// Each operation call waits here for the test's command, ignoring cancellation like a real job
-/// whose work is already under way.
+/// Each job's start and each operation call wait here for the test's command, ignoring cancellation
+/// like a real job whose work is already under way. Once closed, every wait returns nil at once, so
+/// the manager can finish what is left.
 final class OperationScript: Sendable {
     private struct State {
         var waits = 0
-        var waiter: CheckedContinuation<SpeechModelExplorerTests.Step, Never>?
+        var closed = false
+        /// Two operations waited at the same time, which one job at a time never allows.
+        var overlapped = false
+        var waiter: CheckedContinuation<SpeechModelExplorerTests.Step?, Never>?
     }
 
     private let state = Mutex(State())
     var waits: Int { state.withLock { $0.waits } }
+    var overlapped: Bool { state.withLock { $0.overlapped } }
 
-    func next() async -> SpeechModelExplorerTests.Step {
+    func next() async -> SpeechModelExplorerTests.Step? {
         await withCheckedContinuation { continuation in
-            state.withLock {
-                $0.waits += 1
-                $0.waiter = continuation
+            let (resumeNow, earlier) = state.withLock { state -> (Bool, CheckedContinuation<SpeechModelExplorerTests.Step?, Never>?) in
+                state.waits += 1
+                if state.closed { return (true, nil) }
+                let earlier = state.waiter
+                if earlier != nil { state.overlapped = true }
+                state.waiter = continuation
+                return (false, earlier)
             }
+            // The earlier operation is let go rather than left waiting forever; the overlap is reported.
+            earlier?.resume(returning: nil)
+            if resumeNow { continuation.resume(returning: nil) }
         }
     }
 
-    func send(_ step: SpeechModelExplorerTests.Step) {
+    func send(_ step: SpeechModelExplorerTests.Step?) {
         let waiter = state.withLock { state in
             defer { state.waiter = nil }
             return state.waiter
         }
         waiter?.resume(returning: step)
+    }
+
+    func close() {
+        state.withLock { $0.closed = true }
+        send(nil)
     }
 }
 
@@ -127,9 +156,11 @@ final class ConformanceFixture {
                     }
                 },
                 unload: {
-                    let step = await script.next()
-                    guard step != .succeed else { return }
+                    guard let step = await script.next(), step != .succeed else { return }
                     Self.makeRemovalFail(keepingModel: step == .failKeepingModel, root: root, directory: directory, staging: staging)
+                },
+                willBeginJob: {
+                    _ = await script.next()
                 }
             ),
             isSupported: true,
@@ -139,13 +170,26 @@ final class ConformanceFixture {
     }
 
     /// Waits until the job the machine expects has reached its next wait, or the manager is idle.
-    func settle(waits: Int, idle: Bool) async {
-        await eventually("The fake operations waited \(script.waits) times, not \(waits)") { self.script.waits == waits }
-        if idle { await manager.waitUntilIdle() }
+    /// False if the fakes never reach the expected count, so the replay stops at the first difference
+    /// instead of waiting out a timeout at every later step.
+    func settle(waits: Int, idle: Bool) async -> Bool {
+        let script = script
+        let reached = await eventually(timeout: .seconds(2)) { script.waits == waits || script.overlapped }
+        guard reached, script.overlapped == false else { return false }
+        guard idle else { return true }
+        // Bounded: a manager that started work the machine did not would otherwise hold this forever.
+        let drained = IdleFlag()
+        let waiter = Task { await manager.waitUntilIdle(); drained.value = true }
+        guard await eventually(timeout: .seconds(2), { drained.value }) else {
+            waiter.cancel()
+            return false
+        }
+        return script.waits == waits
     }
 
     func mismatch(_ machine: SpeechModelMachine, _ world: SpeechModelExplorerTests.World) -> String? {
         var problems: [String] = []
+        if script.overlapped { problems.append("two operations ran at once") }
         if manager.state != machine.state { problems.append("manager is \(manager.state), machine is \(machine.state)") }
         if RegressionFixture.isComplete(directory) != world.modelOnDisk { problems.append("model on disk is \(RegressionFixture.isComplete(directory)), expected \(world.modelOnDisk)") }
         let olderExists = FileManager.default.fileExists(atPath: older.path(percentEncoded: false))
@@ -174,8 +218,17 @@ final class ConformanceFixture {
         }
     }
 
-    func clean() {
+    /// Lets every held operation go, waits for the manager to finish what is left, then removes the
+    /// folder, so no manager or task outlives its trace.
+    func close() async {
+        script.close()
+        await manager.waitUntilIdle()
         restorePermissions()
         try? FileManager.default.removeItem(at: root)
     }
+}
+
+@MainActor
+private final class IdleFlag {
+    var value = false
 }

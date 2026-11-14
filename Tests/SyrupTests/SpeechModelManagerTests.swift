@@ -4,6 +4,7 @@ import Testing
 @testable import Syrup
 
 @MainActor
+@Suite(.timeLimit(.minutes(1)))
 struct SpeechModelManagerTests {
     @Test func loadIfDownloadedNeverDownloads() async throws {
         let fixture = try Fixture(onDisk: false)

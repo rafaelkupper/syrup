@@ -6,8 +6,9 @@ import Foundation
 ///
 /// Work runs one job at a time, in order: a download, a load, or a removal. Each user action that
 /// changes what the person asked for moves `generation` on, and a job from an earlier generation is
-/// stale: its result no longer changes the state, and a stale download or load that has not started
-/// yet is skipped. A removal always runs, because a Delete the person made must take the files.
+/// stale: its result no longer changes the state, and a stale download or load is skipped when it
+/// begins, so a click made after a job was queued but before it started still stops it. A removal
+/// always runs, because a Delete the person made must take the files.
 struct SpeechModelMachine: Equatable, Sendable {
     enum Operation: Equatable, Sendable {
         case download, load, removal
@@ -35,13 +36,18 @@ struct SpeechModelMachine: Equatable, Sendable {
         case loadIfDownloaded
         case remove
         case progress(Double, generation: Int)
+        /// A job's task has begun, which can be after later clicks.
+        case began(Job)
         case finished(Job, Outcome)
         /// The disk, read when the work has drained (`Effect.checkDisk`).
         case settled(modelOnDisk: Bool)
     }
 
     enum Effect: Equatable, Sendable {
+        /// Start a task for the job; it reports `.began` when it runs.
         case start(Job)
+        /// Do the job's work, then report `.finished`.
+        case perform(Job)
         case cancelRunningDownload
         case removeReplacedDirectory
         /// Read whether the model is on disk and send `.settled`.
@@ -97,18 +103,20 @@ struct SpeechModelMachine: Equatable, Sendable {
             guard jobGeneration == generation, case .downloading(let current) = state else { return [] }
             state = .downloading(max(current, min(max(fraction, 0), 1)))
             return []
+        case .began(let job):
+            guard running == job else { return [] }
+            if job.operation == .removal || job.generation == generation { return [.perform(job)] }
+            running = nil
+            return drain()
         case .finished(let job, let outcome):
             return finished(job, outcome)
         case .settled(let modelOnDisk):
-            // A result that arrived stale can leave the state behind the disk: a download that landed
-            // as it was cancelled, or a Delete that failed after a later click. Once nothing is left
-            // to run, the disk decides between the two states it can tell apart.
-            guard isIdle else { return [] }
-            if state == .notDownloaded, modelOnDisk {
-                state = .downloaded
-            } else if state == .downloaded, modelOnDisk == false {
-                state = .notDownloaded
-            }
+            // A result that arrived stale can leave "Not downloaded" with the model on disk: a download
+            // that landed as it was cancelled, or a Delete that failed after a later click. Once nothing
+            // is left to run, the disk decides. (A finished job never leaves "Downloaded", so the
+            // reverse cannot arise here.)
+            guard isIdle, state == .notDownloaded, modelOnDisk else { return [] }
+            state = .downloaded
             return []
         }
     }
@@ -179,7 +187,12 @@ struct SpeechModelMachine: Equatable, Sendable {
         default:
             break
         }
-        effects += startNext()
+        return effects + drain()
+    }
+
+    /// Starts the next job, or, with nothing left, asks for the disk.
+    private mutating func drain() -> [Effect] {
+        let effects = startNext()
         return isIdle ? effects + [.checkDisk] : effects
     }
 

@@ -12,6 +12,9 @@ final class SpeechModelManager: SpeechModelProviding {
         var download: @Sendable (URL, @escaping @Sendable (Double) -> Void) async throws -> Void
         var load: @Sendable (URL) async throws -> Void
         var unload: @Sendable () async -> Void
+        /// Runs as each job's task begins, before the machine decides whether the job still runs.
+        /// Tests hold it to put clicks between a job being queued and starting.
+        var willBeginJob: @Sendable () async -> Void = {}
     }
 
     let engine: SpeechEngine
@@ -20,7 +23,8 @@ final class SpeechModelManager: SpeechModelProviding {
     @ObservationIgnored private let operations: Operations
     @ObservationIgnored private let fileManager: FileManager
     @ObservationIgnored private var machine: SpeechModelMachine
-    /// The job the machine is running. Jobs run one at a time, in the machine's order.
+    /// The task of the job the machine is running, from its start to its finish. Jobs run one at a
+    /// time, in the machine's order.
     @ObservationIgnored private var runningTask: Task<Void, Never>?
     /// A folder this model is taking over from; see `replace`.
     @ObservationIgnored private var replacedDirectory: URL?
@@ -98,6 +102,9 @@ final class SpeechModelManager: SpeechModelProviding {
     func waitUntilIdle() async {
         while let task = runningTask {
             await task.value
+            // A finished task always hands over or clears `runningTask` before it ends; if it did
+            // not, stop rather than spin on a task that is already done.
+            if runningTask == task { return }
         }
     }
 
@@ -107,7 +114,15 @@ final class SpeechModelManager: SpeechModelProviding {
             for effect in machine.handle(events.removeFirst()) {
                 switch effect {
                 case .start(let job):
-                    start(job)
+                    runningTask = Task {
+                        await operations.willBeginJob()
+                        send(.began(job))
+                    }
+                case .perform(let job):
+                    runningTask = Task {
+                        let outcome = await run(job)
+                        send(.finished(job, outcome))
+                    }
                 case .cancelRunningDownload:
                     runningTask?.cancel()
                 case .removeReplacedDirectory:
@@ -117,15 +132,8 @@ final class SpeechModelManager: SpeechModelProviding {
                 }
             }
         }
+        if machine.running == nil { runningTask = nil }
         if state != machine.state { state = machine.state }
-    }
-
-    private func start(_ job: SpeechModelMachine.Job) {
-        runningTask = Task {
-            let outcome = await run(job)
-            runningTask = nil
-            send(.finished(job, outcome))
-        }
     }
 
     private func run(_ job: SpeechModelMachine.Job) async -> SpeechModelMachine.Outcome {

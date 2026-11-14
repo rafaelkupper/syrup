@@ -9,6 +9,7 @@ import Testing
 /// arriving while another was still under way; the single-case tests covered only the pairs someone
 /// thought of.
 @MainActor
+@Suite(.timeLimit(.minutes(1)))
 struct SpeechModelSequenceTests {
     enum Step: String, CaseIterable, Sendable {
         case download, cancel, delete, load, retry

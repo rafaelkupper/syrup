@@ -2,18 +2,21 @@ import Testing
 @testable import Syrup
 
 /// Runs every interleaving of clicks and completions against `SpeechModelMachine`, breadth first, so
-/// each problem is reported with the shortest sequence that reaches it. The disk is simulated: a
-/// download can move the model into place and then return, or fail before; a load fails or, with the
+/// each problem is reported with the shortest sequence that reaches it. A started job begins in a
+/// step of its own, so clicks can come between a job being queued and its task running. The disk is
+/// simulated: a download can move the model into place and then return, or fail before; a load fails or, with the
 /// model on disk, succeeds; a removal succeeds, fails leaving the model, or fails after deleting the
 /// model's files but not its folder. A cancelled download can still land, as a real one can once its
 /// files have started moving. Generations are compared only as "current" or "stale", which is all
 /// the machine compares, so the reachable states are finite; queues longer than three are not
 /// expanded.
 @MainActor
+@Suite(.timeLimit(.minutes(1)))
 struct SpeechModelExplorerTests {
     enum Step: String, Hashable, Sendable {
         case download, cancel, delete, load, retry
-        case land, succeed, fail, failKeepingModel, failRemovingModel
+        /// `report`: the running download reports progress, which the conformance test does not replay.
+        case begin, report, land, succeed, fail, failKeepingModel, failRemovingModel
     }
 
     struct World: Equatable {
@@ -21,9 +24,14 @@ struct SpeechModelExplorerTests {
         var replacedOnDisk = false
         /// The job the simulated disk is running, which must be the machine's `running` job.
         var executing: SpeechModelMachine.Job?
+        /// Whether the executing job's task has begun and the machine let it run.
+        var performing = false
         var landed = false
         /// A Delete was accepted and its removal has not started yet.
         var deletePending = false
+        /// How many times the real fakes would have waited for a command so far: once as each job
+        /// begins, once as its work starts, and once after a download lands. Not part of the state.
+        var waits = 0
     }
 
     struct Node {
@@ -72,7 +80,8 @@ struct SpeechModelExplorerTests {
         return Node(machine: machine, world: world, trace: [], origin: origin)
     }
 
-    static func explore(from starts: [Node]) -> Exploration {
+    /// Nodes whose queue is longer than `maxQueue` are recorded but not expanded.
+    static func explore(from starts: [Node], maxQueue: Int = 3) -> Exploration {
         var result = Exploration()
         var seen: Set<String> = []
         var frontier = starts.filter { seen.insert(key($0)).inserted }
@@ -81,7 +90,7 @@ struct SpeechModelExplorerTests {
             var next: [Node] = []
             for node in frontier {
                 result.states += 1
-                guard node.machine.queue.count <= 3 else { continue }
+                guard node.machine.queue.count <= maxQueue else { continue }
                 for step in enabledSteps(node) {
                     var machine = node.machine
                     var world = node.world
@@ -106,8 +115,9 @@ struct SpeechModelExplorerTests {
     static func enabledSteps(_ node: Node) -> [Step] {
         var steps: [Step] = [.download, .cancel, .delete, .load, .retry]
         if let job = node.world.executing {
+            guard node.world.performing else { return steps + [.begin] }
             switch job.operation {
-            case .download: steps += node.world.landed ? [.succeed] : [.land, .fail]
+            case .download: steps += node.world.landed ? [.succeed] : [.report, .land, .fail]
             case .load: steps += node.world.modelOnDisk ? [.succeed, .fail] : [.fail]
             case .removal: steps += [.succeed, .failKeepingModel, .failRemovingModel]
             }
@@ -126,20 +136,35 @@ struct SpeechModelExplorerTests {
         case .delete: effects = machine.handle(.remove)
         case .load: effects = machine.handle(.loadIfDownloaded)
         case .retry: effects = machine.handle(.retry(modelOnDisk: world.modelOnDisk))
+        case .begin:
+            guard let job = world.executing, world.performing == false else { return ["nothing to begin"] }
+            effects = machine.handle(.began(job))
+            if effects.contains(.perform(job)) == false { world.executing = nil }
+        case .report:
+            guard let job = world.executing, job.operation == .download else { return ["no download to report"] }
+            effects = machine.handle(.progress(0.5, generation: job.generation))
+            if job.generation != before.generation, machine.state != before.state {
+                problems.append("progress from a stale download changed \(before.state) to \(machine.state)")
+            }
+            if case .downloading(let old) = before.state, case .downloading(let new) = machine.state, new < old {
+                problems.append("progress went back from \(old) to \(new)")
+            }
         case .land:
             world.modelOnDisk = true
             world.landed = true
+            world.waits += 1
             effects = []
         case .succeed, .fail, .failKeepingModel, .failRemovingModel:
             guard let job = world.executing else { return ["no job to finish"] }
             if job.operation == .removal, step == .succeed || step == .failRemovingModel { world.modelOnDisk = false }
             world.executing = nil
+            world.performing = false
             effects = machine.handle(.finished(job, step == .succeed ? .succeeded : .failed))
         }
-        func currentRemoval(_ machine: SpeechModelMachine) -> Bool {
-            ([machine.running].compactMap { $0 } + machine.queue).contains { $0.operation == .removal && $0.generation == machine.generation }
+        // A removal accepted by this step carries a generation newer than any before it.
+        if ([machine.running].compactMap { $0 } + machine.queue).contains(where: { $0.operation == .removal && $0.generation > before.generation }) {
+            world.deletePending = true
         }
-        if currentRemoval(machine), currentRemoval(before) == false { world.deletePending = true }
         problems += apply(&machine, &world, effects: effects)
         if step == .retry, case .failed = before.state, before.failure == .removal {
             let started = [machine.running].compactMap { $0 } + machine.queue
@@ -161,10 +186,17 @@ struct SpeechModelExplorerTests {
             switch pending.removeFirst() {
             case .start(let job):
                 if let executing = world.executing { problems.append("started \(job.operation) while \(executing.operation) was running") }
+                world.executing = job
+                world.performing = false
+                world.landed = false
+                world.waits += 1
+            case .perform(let job):
+                if world.executing != job || world.performing { problems.append("performed \(job.operation) that had not begun") }
+                if job.operation != .removal, job.generation != machine.generation { problems.append("performed a stale \(job.operation)") }
                 if job.operation == .download, world.deletePending { problems.append("a download started before an accepted Delete ran") }
                 if job.operation == .removal { world.deletePending = false }
-                world.executing = job
-                world.landed = false
+                world.performing = true
+                world.waits += 1
             case .cancelRunningDownload:
                 if world.executing?.operation != .download { problems.append("cancelled a download that was not running") }
             case .removeReplacedDirectory:
@@ -179,6 +211,11 @@ struct SpeechModelExplorerTests {
     static func invariantViolations(_ machine: SpeechModelMachine, _ world: World) -> [String] {
         var problems: [String] = []
         if machine.running != world.executing { problems.append("machine runs \(String(describing: machine.running)) but the disk runs \(String(describing: world.executing))") }
+        // The older folder of a handover goes once the model is on disk, or on Cancel or Delete, and
+        // stays while the handover is still under way or its download failed.
+        if world.replacedOnDisk != machine.handoverPending {
+            problems.append("older folder on disk is \(world.replacedOnDisk) while the handover pending is \(machine.handoverPending)")
+        }
         guard machine.isIdle else { return problems }
         if world.deletePending { problems.append("idle with an accepted Delete that never ran") }
         switch machine.state {
@@ -204,7 +241,7 @@ struct SpeechModelExplorerTests {
         return [
             "\(machine.state)", "\(String(describing: machine.failure))", job(machine.running),
             machine.queue.map { job($0) }.joined(separator: ","), "\(machine.handoverPending)",
-            "\(node.world.modelOnDisk)", "\(node.world.replacedOnDisk)", "\(node.world.landed)", "\(node.world.deletePending)",
+            "\(node.world.modelOnDisk)", "\(node.world.replacedOnDisk)", "\(node.world.performing)", "\(node.world.landed)", "\(node.world.deletePending)",
         ].joined(separator: "|")
     }
 }
