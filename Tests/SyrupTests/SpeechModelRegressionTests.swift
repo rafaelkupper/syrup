@@ -85,7 +85,7 @@ struct SpeechModelRegressionTests {
         var stale = 0
         for attempt in 0..<120 {
             let yields = attempt % 6
-            let fixture = try RegressionFixture(modelOnDisk: kind == "load", operationsOnMainActor: true)
+            let fixture = try RegressionFixture(modelOnDisk: kind == "load", holdsAfterLanding: kind == "loadAfterDownload", operationsOnMainActor: true)
             defer { fixture.clean() }
             switch kind {
             case "load":
@@ -99,8 +99,11 @@ struct SpeechModelRegressionTests {
                 fixture.calls.append("click")
                 fixture.manager.cancelDownload()
             default:
+                // Held after landing, then let go, so the follow-up load starts a known number of
+                // turns before the click.
                 fixture.manager.download()
-                await eventually { fixture.calls.values.contains("download") }
+                await fixture.landed.wait()
+                fixture.releaseDownload()
                 for _ in 0..<yields { await Task.yield() }
                 fixture.calls.append("click")
                 fixture.manager.remove()

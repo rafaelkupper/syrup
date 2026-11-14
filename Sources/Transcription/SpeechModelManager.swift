@@ -25,8 +25,9 @@ final class SpeechModelManager: SpeechModelProviding {
     @ObservationIgnored private var machine: SpeechModelMachine
     /// The task of the job the machine is running, from its start to its finish. Jobs run one at a
     /// time, in the machine's order. One task per job: it asks the machine whether the job still
-    /// runs and starts the work without a suspension in between, so no click can come between the
-    /// check and the work.
+    /// runs and calls the operation without a suspension in between, so no click can come between
+    /// the check and the call. The call itself leaves the main actor, and a click can arrive while
+    /// it does, after the work was committed to, as it could in the old manager.
     @ObservationIgnored private var runningTask: Task<Void, Never>?
     /// A folder this model is taking over from; see `replace`.
     @ObservationIgnored private var replacedDirectory: URL?
