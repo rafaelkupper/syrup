@@ -37,7 +37,7 @@ There is no hosted CI. Run `script/ci_test.sh` locally for the production compil
 
 | Area | Responsibility |
 | --- | --- |
-| `Sources/App/` | Entry point, production wiring (`AppState.production`) and test host, menu, run state (`AppState`), the voice run's phases (`AppState+VoiceRun`), transformation and the delivery commit (`AppState+Delivery`), the event table (`PipelineTransitions`), editor delivery (`DeliveryCoordinator`), user messages, feedback, metrics |
+| `Sources/App/` | Entry point, production wiring (`AppState.production`) and test host, menu, pipeline state and the active run (`AppState`), the voice run's phases (`AppState+VoiceRun`), transformation and the delivery commit (`AppState+Delivery`), the event table (`PipelineTransitions`), editor delivery (`DeliveryCoordinator`), menu bar icon, recording cue, success flash, and error reset (`StatusIndicator`), Copy and Paste Last (`ResultActions`), speech warm-up and each run's model (`SpeechReadiness`), output-volume changes (`OutputVolumeChain`), user messages, feedback, metrics |
 | `Sources/Audio/`, `Sources/Transcription/` | Input devices, bounded live buffers, speech permission/assets, Apple transcription |
 | `Sources/Translation/` | Prompt composition, the one `RunConfiguration` builder, provider configuration, atomic and streamed output |
 | `Sources/Context/`, `Sources/Paste/`, `Sources/Clipboard/` | Opt-in selection, editor identity, paste/typing, clipboard commit/recovery |
