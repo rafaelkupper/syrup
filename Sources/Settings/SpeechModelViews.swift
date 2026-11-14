@@ -14,10 +14,15 @@ struct SpeechModelControls: View {
                 model.download()
             }
         case .downloading(let progress):
-            ProgressView(value: progress)
-                .frame(width: 160)
-                .accessibilityLabel("Downloading \(model.engine.displayName)")
-                .accessibilityValue(progress.formatted(.percent.precision(.fractionLength(0))))
+            HStack(spacing: 8) {
+                ProgressView(value: progress)
+                    .frame(width: 160)
+                    .accessibilityLabel("Downloading \(model.engine.displayName)")
+                    .accessibilityValue(progress.formatted(.percent.precision(.fractionLength(0))))
+                Button("Cancel") {
+                    model.cancelDownload()
+                }
+            }
         case .loading:
             HStack(spacing: 8) {
                 ProgressView()

@@ -12,6 +12,9 @@ struct OpenAISSEParser: Sendable {
     /// A chunk said `finish_reason: stop`: the answer is complete even if the server closes the
     /// stream without sending `[DONE]`, as some do.
     private(set) var didReceiveStop = false
+    /// `data:` chunks parsed so far, with answer text or without. Each one is progress: a model that
+    /// reasons before it answers sends chunks without `content` for a while.
+    private(set) var dataChunks = 0
 
     mutating func append(_ chunk: String) throws -> [OpenAISSEEvent] {
         guard didReceiveDone == false else { return [] }
@@ -61,6 +64,7 @@ struct OpenAISSEParser: Sendable {
         } catch {
             throw TranslationError.invalidResponse
         }
+        dataChunks += 1
 
         // A router can report a provider failure mid-stream, then still send `[DONE]`.
         guard response.reportsError == false else { throw TranslationError.providerReportedError }
@@ -85,7 +89,8 @@ struct OpenAISSEParser: Sendable {
         init(from decoder: any Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             reportsError = try container.contains(.error) && container.decodeNil(forKey: .error) == false
-            choices = reportsError ? [] : try container.decode([Choice].self, forKey: .choices)
+            // A chunk may carry neither, such as a usage-only chunk; it is skipped.
+            choices = reportsError ? [] : try container.decodeIfPresent([Choice].self, forKey: .choices) ?? []
         }
     }
 

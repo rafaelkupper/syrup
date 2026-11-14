@@ -115,6 +115,44 @@ struct StreamingTransformerTests {
         lines.continuation.finish()
     }
 
+    /// A model that reasons before it answers sends chunks without `content`. They are progress, so
+    /// they reset the deadline that only a stalled stream should reach.
+    @Test
+    func aChunkWithoutAnswerTextStillResetsTheInactivityDeadline() async {
+        let bytes = AsyncThrowingStream<UInt8, any Error>.makeStream()
+        let lines = AsyncStream<Void>.makeStream()
+        var lineIterator = lines.stream.makeAsyncIterator()
+        let sleeper = ManualStreamingInactivitySleeper()
+        let task = Task {
+            try await OpenAICompatibleTransformer.consumeSSE(
+                bytes: bytes.stream,
+                endpointHost: "example.com",
+                inactivityTimeout: .seconds(30),
+                inactivitySleeper: { duration in
+                    try await sleeper.sleep(for: duration)
+                },
+                lineObserver: {
+                    lines.continuation.yield()
+                },
+                onDelta: { _ in }
+            )
+        }
+
+        await sleeper.waitForCallCount(1)
+        yield(#"data: {"choices":[{"delta":{"reasoning_content":"Thinking"}}]}"# + "\n", to: bytes.continuation)
+        _ = await lineIterator.next()
+        await sleeper.waitForCallCount(2)
+        yield(#"data: {"choices":[{"delta":{"reasoning":"More"}}]}"# + "\n", to: bytes.continuation)
+        _ = await lineIterator.next()
+        await sleeper.waitForCallCount(3)
+        #expect(await sleeper.callCount == 3)
+
+        yield(#"data: {"choices":[{"delta":{"content":"Hi"},"finish_reason":"stop"}]}"# + "\n", to: bytes.continuation)
+        bytes.continuation.finish()
+        lines.continuation.finish()
+        await #expect(throws: Never.self) { try await task.value }
+    }
+
     @Test
     func doneStopsConsumptionBeforeBufferedTransportFailure() async throws {
         let bytes = AsyncThrowingStream<UInt8, any Error>.makeStream()

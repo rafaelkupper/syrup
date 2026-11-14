@@ -501,7 +501,11 @@ private actor RunningProcessBox {
         guard terminationReason != nil else { return }
         guard let process, process.isRunning else { return }
 
-        process.terminate()
+        // `Process` starts the CLI as the leader of its own process group, and the helpers it starts
+        // join that group, so signalling the group stops them too. A helper left running would hold
+        // the output pipes and, for Claude, the working folder the caller is about to delete.
+        let group = process.processIdentifier
+        kill(-group, SIGTERM)
 
         do {
             try await Task.sleep(nanoseconds: graceNanoseconds)
@@ -509,9 +513,9 @@ private actor RunningProcessBox {
             return
         }
 
-        if process.isRunning {
-            kill(process.processIdentifier, SIGKILL)
-        }
+        // Also when the CLI itself has exited: helpers that ignored SIGTERM keep the group, and its
+        // ID, alive. A helper that starts its own group or session is out of reach.
+        kill(-group, SIGKILL)
     }
 
     func throwIfTerminationRequested() throws {

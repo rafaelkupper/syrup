@@ -14,12 +14,16 @@ protocol StreamingSpeechBackend: Sendable {
 
 /// Runs backend calls strictly in order, so a cancelled run still finishing a
 /// chunk cannot interleave with the reset that starts the next run.
+///
+/// Each `begin` opens a numbered session, and `append` and `finish` name the session they
+/// belong to. A call from an earlier session is refused when it joins the queue, so a cancelled
+/// run that is still draining its converter can never feed audio into the run after it.
 actor StreamingSpeechEngine {
     private let backend: any StreamingSpeechBackend
     private var tail: Task<Void, Never>?
     private var isLoaded = false
-    /// Calls waiting or running, in order. Tests read it to know a call has joined the queue.
-    private(set) var queuedOperations = 0
+    /// The most recent session `begin` opened.
+    private(set) var currentSession = 0
 
     init(backend: any StreamingSpeechBackend) {
         self.backend = backend
@@ -35,25 +39,30 @@ actor StreamingSpeechEngine {
         _ = try? await inOrder { [backend] in await backend.unload() }
     }
 
-    func begin(localeID: String, onPartialTranscript: (@Sendable (String) -> Void)?) async throws {
+    /// Opens a session and returns its number. The number is taken before waiting for earlier
+    /// calls, so from here on every call from an earlier session is refused.
+    func begin(localeID: String, onPartialTranscript: (@Sendable (String) -> Void)?) async throws -> Int {
         guard isLoaded else { throw ParakeetError.notLoaded }
+        currentSession += 1
+        let session = currentSession
         try await inOrder { [backend] in
             try await backend.begin(localeID: localeID, onPartialTranscript: onPartialTranscript)
         }
+        return session
     }
 
-    func append(_ samples: [Float]) async throws {
+    func append(_ samples: [Float], session: Int) async throws {
+        guard session == currentSession else { throw CancellationError() }
         try await inOrder { [backend] in try await backend.append(samples) }
     }
 
-    func finish() async throws -> String {
-        try await inOrder { [backend] in try await backend.finish() }
+    func finish(session: Int) async throws -> String {
+        guard session == currentSession else { throw CancellationError() }
+        return try await inOrder { [backend] in try await backend.finish() }
     }
 
     private func inOrder<T: Sendable>(_ operation: @escaping @Sendable () async throws -> T) async throws -> T {
         let previous = tail
-        queuedOperations += 1
-        defer { queuedOperations -= 1 }
         let task = Task {
             await previous?.value
             return try await operation()
@@ -70,21 +79,34 @@ struct StreamingTranscriber: Transcriber {
         let locale = request.locale
         let onPartialTranscript = request.onPartialTranscript
         var converter = AnalyzerAudioConverter(targetFormat: ParakeetTranscriber.format)
-        try await engine.begin(localeID: locale.identifier, onPartialTranscript: onPartialTranscript)
+        let session = try await engine.begin(localeID: locale.identifier, onPartialTranscript: onPartialTranscript)
         for try await buffer in audio {
             try Task.checkCancellation()
-            try await engine.append(Self.samples(in: try converter.convert(buffer)))
+            try await engine.append(Self.samples(in: try converter.convert(buffer)), session: session)
         }
         for buffer in try converter.finish() {
-            try await engine.append(Self.samples(in: buffer))
+            try Task.checkCancellation()
+            try await engine.append(Self.samples(in: buffer), session: session)
         }
         try Task.checkCancellation()
-        return try await engine.finish().trimmingCharacters(in: .whitespacesAndNewlines)
+        return try await engine.finish(session: session).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private static func samples(in buffer: AVAudioPCMBuffer) -> [Float] {
         guard let channel = buffer.floatChannelData?[0] else { return [] }
         return Array(UnsafeBufferPointer(start: channel, count: Int(buffer.frameLength)))
+    }
+}
+
+enum ModelFiles {
+    /// Whether every named file is in `directory`. A compiled Core ML model (`.mlmodelc`) is a folder,
+    /// and like FluidAudio this counts it only once its `coremldata.bin` is there.
+    static func present(_ names: [String], in directory: URL) -> Bool {
+        names.allSatisfy { name in
+            var file = directory.appending(path: name)
+            if name.hasSuffix(".mlmodelc") { file = file.appending(path: "coremldata.bin") }
+            return FileManager.default.fileExists(atPath: file.path(percentEncoded: false))
+        }
     }
 }
 
@@ -97,10 +119,18 @@ actor NemotronBackend: StreamingSpeechBackend {
         directory.appending(path: "multilingual/\(chunkMs)ms", directoryHint: .isDirectory)
     }
 
+    /// Every file the manager loads must be there, not just `metadata.json`: a folder missing a
+    /// model fails to load, and Retry would load it again instead of downloading.
     static func modelsExist(at directory: URL) -> Bool {
-        FileManager.default.fileExists(
-            atPath: variantDirectory(in: directory).appending(path: "metadata.json").path(percentEncoded: false)
-        )
+        typealias Names = ModelNames.NemotronMultilingualStreaming
+        let variant = variantDirectory(in: directory)
+        // The manager accepts any one of these decoder layouts.
+        let decoders = [
+            ["decoder_joint_argmax.mlmodelc"], ["decoder_joint_noencproj.mlmodelc"], ["decoder_joint.mlmodelc"],
+            [Names.decoderFile, Names.jointFile],
+        ]
+        return ModelFiles.present([Names.metadata, Names.tokenizer, Names.encoderFile], in: variant)
+            && decoders.contains { ModelFiles.present($0, in: variant) }
     }
 
     /// "auto" selects the full multilingual model rather than the six-language Latin one.
@@ -155,10 +185,14 @@ private extension StreamingNemotronMultilingualAsrManager {
 actor ParakeetUnifiedBackend: StreamingSpeechBackend {
     private var manager: StreamingUnifiedAsrManager?
 
+    /// The four files `loadModels(from:)` reads, the same set FluidAudio's own download checks.
     static func modelsExist(at directory: URL) -> Bool {
         let config = UnifiedConfig()
-        let encoder = config.family.streamingEncoderFile(precision: .int8, contextSuffix: config.contextSuffix)
-        return FileManager.default.fileExists(atPath: directory.appending(path: encoder).path(percentEncoded: false))
+        let family = config.family
+        return ModelFiles.present([
+            family.streamingEncoderFile(precision: .int8, contextSuffix: config.contextSuffix),
+            family.decoderFile, family.jointDecisionFile, family.vocab,
+        ], in: directory)
     }
 
     /// FluidAudio's selective fetch takes only the streaming files, not the 11 GB repo, and verifies them by loading.

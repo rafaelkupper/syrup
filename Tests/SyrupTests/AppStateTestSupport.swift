@@ -164,7 +164,7 @@ func stateShowingAnError() -> AppState {
 @MainActor
 func makeTestSettings() -> AppSettings {
     let suiteName = testDomainName("SyrupAppStateTests")
-    guard let userDefaults = UserDefaults(suiteName: suiteName) else {
+    guard let userDefaults = TestDefaults(suiteName: suiteName) else {
         preconditionFailure("Unable to create isolated AppState test defaults")
     }
     userDefaults.removePersistentDomain(forName: suiteName)

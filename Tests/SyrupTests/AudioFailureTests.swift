@@ -34,7 +34,7 @@ struct AudioFailureTests {
 
     @Test func productionLevelTapOverflowAfterReleaseMustPreventDelivery() async throws {
         let suite = testDomainName("SyrupAudioAudit")
-        let defaults = try #require(UserDefaults(suiteName: suite))
+        let defaults = try #require(TestDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
         settings.showRecordingCue = true
@@ -66,7 +66,7 @@ struct AudioFailureTests {
 
     @Test func lateCaptureOverflowMustPreventDelivery() async throws {
         let suite = testDomainName("SyrupAudit")
-        let defaults = try #require(UserDefaults(suiteName: suite))
+        let defaults = try #require(TestDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
         settings.showRecordingCue = false

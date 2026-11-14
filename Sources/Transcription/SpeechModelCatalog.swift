@@ -32,15 +32,7 @@ final class SpeechModelCatalog {
         let retired = ultra.directory.deletingLastPathComponent()
             .appending(path: SpeechEngine.retiredParakeetV3Folder, directoryHint: .isDirectory)
         guard FileManager.default.fileExists(atPath: retired.path(percentEncoded: false)) else { return }
-        let removeRetired: @MainActor @Sendable () -> Void = { try? FileManager.default.removeItem(at: retired) }
-        switch ultra.state {
-        case .downloaded, .loading, .ready:
-            removeRetired()
-        case .notDownloaded, .failed:
-            ultra.download(onDownloaded: removeRetired)
-        case .downloading, .unsupported:
-            break
-        }
+        ultra.replace(retired)
     }
 
     static func live(storageDirectory: URL? = nil) -> SpeechModelCatalog {
@@ -106,19 +98,20 @@ final class SpeechModelCatalog {
         )
     }
 
-    /// Downloads into a staging folder, then moves the finished model into place. A folder already at
-    /// the destination is incomplete (a complete one would not be downloaded again), so it is replaced;
-    /// otherwise the move would fail on every retry until the person chose Delete.
+    /// Downloads into a staging folder, then moves the finished model into place. A complete model
+    /// already at the destination is kept and nothing downloads. An incomplete folder there is
+    /// replaced; otherwise the move would fail on every retry until the person chose Delete.
     static func stagedDownload(
         into directory: URL,
         modelsExist: @Sendable (URL) -> Bool,
         download: @Sendable (URL, @escaping @Sendable (Double) -> Void) async throws -> Void,
         progress: @escaping @Sendable (Double) -> Void
     ) async throws {
+        guard modelsExist(directory) == false else { return }
         let staging = SpeechModelManager.stagingDirectory(for: directory)
         try await download(staging, progress)
         let fileManager = FileManager.default
-        if fileManager.fileExists(atPath: directory.path(percentEncoded: false)), modelsExist(directory) == false {
+        if fileManager.fileExists(atPath: directory.path(percentEncoded: false)) {
             try fileManager.removeItem(at: directory)
         }
         try fileManager.moveItem(

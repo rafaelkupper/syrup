@@ -7,7 +7,7 @@ struct SmokeTests {
     @Test
     func idleMenuBarSymbolUsesWaveform() throws {
         let suiteName = testDomainName("SyrupSmokeTests")
-        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        let defaults = try #require(TestDefaults(suiteName: suiteName))
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let state = AppState.fixture(settings: AppSettings(userDefaults: defaults))
 

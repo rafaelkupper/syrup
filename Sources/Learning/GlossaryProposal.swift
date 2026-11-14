@@ -10,6 +10,10 @@ struct GlossaryProposal: Identifiable, Equatable, Sendable, Codable {
 
 struct GlossaryProposalList: Equatable, Codable {
     static let currentVersion = 1
+    /// Proposals wait for the person; past this many, new findings are dropped until they decide.
+    static let maximumProposals = 50
+    /// The oldest dismissals are forgotten past this many.
+    static let maximumDismissedKeys = 500
 
     var version: Int = currentVersion
     var proposals: [GlossaryProposal] = []
@@ -24,7 +28,8 @@ struct GlossaryProposalList: Equatable, Codable {
         guard normalizedTerm.isEmpty == false else { return false }
 
         let key = normalizedTerm.lowercased()
-        guard existingGlossary.terms.contains(where: { $0.term.lowercased() == key }) == false,
+        guard proposals.count < Self.maximumProposals,
+              existingGlossary.terms.contains(where: { $0.term.lowercased() == key }) == false,
               proposals.contains(where: { $0.term.lowercased() == key }) == false,
               dismissedKeys.contains(key) == false else {
             return false
@@ -52,6 +57,7 @@ struct GlossaryProposalList: Equatable, Codable {
         removeProposal(id: id)
         if key.isEmpty == false, dismissedKeys.contains(key) == false {
             dismissedKeys.append(key)
+            dismissedKeys.removeFirst(max(0, dismissedKeys.count - Self.maximumDismissedKeys))
         }
     }
 }

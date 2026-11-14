@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 import Testing
 @testable import Syrup
 
@@ -43,10 +44,11 @@ struct OpenAICompatibleTransformerTests {
         }
     }
 
-    /// Headers and body each arrive within the timeout, but together they take longer: one deadline
-    /// covers both, so the request still times out.
+    /// The non-streamed request, used only for a server that refuses to stream: headers and body each
+    /// arrive within the timeout, but together they take longer. One deadline covers both, so the
+    /// request still times out.
     @Test
-    func aReplyWhoseHeadersAndBodyTogetherTakeTooLongTimesOut() async throws {
+    func aNonStreamedReplyWhoseHeadersAndBodyTogetherTakeTooLongTimesOut() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [SlowURLProtocol.self]
         let transformer = OpenAICompatibleTransformer(
@@ -54,6 +56,61 @@ struct OpenAICompatibleTransformerTests {
             timeoutInterval: 1
         )
         await #expect(throws: TranslationError.timedOut) {
+            _ = try await transformer.transformWithUsage("hello", instruction: "Polish it.")
+        }
+    }
+
+    /// A run that shows no deltas still streams, so a model that keeps generating for longer than the
+    /// timeout in total is not cut off: each chunk resets the inactivity deadline.
+    @Test
+    func aSlowAnswerNobodyWatchesIsStreamedAndNotCutOff() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [DripURLProtocol.self]
+        DripURLProtocol.streamFlags.withLock { $0 = [] }
+        let transformer = OpenAICompatibleTransformer(
+            configuration: try Self.configuration(), session: URLSession(configuration: configuration),
+            timeoutInterval: 1
+        )
+        let output = try await transformer.transform("hello", instruction: "Polish it.")
+        #expect(output == "one two three")
+        #expect(DripURLProtocol.streamFlags.withLock { $0 } == [true])
+    }
+
+    /// Cancelling the caller ends the stream early; that must not return the part that arrived.
+    @Test
+    func aCancelledTransformThrowsInsteadOfReturningPartOfTheAnswer() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [DripURLProtocol.self]
+        let transformer = OpenAICompatibleTransformer(
+            configuration: try Self.configuration(), session: URLSession(configuration: configuration)
+        )
+        let task = Task { try await transformer.transform("hello", instruction: "Polish it.") }
+        task.cancel()
+        await #expect(throws: CancellationError.self) { _ = try await task.value }
+    }
+
+    @Test
+    func aPlainJSONAnswerUnderAnotherContentTypeStillDecodes() async throws {
+        let session = Self.stubbedSession { _ in
+            let (response, body) = Self.response(statusCode: 200, body: #"{"choices":[{"message":{"role":"assistant","content":"Hello"}}]}"#)
+            return (HTTPURLResponse(url: response.url!, statusCode: 200, httpVersion: nil,
+                                    headerFields: ["Content-Type": "text/plain"])!, body)
+        }
+        defer { StubURLProtocol.reset() }
+        let transformer = OpenAICompatibleTransformer(configuration: try Self.configuration(), session: session)
+        #expect(try await transformer.transform("hello", instruction: "Polish it.") == "Hello")
+    }
+
+    @Test
+    func aProxyPageInsteadOfAnAnswerIsAnInvalidResponse() async throws {
+        let session = Self.stubbedSession { _ in
+            let (response, body) = Self.response(statusCode: 200, body: "<html><body>Sign in to continue</body></html>")
+            return (HTTPURLResponse(url: response.url!, statusCode: 200, httpVersion: nil,
+                                    headerFields: ["Content-Type": "text/html"])!, body)
+        }
+        defer { StubURLProtocol.reset() }
+        let transformer = OpenAICompatibleTransformer(configuration: try Self.configuration(), session: session)
+        await #expect(throws: TranslationError.invalidResponse) {
             _ = try await transformer.transform("hello", instruction: "Polish it.")
         }
     }
@@ -595,7 +652,7 @@ struct OpenAICompatibleTransformerTests {
     @MainActor
     func appSettingsProviderFallsBackToEnvironmentWhenSavedAPIKeyIsEmpty() async throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         let (keychainStore, storageDirectory) = Self.temporaryKeychainStore()
         try? keychainStore.delete()
         defer {
@@ -632,7 +689,7 @@ struct OpenAICompatibleTransformerTests {
     @MainActor
     func appSettingsProviderIgnoresIncompleteEnvironmentWhenSavedAPIKeyIsEmpty() async throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         let (keychainStore, storageDirectory) = Self.temporaryKeychainStore()
         try? keychainStore.delete()
         defer {
@@ -668,7 +725,7 @@ struct OpenAICompatibleTransformerTests {
     @MainActor
     func appSettingsProviderUsesSavedSettingsAndLocalAPIKeyBeforeEnvironment() async throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         let (keychainStore, storageDirectory) = Self.temporaryKeychainStore()
         try? keychainStore.delete()
         defer {
@@ -706,7 +763,7 @@ struct OpenAICompatibleTransformerTests {
     @MainActor
     func runsAndConnectionTestTreatAWhitespaceSavedKeyTheSame() async throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         let (keychainStore, storageDirectory) = Self.temporaryKeychainStore()
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
@@ -847,6 +904,44 @@ final class SlowURLProtocol: URLProtocol, @unchecked Sendable {
                             cacheStoragePolicy: .notAllowed)
         Thread.sleep(forTimeInterval: 0.7)
         client?.urlProtocol(self, didLoad: Data(#"{"choices":[{"message":{"role":"assistant","content":"late"}}]}"#.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+}
+
+/// Streams three chunks half a second apart, 1.5 seconds in all, and records each request's `stream` flag.
+final class DripURLProtocol: URLProtocol, @unchecked Sendable {
+    static let streamFlags = Mutex<[Bool]>([])
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        let body = request.httpBodyStream.map { stream -> Data in
+            stream.open()
+            defer { stream.close() }
+            var data = Data()
+            var buffer = [UInt8](repeating: 0, count: 1_024)
+            while stream.hasBytesAvailable {
+                let count = stream.read(&buffer, maxLength: buffer.count)
+                guard count > 0 else { break }
+                data.append(buffer, count: count)
+            }
+            return data
+        } ?? request.httpBody ?? Data()
+        let json = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any]
+        Self.streamFlags.withLock { $0.append(json?["stream"] as? Bool ?? false) }
+
+        let url = request.url ?? URL(string: "https://example.com")!
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil,
+                                                              headerFields: ["Content-Type": "text/event-stream"])!,
+                            cacheStoragePolicy: .notAllowed)
+        for (index, word) in ["one", " two", " three"].enumerated() {
+            if index > 0 { Thread.sleep(forTimeInterval: 0.5) }
+            client?.urlProtocol(self, didLoad: Data((#"data: {"choices":[{"delta":{"content":"\#(word)"}}]}"# + "\n\n").utf8))
+        }
+        client?.urlProtocol(self, didLoad: Data("data: [DONE]\n\n".utf8))
         client?.urlProtocolDidFinishLoading(self)
     }
 

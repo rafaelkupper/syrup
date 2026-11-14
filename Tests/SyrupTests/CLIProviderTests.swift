@@ -211,7 +211,7 @@ struct CodexModelChoiceTests {
     @MainActor
     @Test func newSettingsUseTheAccountDefaultModel() throws {
         let suite = testDomainName("SyrupCodexDefault")
-        let defaults = try #require(UserDefaults(suiteName: suite))
+        let defaults = try #require(TestDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
         #expect(settings.codexModel.isEmpty)
@@ -224,7 +224,7 @@ struct CodexModelChoiceTests {
 struct OfferedProviderTests {
     private func settings() throws -> (AppSettings, UserDefaults, String) {
         let suite = testDomainName("SyrupOfferedProviders")
-        let defaults = try #require(UserDefaults(suiteName: suite))
+        let defaults = try #require(TestDefaults(suiteName: suite))
         return (AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" }), defaults, suite)
     }
 

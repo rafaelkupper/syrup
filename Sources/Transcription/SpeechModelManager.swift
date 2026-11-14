@@ -17,6 +17,9 @@ final class SpeechModelManager: SpeechModelProviding {
     @ObservationIgnored private let operations: Operations
     @ObservationIgnored private let fileManager: FileManager
     @ObservationIgnored private var generation = 0
+    @ObservationIgnored private var downloadTask: Task<Void, Never>?
+    /// A folder this model is taking over from; see `replace`.
+    @ObservationIgnored private var replacedDirectory: URL?
 
     init(
         engine: SpeechEngine,
@@ -44,8 +47,7 @@ final class SpeechModelManager: SpeechModelProviding {
         )
     }
 
-    /// `onDownloaded` runs once the model is on disk, before it loads.
-    func download(onDownloaded: (@MainActor () -> Void)? = nil) {
+    func download() {
         switch state {
         case .notDownloaded, .failed:
             break
@@ -57,20 +59,44 @@ final class SpeechModelManager: SpeechModelProviding {
         let generation = generation
         state = .downloading(0)
         let directory = directory
-        Task {
+        downloadTask = Task {
             do {
                 try protectStorageDirectory()
                 try await operations.download(directory) { fraction in
                     Task { @MainActor in self.updateDownloadProgress(fraction, generation: generation) }
                 }
-                onDownloaded?()
                 guard generation == self.generation else { return }
+                removeReplacedDirectory()
                 await load(generation: generation)
-            } catch is CancellationError {
-                if generation == self.generation { state = .notDownloaded }
             } catch {
                 if generation == self.generation { state = .failed("Download failed.") }
             }
+        }
+    }
+
+    /// Stops a download in progress. Files that finished stay in the staging folder, so the next
+    /// download can keep them. A handover this download was making (see `replace`) ends too.
+    func cancelDownload() {
+        guard case .downloading = state else { return }
+        generation += 1
+        downloadTask?.cancel()
+        state = .notDownloaded
+        removeReplacedDirectory()
+    }
+
+    /// Takes over from an older model's folder: downloads this model if it is missing and deletes the
+    /// older folder once this one is on disk. If the download fails, the older folder stays and the
+    /// next launch tries again. If the person cancels or deletes this model instead, the older
+    /// folder goes too, so a handover they stopped does not start again at every launch.
+    func replace(_ olderDirectory: URL) {
+        replacedDirectory = olderDirectory
+        switch state {
+        case .downloaded, .loading, .ready:
+            removeReplacedDirectory()
+        case .notDownloaded, .failed:
+            download()
+        case .downloading, .unsupported:
+            break
         }
     }
 
@@ -96,17 +122,25 @@ final class SpeechModelManager: SpeechModelProviding {
         Task { await load(generation: generation) }
     }
 
+    /// Deletes the model, its unfinished download, and any folder it was replacing. A download in
+    /// progress is cancelled first and allowed to stop before its folders are removed.
     func remove() {
+        var stoppingDownload: Task<Void, Never>?
         switch state {
-        case .downloading, .loading:
+        case .loading:
             return
+        case .downloading:
+            stoppingDownload = downloadTask
+            cancelDownload()
         case .unsupported, .notDownloaded, .downloaded, .ready, .failed:
             break
         }
 
         generation += 1
         let generation = generation
+        removeReplacedDirectory()
         Task {
+            await stoppingDownload?.value
             await operations.unload()
             guard generation == self.generation else { return }
             for folder in [directory, Self.stagingDirectory(for: directory)]
@@ -120,6 +154,12 @@ final class SpeechModelManager: SpeechModelProviding {
             }
             state = .notDownloaded
         }
+    }
+
+    private func removeReplacedDirectory() {
+        guard let replacedDirectory else { return }
+        self.replacedDirectory = nil
+        try? fileManager.removeItem(at: replacedDirectory)
     }
 
     private func load(generation: Int) async {

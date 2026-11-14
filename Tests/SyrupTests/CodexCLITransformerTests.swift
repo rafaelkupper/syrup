@@ -349,7 +349,7 @@ struct CodexCLITransformerTests {
         feeder.close()
     }
 
-    @Test
+    @MainActor @Test
     func processRunnerCancellationTerminatesRunningProcess() async throws {
         let runner = ProcessCommandRunner(killGraceNanoseconds: 50_000_000)
         let markerURL = FileManager.default.temporaryDirectory
@@ -371,8 +371,8 @@ struct CodexCLITransformerTests {
             )
         }
 
-        for _ in 0..<200 where FileManager.default.fileExists(atPath: markerURL.path(percentEncoded: false)) == false {
-            try await Task.sleep(nanoseconds: 10_000_000)
+        await eventually("The child never started") {
+            FileManager.default.fileExists(atPath: markerURL.path(percentEncoded: false))
         }
 
         let pidText = try String(contentsOf: markerURL, encoding: .utf8)
@@ -389,9 +389,7 @@ struct CodexCLITransformerTests {
         }
         #expect(caughtCancellation)
 
-        for _ in 0..<200 where Darwin.kill(pid, 0) == 0 {
-            try await Task.sleep(nanoseconds: 10_000_000)
-        }
+        await eventually("The child is still running") { Darwin.kill(pid, 0) != 0 }
         #expect(Darwin.kill(pid, 0) != 0)
     }
 

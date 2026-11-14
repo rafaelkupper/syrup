@@ -231,7 +231,7 @@ private final class CaretFitFixture {
     var context: CaretContext? = CaretContext(precedingWordCharacter: true, continuesSentence: true, textFollows: true)
 
     init() {
-        defaults = UserDefaults(suiteName: suite)!
+        defaults = TestDefaults(suiteName: suite)!
         settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
         #expect(!settings.matchesSentenceAtCaret)
         settings.matchesSentenceAtCaret = true

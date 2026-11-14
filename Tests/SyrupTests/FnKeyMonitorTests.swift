@@ -126,7 +126,7 @@ struct FnKeyHotkeyTests {
             clock: any RecordingClock = FastForwardClock(),
             transformer: FakeTextTransformer = FakeTextTransformer(.success("fixture"))
         ) {
-            let settings = AppSettings(userDefaults: UserDefaults(suiteName: suite)!, defaultMicrophoneIDProvider: { "" })
+            let settings = AppSettings(userDefaults: TestDefaults(suiteName: suite)!, defaultMicrophoneIDProvider: { "" })
             settings.hotkeyMode = mode
             let state = AppState.fixture(
                 settings: settings, audioRecorder: FakeRecorder(),
@@ -462,7 +462,7 @@ struct FnKeyHotkeyTests {
 
     @Test func theOptionIsOffByDefaultAndPersists() {
         let suite = testDomainName("SyrupFnKeyTests")
-        let defaults = UserDefaults(suiteName: suite)!
+        let defaults = TestDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
         #expect(settings.dictateWithFnKey == false)

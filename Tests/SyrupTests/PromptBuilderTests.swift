@@ -359,13 +359,13 @@ struct DictationOptionsPromptTests {
 struct DictationOptionsSettingsTests {
     private func settings() -> AppSettings {
         let suite = testDomainName("DictationOptionsSettingsTests")
-        let defaults = UserDefaults(suiteName: suite)!
+        let defaults = TestDefaults(suiteName: suite)!
         return AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
     }
 
     @Test func bothDefaultOffAndPersistSeparately() {
         let suite = testDomainName("DictationOptionsSettingsTests")
-        let defaults = UserDefaults(suiteName: suite)!
+        let defaults = TestDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let first = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
         #expect(first.handlesSelfCorrections == false)
@@ -495,6 +495,39 @@ struct RetryGlossaryTests {
             glossary: PromptBuilder.glossaryBlock(for: new), context: nil, contract: PromptBuilder.outputContract
         ))
         #expect(retry.inputText == "base text")
+    }
+
+    /// The retry's record holds what the retry sent, so a deleted term does not stay in history; an
+    /// older custom record gains its parts.
+    @Test func aRetryRecordsTheInstructionItSent() throws {
+        let kind = WorkflowKind.custom(instruction: "Polish it.", enforceOutputContract: true)
+        for original in [
+            recorded(kind, glossary: old),
+            TransformationSnapshot.custom(workflowName: "Custom", instruction: PromptBuilder.instruction(for: kind, glossary: old)),
+        ] {
+            let retry = try #require(RunConfigurationBuilder.retry(
+                transformation: original, transcript: "words", output: nil, provider: .openAICompatible,
+                activeWorkflow: workflow, glossary: new, dictation: .off
+            ))
+            #expect(retry.configuration.transformation == .custom(
+                workflowName: "Custom", instruction: PromptBuilder.instruction(for: kind, glossary: new),
+                prompt: TransformationSnapshot.CustomPrompt(base: "Polish it.", enforcesOutputContract: true)
+            ))
+            #expect(retry.configuration.instruction.contains("Zorvex") == false)
+        }
+
+        let savedRevision = PromptBuilder.compose(
+            base: PromptBuilder.revisionInstruction(adjustment: "shorter"),
+            glossary: PromptBuilder.glossaryBlock(for: old), context: nil, contract: PromptBuilder.outputContract
+        )
+        let revision = try #require(RunConfigurationBuilder.retry(
+            transformation: .revision(adjustment: "shorter", instruction: savedRevision), transcript: "shorter",
+            output: "base text", provider: .openAICompatible, activeWorkflow: workflow, glossary: new, dictation: .off
+        ))
+        #expect(revision.configuration.transformation == .revision(
+            adjustment: "shorter", instruction: revision.configuration.instruction
+        ))
+        #expect(revision.configuration.instruction.contains("Zorvex") == false)
     }
 
     @Test func glossaryTermsAreOneLine() {

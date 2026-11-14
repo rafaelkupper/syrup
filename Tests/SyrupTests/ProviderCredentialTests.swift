@@ -96,7 +96,7 @@ struct ProviderCredentialTests {
     }
 
     private func fixtureSettings() -> AppSettings {
-        let defaults = UserDefaults(suiteName: testDomainName("SyrupReviewTests"))!
+        let defaults = TestDefaults(suiteName: testDomainName("SyrupReviewTests"))!
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
         settings.showRecordingCue = false
         settings.playSounds = false

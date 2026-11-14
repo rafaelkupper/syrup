@@ -639,11 +639,16 @@ struct OnboardingView: View {
         return false
     }
 
+    /// A key that cannot be read is reported, as Settings does, rather than shown as no key stored.
     private func loadAPIKeyState() {
-        Task {
-            hasStoredAPIKey = await Task.detached(priority: .userInitiated) { [keychainStore] in
-                (try? keychainStore.load())??.isEmpty == false
-            }.value
+        Task { @MainActor in
+            do {
+                hasStoredAPIKey = try await Task.detached(priority: .userInitiated) { [keychainStore] in
+                    try keychainStore.load()?.isEmpty == false
+                }.value
+            } catch {
+                connectionTest.show(.failure(userMessage(for: error)))
+            }
         }
     }
 

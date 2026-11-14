@@ -386,7 +386,9 @@ struct AppStateTriggerTests {
         await sleeper.waitForCallCount(2)
 
         await sleeper.resumeCall(0, throwing: CancellationError())
-        await Task.yield()
+        // Resuming the stale reset queued its last step on the main actor; one more main-actor hop
+        // runs after it, so the check below sees what that step did.
+        await Task { @MainActor in }.value
 
         #expect(state.pipelineState == .error("Something went wrong"))
 

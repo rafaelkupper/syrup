@@ -42,7 +42,7 @@ extension AppState {
         // the provider settings frozen at the trigger, so an endpoint edited mid-run waits for the next run.
         guard let transformerTask = preparedTransformerTask ?? activeRun?.preparedTransformer else {
             assertionFailure("A transformation run started without preparing its transformer")
-            throw CancellationError()
+            throw PipelineError.transformerNotPrepared
         }
 
         let transformer = await withTaskCancellationHandler {

@@ -398,7 +398,7 @@ private func makeCueState(
 @MainActor
 private func makeCueTestSettings() -> AppSettings {
     let suiteName = testDomainName("SyrupRecordingCueTests")
-    guard let userDefaults = UserDefaults(suiteName: suiteName) else {
+    guard let userDefaults = TestDefaults(suiteName: suiteName) else {
         preconditionFailure("Unable to create isolated recording-cue test defaults")
     }
     userDefaults.removePersistentDomain(forName: suiteName)

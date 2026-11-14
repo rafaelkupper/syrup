@@ -132,6 +132,62 @@ struct SpeechModelManagerTests {
         #expect(FileManager.default.fileExists(atPath: SpeechModelManager.stagingDirectory(for: directory).path(percentEncoded: false)) == false)
     }
 
+    @Test func aCompleteModelAtTheDestinationIsKeptAndNothingDownloads() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: testDomainName("SpeechModelStaging"), directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let directory = root.appending(path: "model", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try Data("weights".utf8).write(to: directory.appending(path: "weights.bin"))
+        let complete: @Sendable (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.appending(path: "weights.bin").path(percentEncoded: false)) }
+        let downloads = CallLog()
+
+        try await SpeechModelCatalog.stagedDownload(into: directory, modelsExist: complete, download: { _, _ in
+            downloads.record("download")
+        }, progress: { _ in })
+
+        #expect(downloads.calls == [])
+        #expect(complete(directory))
+    }
+
+    @Test func cancelStopsTheDownload() async throws {
+        let fixture = try Fixture(onDisk: false, downloadsWaitForCancel: true)
+        fixture.manager.download()
+        await eventually { fixture.log.calls == ["download"] }
+        fixture.manager.cancelDownload()
+        #expect(fixture.manager.state == .notDownloaded)
+        await eventually { fixture.log.calls == ["download", "download cancelled"] }
+        #expect(fixture.log.calls == ["download", "download cancelled"])
+    }
+
+    @Test func deleteWhileDownloadingCancelsTheDownloadThenRemovesWhatItFetched() async throws {
+        let fixture = try Fixture(onDisk: false, downloadsWaitForCancel: true)
+        let staging = SpeechModelManager.stagingDirectory(for: fixture.manager.directory)
+        fixture.manager.download()
+        await eventually { fixture.log.calls == ["download"] }
+        try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+        fixture.manager.remove()
+        await eventually { fixture.log.calls.count == 3 }
+        await eventually { FileManager.default.fileExists(atPath: staging.path(percentEncoded: false)) == false }
+        #expect(fixture.log.calls == ["download", "download cancelled", "unload"])
+        #expect(FileManager.default.fileExists(atPath: staging.path(percentEncoded: false)) == false)
+        #expect(fixture.manager.state == .notDownloaded)
+    }
+
+    /// Without this, the handover would start the 632 MB download again at every launch.
+    @Test func cancellingTheUltraHandoverDeletesV3SoTheNextLaunchDoesNotStartItAgain() async throws {
+        let fixture = try Fixture(onDisk: false, downloadsWaitForCancel: true)
+        let retired = fixture.root.appending(path: SpeechEngine.retiredParakeetV3Folder, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: retired, withIntermediateDirectories: true)
+        let catalog = SpeechModelCatalog(managers: [.parakeetUltra: fixture.manager], transcribers: [:])
+        catalog.replaceRetiredParakeetV3()
+        #expect(fixture.manager.state == .downloading(0))
+        fixture.manager.cancelDownload()
+        #expect(FileManager.default.fileExists(atPath: retired.path(percentEncoded: false)) == false)
+
+        catalog.replaceRetiredParakeetV3()
+        #expect(fixture.manager.state == .notDownloaded)
+    }
+
     @Test func aFailedUltraDownloadKeepsParakeetV3SoTheNextLaunchTriesAgain() async throws {
         let fixture = try Fixture(onDisk: false, failingDownloads: 1)
         let retired = fixture.root.appending(path: SpeechEngine.retiredParakeetV3Folder, directoryHint: .isDirectory)
@@ -199,7 +255,11 @@ private final class Fixture {
     /// Records "reported" once the fake download has made all its progress reports.
     let progressLog: CallLog
 
-    init(onDisk: Bool, isSupported: Bool = true, progress: [Double] = [], failingDownloads: Int = 0, failingLoads: Int = 0) throws {
+    /// `downloadsWaitForCancel`: a download stays in progress until its task is cancelled.
+    init(
+        onDisk: Bool, isSupported: Bool = true, progress: [Double] = [], failingDownloads: Int = 0, failingLoads: Int = 0,
+        downloadsWaitForCancel: Bool = false
+    ) throws {
         let root = FileManager.default.temporaryDirectory.appending(path: testDomainName("SpeechModelManagerTests"), directoryHint: .isDirectory)
         let log = CallLog(), gate = Gate()
         self.root = root
@@ -216,6 +276,14 @@ private final class Fixture {
                 modelsExist: { _ in onDiskFlag.withLock { $0 } },
                 download: { directory, report in
                     log.record("download")
+                    if downloadsWaitForCancel {
+                        do {
+                            try await Task.sleep(for: .seconds(3_600))
+                        } catch {
+                            log.record("download cancelled")
+                            throw error
+                        }
+                    }
                     if failures.withLock({ count in
                         count -= 1
                         return count >= 0

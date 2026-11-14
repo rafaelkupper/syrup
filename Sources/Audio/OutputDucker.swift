@@ -26,10 +26,10 @@ actor OutputDucker {
 
     init(
         controller: any OutputVolumeControlling = CoreAudioOutputVolumeController(),
-        defaultsSuiteName: String? = nil
+        userDefaults: UserDefaults = .standard
     ) {
         self.controller = controller
-        self.userDefaults = defaultsSuiteName.flatMap(UserDefaults.init(suiteName:)) ?? .standard
+        self.userDefaults = userDefaults
     }
 
     func lower() throws {

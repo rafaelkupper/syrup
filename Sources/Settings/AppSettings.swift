@@ -157,8 +157,8 @@ final class AppSettings {
     var transformsOnPause: Bool {
         didSet { userDefaults.set(transformsOnPause, forKey: Self.transformsOnPauseKey) }
     }
-    /// Changes only through `setPersistHistory`, so nothing can skip deleting the file on opt-out.
-    private(set) var persistHistory: Bool {
+    /// Changes only through `PrivacyOptIns`, so nothing can skip deleting the file on opt-out.
+    fileprivate(set) var persistHistory: Bool {
         didSet {
             userDefaults.set(persistHistory, forKey: Self.persistHistoryKey)
         }
@@ -173,14 +173,12 @@ final class AppSettings {
             userDefaults.set(includeCommonTechTerms, forKey: Self.includeCommonTechTermsKey)
         }
     }
-    /// Changes only through `setGlossaryLearning`, so nothing can skip deleting recordings on opt-out.
-    private(set) var glossaryLearningEnabled: Bool {
+    /// Changes only through `PrivacyOptIns`, so nothing can skip deleting recordings on opt-out.
+    fileprivate(set) var glossaryLearningEnabled: Bool {
         didSet {
             userDefaults.set(glossaryLearningEnabled, forKey: Self.glossaryLearningEnabledKey)
         }
     }
-    /// Counts learning changes, so an older opt-out's failed deletion cannot undo a newer choice.
-    @ObservationIgnored private var glossaryLearningChange = 0
     var showLiveTranscript: Bool {
         didSet {
             userDefaults.set(showLiveTranscript, forKey: Self.showLiveTranscriptKey)
@@ -413,33 +411,6 @@ final class AppSettings {
         updateWorkflow(id: workflow.id) { $0.dictationLocaleID = replacement }
     }
 
-    // MARK: - Privacy opt-ins
-
-    /// The only way to change Keep history. The store acts first: turning it off deletes the file, and
-    /// the setting follows only if that worked, so it never claims an opt-out it didn't honor.
-    func setPersistHistory(_ isEnabled: Bool, history: HistoryStore) async {
-        if await history.setPersistenceEnabled(isEnabled) { persistHistory = isEnabled }
-    }
-
-    /// The only way to change glossary learning. Turning it off deletes every pending recording; if that
-    /// fails the setting goes back on, so Syrup never claims an opt-out it didn't honor, unless a later
-    /// change superseded this one. The setting changes at once, and the returned task finishes the
-    /// deletion.
-    @discardableResult
-    func setGlossaryLearning(_ isEnabled: Bool, recordingArchive: (any RecordingArchiving)?) -> Task<Void, Never> {
-        glossaryLearningChange += 1
-        let change = glossaryLearningChange
-        glossaryLearningEnabled = isEnabled
-        guard isEnabled == false, let recordingArchive else { return Task {} }
-        return Task {
-            do {
-                try await recordingArchive.deleteAll()
-            } catch {
-                if glossaryLearningChange == change { glossaryLearningEnabled = true }
-            }
-        }
-    }
-
     @discardableResult
     func addWorkflow(from template: WorkflowTemplate) -> UUID {
         let workflow = template.workflow(dictationLocaleID: activeWorkflow.dictationLocaleID)
@@ -492,6 +463,13 @@ final class AppSettings {
     @discardableResult
     func addGlossaryProposal(_ proposal: GlossaryProposal) -> Bool {
         glossaryProposals.addIfNew(proposal, existingGlossary: glossaryList)
+    }
+
+    /// Adds several proposals with one write of the stored list.
+    func addGlossaryProposals(_ proposals: [GlossaryProposal]) {
+        var list = glossaryProposals
+        let added = proposals.filter { list.addIfNew($0, existingGlossary: glossaryList) }
+        if added.isEmpty == false { glossaryProposals = list }
     }
 
     func removeGlossaryProposal(id: UUID) {
@@ -572,8 +550,9 @@ final class AppSettings {
         )
     }
 
-    /// Writes a versioned JSON blob. A blob saved by a newer build loads empty here and must
-    /// survive edits made in this build, so it is never overwritten.
+    /// Writes a versioned JSON blob. A blob saved by a newer build loads empty here (the workflow
+    /// list loads the default workflow instead, so there is always one to run) and must survive edits
+    /// made in this build, so it is never overwritten.
     @discardableResult
     private func persistVersioned<Value: Encodable>(
         _ value: Value, version: Int, forKey key: String, name: String
@@ -632,6 +611,8 @@ final class AppSettings {
     /// Copies a blob this build cannot use (an older version, or data that does not decode) to a backup
     /// key named by its digest, before the first edit replaces it. The copy is idempotent across launches.
     /// A newer build's blob is left alone: it stays in place, and `persistVersioned` never overwrites it.
+    /// Only the newest backup per key is kept, since a backup holds user content (glossary terms,
+    /// workflow instructions) that would otherwise outlive the person deleting it from Settings.
     static func preserveUnusableBlob(
         _ data: Data, forKey key: String, currentVersion: Int, name: String, in userDefaults: UserDefaults
     ) {
@@ -640,6 +621,10 @@ final class AppSettings {
         }
         let backupKey = unusableBlobBackupKey(for: data, key: key)
         guard userDefaults.data(forKey: backupKey) == nil else { return }
+        for older in userDefaults.dictionaryRepresentation().keys
+        where older.hasPrefix(key + ".unreadable.") && older != backupKey {
+            userDefaults.removeObject(forKey: older)
+        }
         userDefaults.set(data, forKey: backupKey)
         logger.notice("settings_blob_preserved blob=\(name, privacy: .public)")
     }
@@ -695,5 +680,51 @@ final class AppSettings {
             translationProvider: nil
         )
         return WorkflowList(workflows: [workflow])
+    }
+}
+
+/// The only way to change the two privacy opt-ins. It holds what their opt-outs must delete, the
+/// history store and the recording archive the app keeps, fixed when the app starts, so no caller
+/// can turn one off without deleting what it kept. `AppSettings` lets only this file set them.
+@MainActor
+final class PrivacyOptIns {
+    let settings: AppSettings
+    private let history: HistoryStore
+    /// Nil only for an app that keeps no recordings, which then has nothing to delete.
+    private let recordingArchive: (any RecordingArchiving)?
+    /// Counts learning changes, so an older opt-out cannot act after a newer choice.
+    private var glossaryLearningChange = 0
+
+    init(settings: AppSettings, history: HistoryStore, recordingArchive: (any RecordingArchiving)?) {
+        self.settings = settings
+        self.history = history
+        self.recordingArchive = recordingArchive
+    }
+
+    /// Keep history. The store acts first: turning it off deletes the file, and the setting follows
+    /// only if that worked, so it never claims an opt-out it didn't honor.
+    func setPersistHistory(_ isEnabled: Bool) async {
+        if await history.setPersistenceEnabled(isEnabled) { settings.persistHistory = isEnabled }
+    }
+
+    /// Glossary learning. The setting changes at once, and turning it off deletes every pending
+    /// recording in the returned task. If the deletion fails, the setting goes back on, so Syrup never
+    /// claims an opt-out it didn't honor. A newer change supersedes this one: if it comes before the
+    /// deletion starts, nothing is deleted, so turning learning back on keeps new recordings; and a
+    /// failure no longer turns learning back on.
+    @discardableResult
+    func setGlossaryLearning(_ isEnabled: Bool) -> Task<Void, Never> {
+        glossaryLearningChange += 1
+        let change = glossaryLearningChange
+        settings.glossaryLearningEnabled = isEnabled
+        guard isEnabled == false, let recordingArchive else { return Task {} }
+        return Task {
+            guard glossaryLearningChange == change else { return }
+            do {
+                try await recordingArchive.deleteAll()
+            } catch {
+                if glossaryLearningChange == change { settings.glossaryLearningEnabled = true }
+            }
+        }
     }
 }

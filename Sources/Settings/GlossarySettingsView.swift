@@ -34,6 +34,7 @@ struct GlossarySettingsView: View {
     @Bindable var settings: AppSettings
     @Bindable var navigation: SettingsNavigation
     let recordingArchive: (any RecordingArchiving)?
+    let privacyOptIns: PrivacyOptIns
     @Bindable var whisperModelManager: WhisperModelManager
     let learningCoordinator: GlossaryLearningCoordinator?
     @Environment(MishearingSuggestionModel.self) private var suggestions
@@ -444,13 +445,13 @@ struct GlossarySettingsView: View {
         learningCoordinator?.isRunning == true
     }
 
-    /// Turning learning off always deletes pending recordings (`AppSettings.setGlossaryLearning`); the
+    /// Turning learning off always deletes pending recordings (`PrivacyOptIns.setGlossaryLearning`); the
     /// model is a separate 626 MB decision, so ask.
     private var learningToggleBinding: Binding<Bool> {
         Binding {
             settings.glossaryLearningEnabled
         } set: { isEnabled in
-            settings.setGlossaryLearning(isEnabled, recordingArchive: recordingArchive)
+            privacyOptIns.setGlossaryLearning(isEnabled)
             if isEnabled == false, whisperModelManager.state == .ready {
                 isConfirmingModelRemoval = true
             }

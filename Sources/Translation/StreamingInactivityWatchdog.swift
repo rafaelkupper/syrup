@@ -23,7 +23,7 @@ actor StreamingInactivityWatchdog {
         scheduleDeadline()
     }
 
-    func noteDelta() {
+    func noteProgress() {
         scheduleDeadline()
     }
 

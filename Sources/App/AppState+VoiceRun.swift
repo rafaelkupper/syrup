@@ -218,7 +218,7 @@ extension AppState {
         let runID = run.id
         try Task.checkCancellation()
 
-        await waitForStopRecording()
+        await waitForStopRecording(run)
         guard isCurrentRun(runID) else { throw CancellationError() }
         try Task.checkCancellation()
 
@@ -374,12 +374,14 @@ extension AppState {
         }
     }
 
-    private func waitForStopRecording() async {
+    /// Waits on `run` itself, so a run that is superseded meanwhile cannot leave its caller waiting on
+    /// another run's stop. A run that is no longer active, or already stopping, gets no further signal.
+    private func waitForStopRecording(_ run: PipelineRun) async {
         await withCheckedContinuation { continuation in
-            if activeRun?.recordingPhase == .stopping {
+            if activeRun !== run || run.recordingPhase == .stopping {
                 continuation.resume()
             } else {
-                activeRun?.stopWaiter = continuation
+                run.stopWaiter = continuation
             }
         }
     }

@@ -70,6 +70,17 @@ struct HomeStatusTests {
         #expect(HomeStatus.destination(provider: .openAICompatible, baseURL: "") == "Your OpenAI-compatible endpoint")
     }
 
+    /// A Debug build's development environment can send runs elsewhere than the saved endpoint.
+    @Test
+    func destinationNamesADevelopmentOverrideRunsActuallyUse() {
+        let local = "http://localhost:11434/v1"
+        #expect(HomeStatus.destination(provider: .openAICompatible, baseURL: local, resolvedHost: "localhost") == "localhost")
+        #expect(HomeStatus.destination(provider: .openAICompatible, baseURL: local, resolvedHost: nil) == "localhost")
+        #expect(HomeStatus.destination(provider: .openAICompatible, baseURL: local, resolvedHost: "api.example.com")
+            == "api.example.com (development override)")
+        #expect(HomeStatus.destination(provider: .appleOnDevice, baseURL: local, resolvedHost: "api.example.com") == nil)
+    }
+
     @Test
     func navigationOpensAWorkflowAndKeepsItAcrossTabs() {
         let navigation = SettingsNavigation()
@@ -137,7 +148,7 @@ struct HomeStatusTests {
 struct OnboardingLogicTests {
     private func makeDefaults() throws -> (UserDefaults, String) {
         let suite = testDomainName("SyrupOnboardingTests")
-        return (try #require(UserDefaults(suiteName: suite)), suite)
+        return (try #require(TestDefaults(suiteName: suite)), suite)
     }
 
     @Test

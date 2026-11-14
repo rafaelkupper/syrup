@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import Synchronization
 import Testing
 @testable import Syrup
 
@@ -21,15 +22,77 @@ enum TestRun {
 }
 
 /// A unique name for a test's preference domain or scratch item:
-/// `org.syrup.tests.<run token>.<prefix>.<UUID>`. Every test domain lives under that one namespace, so
-/// `script/test-isolated.sh` can remove a run's preference files without matching anything another
-/// app owns, and the run token keeps concurrent runs from deleting each other's.
+/// `org.syrup.tests.<run token>.<prefix>.<UUID>`. Every test name lives under that one namespace, so
+/// `script/test-isolated.sh` can remove a run's leftovers without matching anything another app owns,
+/// and the run token keeps concurrent runs from deleting each other's.
 func testDomainName(_ prefix: String) -> String {
     "\(TestRun.domainNamespace).\(TestRun.token).\(prefix).\(UUID().uuidString)"
 }
 
-/// A history store whose persistence is already on, so `AppSettings.setPersistHistory(true, ...)`
+/// What tests use instead of `TestDefaults(suiteName:)`: the same API, kept in memory, so a test
+/// never writes a preference file. cfprefsd saves a real domain up to about 10 seconds after the
+/// test process ends, so files deleted when a run finishes could come back (a round-6 review saw 449
+/// do so), and removing even an unused domain leaves an empty file. Instances with the same suite
+/// name share their values, as real suites do, so a test can reload settings from them. Every
+/// accessor the app uses goes through `object(forKey:)` and `set(_:forKey:)`, which are overridden;
+/// values are stored as their Foundation objects, as UserDefaults returns them.
+final class TestDefaults: UserDefaults {
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var suites: [String: [String: AnyObject]] = [:]
+    private let suite: String
+
+    override init?(suiteName: String?) {
+        suite = suiteName ?? ""
+        // Never read or written: every accessor below is overridden.
+        super.init(suiteName: "\(TestRun.domainNamespace).unused-backing-store")
+    }
+
+    /// Forgets a suite's values; the in-memory counterpart of removing a persistent domain.
+    static func removeSuite(_ name: String) {
+        lock.withLock { _ = suites.removeValue(forKey: name) }
+    }
+
+    override func object(forKey defaultName: String) -> Any? {
+        Self.lock.withLock { Self.suites[suite]?[defaultName] }
+    }
+
+    override func set(_ value: Any?, forKey defaultName: String) {
+        let stored = value.map { $0 as AnyObject }
+        Self.lock.withLock { Self.suites[suite, default: [:]][defaultName] = stored }
+    }
+
+    override func removeObject(forKey defaultName: String) {
+        set(nil, forKey: defaultName)
+    }
+
+    override func dictionaryRepresentation() -> [String: Any] {
+        Self.lock.withLock { Self.suites[suite] ?? [:] }
+    }
+
+    override func removePersistentDomain(forName domainName: String) {
+        Self.removeSuite(domainName)
+    }
+
+    override func synchronize() -> Bool { true }
+}
+
+/// A history store whose persistence is already on, so `PrivacyOptIns.setPersistHistory(true)`
 /// succeeds without writing anything. Its folder is never created.
+@MainActor
+extension AppSettings {
+    /// The opt-in owner around the stores a test gives it.
+    func privacyOptIns(
+        history: HistoryStore = HistoryStore(), recordingArchive: (any RecordingArchiving)? = nil
+    ) -> PrivacyOptIns {
+        PrivacyOptIns(settings: self, history: history, recordingArchive: recordingArchive)
+    }
+
+    /// For a test that only needs the flag: there are no recordings to delete.
+    func setGlossaryLearningForTesting(_ isEnabled: Bool) {
+        privacyOptIns().setGlossaryLearning(isEnabled)
+    }
+}
+
 @MainActor
 func enabledHistoryStore() -> HistoryStore {
     HistoryStore(
@@ -509,9 +572,22 @@ actor SpyRecordingArchive: RecordingArchiving {
     private(set) var deletedEntryIDs: [UUID] = []
     private(set) var deleteAllCount = 0
     private let deleteAllError: RecordingArchiveError?
+    private let holdsFirstDeleteAllThenFails: Bool
+    private let firstDeleteAll = AsyncStream<Void>.makeStream()
+    private let release = AsyncStream<Void>.makeStream()
 
-    init(deleteAllError: RecordingArchiveError? = nil) {
+    /// `holdsFirstDeleteAllThenFails`: the first `deleteAll` waits for `releaseFirstDeleteAll`, then fails.
+    init(deleteAllError: RecordingArchiveError? = nil, holdsFirstDeleteAllThenFails: Bool = false) {
         self.deleteAllError = deleteAllError
+        self.holdsFirstDeleteAllThenFails = holdsFirstDeleteAllThenFails
+    }
+
+    func firstDeleteAllStarted() async {
+        for await _ in firstDeleteAll.stream { return }
+    }
+
+    nonisolated func releaseFirstDeleteAll() {
+        release.continuation.yield()
     }
 
     func beginEntry(id: UUID) async throws -> URL {
@@ -560,6 +636,11 @@ actor SpyRecordingArchive: RecordingArchiving {
 
     func deleteAll() async throws {
         deleteAllCount += 1
+        if holdsFirstDeleteAllThenFails, deleteAllCount == 1 {
+            firstDeleteAll.continuation.yield()
+            for await _ in release.stream { break }
+            throw RecordingArchiveError.deleteAllFailed(code: 513)
+        }
         if let deleteAllError {
             throw deleteAllError
         }

@@ -108,6 +108,29 @@ struct OpenAISSEParsingTests {
         }
     }
 
+    @Test func aChunkWithoutChoicesOrAnErrorIsSkipped() async throws {
+        let output = try await consume(
+            #"data: {"usage":{"prompt_tokens":3,"completion_tokens":1}}"# + "\n\n"
+            + #"data: {"choices":[{"delta":{"content":"Hi"}}]}"# + "\n\n" + "data: [DONE]\n\n"
+        )
+        #expect(output == "Hi")
+    }
+
+    /// A 200 that never sends an event goes back to the caller, which decodes it as a plain answer or
+    /// fails it as invalid. Only whitespace and comments mean the connection dropped.
+    @Test func aReplyWithoutOneEventGoesBackToTheCallerUnlessItIsEmpty() async throws {
+        let json = #"{"choices":[{"message":{"content":"Hi"}}]}"#
+        await #expect(throws: OpenAICompatibleTransformer.NotAnEventStream(body: Data(json.utf8))) {
+            _ = try await consume(json)
+        }
+        await #expect(throws: OpenAICompatibleTransformer.NotAnEventStream(body: Data("<html>\n</html>".utf8))) {
+            _ = try await consume("<html>\n: not a comment in HTML, but skipped\n</html>")
+        }
+        for empty in ["", "\n\n", ": keepalive\n\n"] {
+            await #expect(throws: TranslationError.cannotConnect("fixture")) { _ = try await consume(empty) }
+        }
+    }
+
     @Test func manySmallDeltasStopAtTheByteLimit() async throws {
         let chunk = #"data: {"choices":[{"delta":{"content":"again "}}]}"# + "\n\n"
         await #expect(throws: TranslationError.responseTooLarge) {

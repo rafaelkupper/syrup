@@ -354,6 +354,27 @@ struct AppStateDeliveryTests {
         }
     }
 
+    /// The missing-Accessibility notice shows once per launch, so every Paste Last that copied
+    /// without pasting confirms the copy itself.
+    @Test func pasteLastThatOnlyCopiesSaysSoEveryTime() async {
+        let history = HistoryStore()
+        history.append(successfulRecord(output: "last success"))
+        let settings = makeTestSettings()
+        settings.autoPasteEnabled = true
+        settings.pinDeliveryTarget = false
+        settings.playSounds = true
+        let clipboard = SpyPasteboard(), feedback = SpyFeedback()
+        let paster = SpyAutoPaster(isTrusted: false, pasteError: AutoPasteError.notTrusted)
+        let state = makeState(settings: settings, pasteboard: clipboard, feedback: feedback, history: history,
+                              autoPaster: paster, captureDeliveryTarget: { _ in nil })
+        await state.pasteLastResult()
+        #expect(feedback.successSoundCount == 1)
+        await state.pasteLastResult()
+        #expect(clipboard.writes == ["last success", "last success"])
+        #expect(feedback.autoPasteNotTrustedCount == 1)
+        #expect(feedback.successSoundCount == 2)
+    }
+
     @Test func withAutomaticPasteOffPasteLastOnlyCopies() async {
         let history = HistoryStore()
         history.append(successfulRecord(output: "last success"))

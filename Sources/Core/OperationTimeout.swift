@@ -3,7 +3,7 @@ import Foundation
 /// Does not wait indefinitely for a framework operation that ignores cancellation.
 /// The owner still cancels the underlying framework session in its error handler.
 func withOperationTimeout<Value: Sendable>(
-    _ timeout: Duration, error: any Error,
+    _ timeout: Duration, error timeoutError: any Error,
     operation: @escaping @Sendable () async throws -> Value
 ) async throws -> Value {
     let (stream, continuation) = AsyncThrowingStream<Value, any Error>.makeStream()
@@ -16,7 +16,7 @@ func withOperationTimeout<Value: Sendable>(
     let timer = Task {
         do {
             try await Task.sleep(for: timeout)
-            continuation.finish(throwing: error)
+            continuation.finish(throwing: timeoutError)
         } catch {}
     }
     defer { worker.cancel(); timer.cancel() }

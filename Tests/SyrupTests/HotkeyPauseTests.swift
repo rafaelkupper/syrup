@@ -10,7 +10,7 @@ import Testing
 struct HotkeyPauseTests {
     @Test func pauseUnregistersShortcutsAndResumeUsesCurrentWorkflows() {
         let suite = testDomainName("SyrupHotkeyCorrection")
-        let defaults = UserDefaults(suiteName: suite)!
+        let defaults = TestDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
         let state = AppState.fixture(settings: settings, audioRecorder: FakeRecorder(),
@@ -37,7 +37,7 @@ struct HotkeyPauseTests {
 
     @Test func appPauseKeepsEditedWorkflowShortcutsDetached() {
         let suite = testDomainName("SyrupPauseCorrection")
-        let defaults = UserDefaults(suiteName: suite)!
+        let defaults = TestDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
         let state = AppState.fixture(settings: settings,

@@ -101,7 +101,35 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
         self.inactivitySleeper = inactivitySleeper
     }
 
+    /// A reply that ends without one event; see `consumeSSE`.
+    struct NotAnEventStream: Error, Equatable {
+        let body: Data
+    }
+
+    /// Streams the request even when nobody watches the deltas, so every run has the same transport
+    /// and the same deadline: the inactivity timeout, which a model still generating keeps resetting.
+    /// A non-streamed request has to finish within one fixed deadline, which cuts off a slow model's
+    /// long answer. It remains the fallback for a server that refuses to stream.
     func transform(_ text: String, instruction: String) async throws -> String {
+        var output = ""
+        do {
+            for try await delta in transformStream(text, instruction: instruction) {
+                output += delta
+            }
+        } catch StreamingTransformError.requiresAtomicFallback {
+            return try await transformAfterStreamingFallback(text, instruction: instruction)
+        }
+        // A cancelled caller's stream just ends, so what arrived is not the whole answer.
+        try Task.checkCancellation()
+        let answer = ModelOutputNormalizer.normalize(
+            output,
+            keepsWrapperQuotes: ModelOutputNormalizer.requestsQuotes(input: text, instruction: instruction)
+        )
+        guard answer.isEmpty == false else { throw TranslationError.emptyResponse }
+        return answer
+    }
+
+    func transformAfterStreamingFallback(_ text: String, instruction: String) async throws -> String {
         try await transformWithUsage(text, instruction: instruction).text
     }
 
@@ -144,13 +172,24 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
                     return
                 }
 
-                try await Self.consumeSSE(
-                    bytes: bytes,
-                    endpointHost: endpointHost,
-                    inactivityTimeout: timeout,
-                    inactivitySleeper: inactivitySleeper
-                ) { delta in
-                    continuation.yield(delta)
+                do {
+                    try await Self.consumeSSE(
+                        bytes: bytes,
+                        endpointHost: endpointHost,
+                        inactivityTimeout: timeout,
+                        inactivitySleeper: inactivitySleeper
+                    ) { delta in
+                        continuation.yield(delta)
+                    }
+                } catch let reply as NotAnEventStream {
+                    // A 200 without a single event: a JSON answer sent as `text/plain`, or not an answer,
+                    // such as a proxy's HTML page, which fails to decode as an invalid response.
+                    let result = try Self.decodeCompletion(
+                        reply.body,
+                        keepsWrapperQuotes: ModelOutputNormalizer.requestsQuotes(input: text, instruction: instruction)
+                    )
+                    try Task.checkCancellation()
+                    continuation.yield(result.text)
                 }
                 continuation.finish()
             } catch {
@@ -178,7 +217,7 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
         do {
             // One deadline covers the reply's headers and its body together. The body goes through the
             // bounded reader, not `data(for:)`, so a runaway body stops at the limit instead of being
-            // held in memory whole.
+            // held in memory whole. Runs reach this only through the streaming fallback (see `transform`).
             return try await withOperationTimeout(timeout, error: TranslationError.timedOut) { [session] in
                 let (bytes, response) = try await session.bytes(for: request)
                 guard let httpResponse = response as? HTTPURLResponse else {
@@ -330,21 +369,30 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
                 var parser = OpenAISSEParser()
                 var lineBytes: [UInt8] = []
                 var byteCount = 0
+                // Until the first event, what arrived apart from comments: a 200 that never sends an
+                // event may be a JSON answer under another content type.
+                var bodyBeforeEvents: [UInt8] = []
                 for try await byte in bytes {
                     try Task.checkCancellation()
-                    // Deltas keep the inactivity timer from firing, so a model stuck in a loop would
+                    // Chunks keep the inactivity timer from firing, so a model stuck in a loop would
                     // otherwise stream forever; a line that never ends would grow without bound.
                     byteCount += 1
                     guard byteCount <= byteLimit else { throw TranslationError.responseTooLarge }
                     lineBytes.append(byte)
                     guard byte == 0x0A || byte == 0x0D else { continue }
 
+                    if parser.dataChunks == 0, lineBytes.first != UInt8(ascii: ":") {
+                        bodyBeforeEvents += lineBytes
+                    }
                     let chunk = String(decoding: lineBytes, as: UTF8.self)
                     lineBytes.removeAll(keepingCapacity: true)
-                    let receivedDone = await Self.forwardParserEvents(
-                        try parser.append(chunk),
-                        to: eventContinuation,
-                        watchdog: watchdog
+                    let chunksBefore = parser.dataChunks
+                    let events = try parser.append(chunk)
+                    // Any chunk is progress, answer text or not; a comment line is not.
+                    if parser.dataChunks > chunksBefore { await watchdog.noteProgress() }
+                    let receivedDone = Self.forwardParserEvents(
+                        events,
+                        to: eventContinuation
                     )
                     lineObserver()
                     if receivedDone {
@@ -354,10 +402,12 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
                 }
 
                 if lineBytes.isEmpty == false {
-                    let receivedDone = await Self.forwardParserEvents(
+                    if parser.dataChunks == 0, lineBytes.first != UInt8(ascii: ":") {
+                        bodyBeforeEvents += lineBytes
+                    }
+                    let receivedDone = Self.forwardParserEvents(
                         try parser.append(String(decoding: lineBytes, as: UTF8.self)),
-                        to: eventContinuation,
-                        watchdog: watchdog
+                        to: eventContinuation
                     )
                     lineObserver()
                     if receivedDone {
@@ -366,13 +416,21 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
                     }
                 }
 
-                if await Self.forwardParserEvents(
+                if Self.forwardParserEvents(
                     try parser.finish(),
-                    to: eventContinuation,
-                    watchdog: watchdog
+                    to: eventContinuation
                 ) {
                     eventContinuation.finish()
                     return
+                }
+                // Not one event. With nothing but whitespace and comments it is a dropped connection;
+                // otherwise the caller decides whether it is an answer.
+                if parser.dataChunks == 0 {
+                    let whitespace: Set<UInt8> = [0x20, 0x09, 0x0A, 0x0D]
+                    guard bodyBeforeEvents.contains(where: { whitespace.contains($0) == false }) else {
+                        throw TranslationError.cannotConnect(endpointHost)
+                    }
+                    throw NotAnEventStream(body: Data(bodyBeforeEvents))
                 }
                 // `finish_reason: stop` then EOF is a complete answer from servers that never send `[DONE]`.
                 // EOF with neither marker is a dropped connection.
@@ -413,13 +471,11 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
 
     private static func forwardParserEvents(
         _ events: [OpenAISSEEvent],
-        to continuation: AsyncThrowingStream<OpenAISSEEvent, any Error>.Continuation,
-        watchdog: StreamingInactivityWatchdog
-    ) async -> Bool {
+        to continuation: AsyncThrowingStream<OpenAISSEEvent, any Error>.Continuation
+    ) -> Bool {
         for event in events {
             switch event {
             case .delta(let delta):
-                await watchdog.noteDelta()
                 continuation.yield(.delta(delta))
             case .done:
                 continuation.yield(.done)

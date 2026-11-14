@@ -9,7 +9,7 @@ struct AudioRecorderTests {
     @MainActor
     func selectedDeviceResolutionTreatsEmptySelectionAsSystemDefault() throws {
         let (settings, suiteName) = try makeSettings()
-        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        defer { TestDefaults.removeSuite(suiteName) }
         settings.selectedMicrophoneID = ""
         let catalog = FakeAudioInputDeviceCatalog()
 
@@ -25,7 +25,7 @@ struct AudioRecorderTests {
     @MainActor
     func selectedDeviceResolutionUsesCatalogMatch() throws {
         let (settings, suiteName) = try makeSettings()
-        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        defer { TestDefaults.removeSuite(suiteName) }
         settings.selectedMicrophoneID = "built-in"
         let catalog = FakeAudioInputDeviceCatalog(devices: [
             AudioInputDevice(id: "built-in", name: "Built-in", sampleRate: 44_100, channelCount: 1)
@@ -43,7 +43,7 @@ struct AudioRecorderTests {
     @MainActor
     func selectedDeviceResolutionFallsBackWhenDeviceIsMissing() throws {
         let (settings, suiteName) = try makeSettings()
-        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        defer { TestDefaults.removeSuite(suiteName) }
         settings.selectedMicrophoneID = "missing"
         let catalog = FakeAudioInputDeviceCatalog()
 
@@ -59,7 +59,7 @@ struct AudioRecorderTests {
     @MainActor
     func recordingFormatUsesSelectedDeviceFormat() throws {
         let (settings, suiteName) = try makeSettings()
-        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        defer { TestDefaults.removeSuite(suiteName) }
         settings.selectedMicrophoneID = "built-in"
         let catalog = FakeAudioInputDeviceCatalog(devices: [
             AudioInputDevice(id: "built-in", name: "Built-in", sampleRate: 44_100, channelCount: 2)
@@ -80,7 +80,7 @@ struct AudioRecorderTests {
     @MainActor
     func recordingFormatFallsBackToDefaultInputWhenSelectionIsMissing() throws {
         let (settings, suiteName) = try makeSettings()
-        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        defer { TestDefaults.removeSuite(suiteName) }
         settings.selectedMicrophoneID = "missing"
         let catalog = FakeAudioInputDeviceCatalog(
             devices: [
@@ -107,7 +107,7 @@ struct AudioRecorderTests {
     @MainActor
     func startDoesNotRetryFailedCaptureSessionStart() async throws {
         let (settings, suiteName) = try makeSettings()
-        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        defer { TestDefaults.removeSuite(suiteName) }
         let session = FakeAudioCaptureSession(startError: AudioRecordingError.microphoneStartFailed)
         let recorder = AudioRecorder(
             settings: settings,
@@ -128,7 +128,7 @@ struct AudioRecorderTests {
     @MainActor
     func deniedMicrophonePermissionDoesNotCreateCaptureSession() async throws {
         let (settings, suiteName) = try makeSettings()
-        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        defer { TestDefaults.removeSuite(suiteName) }
         var factoryCallCount = 0
         let recorder = AudioRecorder(
             settings: settings,
@@ -174,7 +174,7 @@ struct AudioRecorderTests {
     @Test @MainActor
     func normalFinishPreservesFinalCallbackWhileCancelDiscardsIt() async throws {
         let (settings, suiteName) = try makeSettings()
-        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        defer { TestDefaults.removeSuite(suiteName) }
         let recorder = AudioRecorder(settings: settings, deviceCatalog: FakeAudioInputDeviceCatalog(),
             microphonePermissionRequester: { true }, captureSessionFactory: { format, continuation in
                 FinalCallbackCapture(format: format, continuation: continuation)
@@ -195,7 +195,7 @@ struct AudioRecorderTests {
     @Test @MainActor
     func closedLidUsesReplacementFormatWithoutChangingPreference() async throws {
         let (settings, suiteName) = try makeSettings()
-        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        defer { TestDefaults.removeSuite(suiteName) }
         settings.selectedMicrophoneID = AudioInputDevice.builtInMicrophoneID
         let catalog = FakeAudioInputDeviceCatalog(devices: [
             AudioInputDevice(id: AudioInputDevice.builtInMicrophoneID, name: "Built-in", sampleRate: 48_000, channelCount: 1),
@@ -215,13 +215,13 @@ struct AudioRecorderTests {
         #expect(capturedFormat?.sampleRate == 44_100)
         #expect(capturedFormat?.channelCount == 2)
         #expect(settings.selectedMicrophoneID == AudioInputDevice.builtInMicrophoneID)
-        #expect(UserDefaults(suiteName: suiteName)?.string(forKey: "selectedMicrophoneID") == AudioInputDevice.builtInMicrophoneID)
+        #expect(TestDefaults(suiteName: suiteName)?.string(forKey: "selectedMicrophoneID") == AudioInputDevice.builtInMicrophoneID)
     }
 
     @Test @MainActor
     func closedLidFailureNeverCreatesCaptureSession() async throws {
         let (settings, suiteName) = try makeSettings()
-        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        defer { TestDefaults.removeSuite(suiteName) }
         settings.selectedMicrophoneID = ""
         var createdSession = false
         let recorder = AudioRecorder(settings: settings, deviceCatalog: FakeAudioInputDeviceCatalog(devices: [
@@ -240,7 +240,7 @@ struct AudioRecorderTests {
     @MainActor
     private func makeSettings() throws -> (AppSettings, String) {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         userDefaults.removePersistentDomain(forName: suiteName)
         return (AppSettings(userDefaults: userDefaults), suiteName)
     }

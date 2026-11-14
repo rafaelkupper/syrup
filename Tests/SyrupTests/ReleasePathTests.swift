@@ -227,7 +227,7 @@ struct ShortTapTests {
     func holdReleasedBefore300MillisecondsIsDiscardedSilently() async {
         let settings = makeRecordingSettings()
         settings.playSounds = true
-        settings.setGlossaryLearning(true, recordingArchive: nil)
+        settings.setGlossaryLearningForTesting(true)
         let archive = SpyRecordingArchive()
         let cue = CueStateSpy()
         let fixture = RecordingFixture(settings: settings, recordingArchive: archive, recordingCue: cue)
@@ -573,7 +573,7 @@ final class VolumeControllerFake: OutputVolumeControlling {
     }
 
     func makeDucker() -> OutputDucker {
-        OutputDucker(controller: self, defaultsSuiteName: suiteName)
+        OutputDucker(controller: self, userDefaults: TestDefaults(suiteName: suiteName)!)
     }
 
     func releaseFirstWrite() {
@@ -581,7 +581,7 @@ final class VolumeControllerFake: OutputVolumeControlling {
     }
 
     func cleanUp() {
-        UserDefaults.standard.removePersistentDomain(forName: suiteName)
+        TestDefaults.removeSuite(suiteName)
     }
 
     private func current() throws -> OutputVolume? {
@@ -953,7 +953,7 @@ private func historyWithResult() -> HistoryStore {
 @MainActor
 private func makeRecordingSettings() -> AppSettings {
     let suiteName = testDomainName("SyrupReleasePathTests")
-    let userDefaults = UserDefaults(suiteName: suiteName)!
+    let userDefaults = TestDefaults(suiteName: suiteName)!
     userDefaults.removePersistentDomain(forName: suiteName)
     let settings = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
     settings.playSounds = false

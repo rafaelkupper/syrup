@@ -88,7 +88,7 @@ struct OutputDuckerTests {
         try await fixture.ducker.lower()
         fixture.controller.change("headphones", channels: [0: 0.9])
         fixture.controller.selectDefault("headphones")
-        let recovered = OutputDucker(controller: fixture.controller, defaultsSuiteName: fixture.suite)
+        let recovered = OutputDucker(controller: fixture.controller, userDefaults: TestDefaults(suiteName: fixture.suite)!)
         try await recovered.restoreAfterCrash()
         #expect(fixture.controller.current("speakers") == original)
         #expect(fixture.controller.current("headphones")?.channels == [0: 0.9])
@@ -104,7 +104,7 @@ struct OutputDuckerTests {
         defer { fixture.cleanUp() }
         try await fixture.ducker.lower()
         fixture.controller.change("speakers", channels: [1: 0.9, 2: 0.9])
-        let recovered = OutputDucker(controller: fixture.controller, defaultsSuiteName: fixture.suite)
+        let recovered = OutputDucker(controller: fixture.controller, userDefaults: TestDefaults(suiteName: fixture.suite)!)
         try await recovered.restoreAfterCrash()
         #expect(fixture.controller.current()?.channels == [1: 0.9, 2: 0.9])
     }
@@ -115,7 +115,7 @@ struct OutputDuckerTests {
         defer { fixture.cleanUp() }
         try await fixture.ducker.lower()
         fixture.controller.remove("speakers")
-        let recovered = OutputDucker(controller: fixture.controller, defaultsSuiteName: fixture.suite)
+        let recovered = OutputDucker(controller: fixture.controller, userDefaults: TestDefaults(suiteName: fixture.suite)!)
         try await recovered.restoreAfterCrash()
         #expect(fixture.defaults.object(forKey: "outputVolumeRestore") == nil)
         #expect(fixture.controller.writeCount == 1)
@@ -127,7 +127,7 @@ struct OutputDuckerTests {
         defer { fixture.cleanUp() }
         fixture.controller.beforeWrite.withLock { callback in
             callback = { [suite = fixture.suite] in
-                let saved = UserDefaults(suiteName: suite)?.dictionary(forKey: "outputVolumeRestore")
+                let saved = TestDefaults(suiteName: suite)?.dictionary(forKey: "outputVolumeRestore")
                 #expect(saved?["deviceUID"] as? String == "speakers")
                 #expect((saved?["original"] as? [String: Float32]) == ["1": 0.8, "2": 0.4])
                 #expect((saved?["lowered"] as? [String: Float32]) == ["1": 0.24000001, "2": 0.120000005])
@@ -196,9 +196,9 @@ struct OutputDuckerTests {
         let ducker: OutputDucker
 
         init(channels: [UInt32: Float32] = [1: 0.8, 2: 0.4]) throws {
-            defaults = try #require(UserDefaults(suiteName: suite))
+            defaults = try #require(TestDefaults(suiteName: suite))
             controller = FakeOutputVolumeController(channels: channels)
-            ducker = OutputDucker(controller: controller, defaultsSuiteName: suite)
+            ducker = OutputDucker(controller: controller, userDefaults: TestDefaults(suiteName: suite)!)
         }
         func cleanUp() { defaults.removePersistentDomain(forName: suite) }
     }

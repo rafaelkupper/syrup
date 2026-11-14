@@ -101,19 +101,22 @@ final class DeliveryCoordinator {
 
     /// Pastes text that is already on the clipboard, already fitted when caret fit is on. Smart spacing
     /// reuses a cursor context read for the fit, or reads its one unit here.
+    /// Returns whether the text reached the editor. When it did not, the person has been told why,
+    /// and the text is on the clipboard.
+    @discardableResult
     func pasteCompletedText(
         _ text: String, contextTarget: DeliveryTarget?,
         usesSpacing: Bool, knownContext: CaretContext?,
         canContinue: @escaping @MainActor () -> Bool,
         targetIsCurrent: @escaping TypingTargetValidator
-    ) async throws {
+    ) async throws -> Bool {
         try await autoPasteSleeper(autoPasteDelayNanoseconds)
         guard canContinue(), Task.isCancelled == false else { throw CancellationError() }
         let targetIsCurrentBeforePaste = await targetIsCurrent()
         guard canContinue(), Task.isCancelled == false else { throw CancellationError() }
         guard targetIsCurrentBeforePaste else {
             feedback.notifyError(message: "The editor changed - the full result was copied.")
-            return
+            return false
         }
         let spaces = usesSpacing && text.first?.isWhitespace == false
         var context = knownContext
@@ -124,7 +127,7 @@ final class DeliveryCoordinator {
             guard canContinue(), !Task.isCancelled else { throw CancellationError() }
             guard stillCurrent else {
                 feedback.notifyError(message: "The editor changed - the full result was copied.")
-                return
+                return false
             }
         }
         let prefix = spaces && context?.precedingWordCharacter == true ? " " : ""
@@ -136,9 +139,10 @@ final class DeliveryCoordinator {
                 try await typist.typeText(strategy == .typeText ? prefix + text : prefix)
                 notifyIfStopped(typist.stopReason, focusMessage: "The editor changed - the full result was copied.",
                                 secureInput: { feedback.notifyAutoPasteSecureInput() })
-                if typist.stopReason != nil { return }
+                if typist.stopReason != nil { return false }
             }
             if case .commandV(let keyCode) = strategy { try autoPaster.paste(keyCode: keyCode) }
+            return true
         } catch AutoPasteError.notTrusted {
             notifyNotTrustedOnce()
         } catch AutoPasteError.secureInputActive {
@@ -146,6 +150,7 @@ final class DeliveryCoordinator {
         } catch {
             feedback.notifyError(message: "Typing stopped - the full result was copied.")
         }
+        return false
     }
 
     /// A pinned delivery found no editor to capture, so nothing changed: Accessibility is off, or no

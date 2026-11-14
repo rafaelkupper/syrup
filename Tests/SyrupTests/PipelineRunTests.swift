@@ -79,7 +79,7 @@ struct PipelineRunTests {
     private let suite = testDomainName("SyrupPipelineRunTests")
 
     private func settings() throws -> (AppSettings, UserDefaults) {
-        let defaults = try #require(UserDefaults(suiteName: suite))
+        let defaults = try #require(TestDefaults(suiteName: suite))
         return (AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" }), defaults)
     }
 
@@ -259,7 +259,7 @@ struct PipelineRunTests {
     @Test func quittingWaitsForACancelledRecordingToBeDiscarded() async throws {
         let (settings, defaults) = try settings()
         defer { defaults.removePersistentDomain(forName: suite) }
-        settings.setGlossaryLearning(true, recordingArchive: nil)
+        settings.setGlossaryLearningForTesting(true)
         let archive = HeldDiscardArchive()
         let recorder = FakeRecorder()
         let state = AppState.fixture(

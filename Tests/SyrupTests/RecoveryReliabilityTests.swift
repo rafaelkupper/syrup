@@ -83,7 +83,8 @@ struct RecoveryReliabilityTests {
             #expect(history.records.first?.output == nil)
             #expect(history.records.first?.canRetryWithOriginalProvider == true)
             #expect(state.canCopyPendingResult == false)
-            #expect(RecoveryURLProtocol.requests.withLock { $0 } == [streaming])
+            // Shown or not, every run streams its request; the cue only decides what is displayed.
+            #expect(RecoveryURLProtocol.requests.withLock { $0 } == [true])
         }
     }
 
@@ -241,7 +242,8 @@ struct RecoveryReliabilityTests {
         #expect(pasteboard.writes == ["Complete fixture output"])
         #expect(history.records.first?.outcome == .success)
         #expect(feedback.successSoundCount == 1)
-        #expect(RecoveryURLProtocol.requests.withLock { $0 } == [streaming])
+        // Shown or not, every run streams its request; the cue only decides what is displayed.
+        #expect(RecoveryURLProtocol.requests.withLock { $0 } == [true])
     }
 
     @Test
@@ -277,7 +279,7 @@ struct RecoveryReliabilityTests {
         let settings = settings()
         settings.updateWorkflow(id: settings.activeWorkflow.id) { $0.input = .selection }
         let history = HistoryStore(persistenceEnabled: true, storageDirectory: directory)
-        await settings.setPersistHistory(true, history: history)
+        await settings.privacyOptIns(history: history).setPersistHistory(true)
         let transformer = FakeTextTransformer(.success("Transformed fixture output"))
         let pasteboard = RecoverablePasteboard()
         let state = AppState.fixture(
@@ -414,7 +416,7 @@ struct RecoveryReliabilityTests {
 
     private func settings() -> AppSettings {
         let name = testDomainName("SyrupRecoveryTests")
-        let defaults = UserDefaults(suiteName: name)!
+        let defaults = TestDefaults(suiteName: name)!
         // This suite never writes to the real app's defaults.
         defaults.removePersistentDomain(forName: name)
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
@@ -467,7 +469,7 @@ struct RecoveryReliabilityTests {
 @MainActor private final class RecoveryDefaultsCleanup {
     var names: [String] = []
     deinit {
-        for name in names { UserDefaults.standard.removePersistentDomain(forName: name) }
+        for name in names { TestDefaults.removeSuite(name) }
     }
 }
 

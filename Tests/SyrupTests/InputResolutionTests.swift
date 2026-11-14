@@ -109,7 +109,7 @@ struct BluetoothInputResolutionTests {
     }
 
     @MainActor @Test func settingIsARawDefaultOnBoolean() {
-        let suite = testDomainName("Bluetooth"), defaults = UserDefaults(suiteName: suite)!
+        let suite = testDomainName("Bluetooth"), defaults = TestDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
         #expect(settings.avoidBluetoothMicrophone)

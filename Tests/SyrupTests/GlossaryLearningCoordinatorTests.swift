@@ -226,10 +226,10 @@ struct GlossaryLearningCoordinatorTests {
 
     private func makeCoordinatorSettings(enabled: Bool) -> AppSettings {
         let suiteName = testDomainName("SyrupGlossaryLearningCoordinatorTests")
-        let defaults = UserDefaults(suiteName: suiteName)!
+        let defaults = TestDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
-        settings.setGlossaryLearning(enabled, recordingArchive: nil)
+        settings.setGlossaryLearningForTesting(enabled)
         return settings
     }
 

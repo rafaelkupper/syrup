@@ -331,13 +331,13 @@ private final class Harness {
         recordingCue: (any RecordingCuePresenting)? = nil
     ) throws {
         let suiteName = testDomainName("ParakeetPipelineTests")
-        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        let defaults = try #require(TestDefaults(suiteName: suiteName))
         let clipboard = SpyPasteboard(), feedback = SpyFeedback()
         self.suiteName = suiteName
         self.clipboard = clipboard
         self.feedback = feedback
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
-        settings.setGlossaryLearning(archive != nil, recordingArchive: nil)
+        settings.setGlossaryLearningForTesting(archive != nil)
         settings.workflowList = WorkflowList(workflows: [Workflow(
             id: UUID(), name: "Dictate", kind: kind, dictationLocaleID: locale,
             translationProvider: nil, speechEngine: engine
@@ -351,7 +351,7 @@ private final class Harness {
     }
 
     deinit {
-        UserDefaults.standard.removePersistentDomain(forName: suiteName)
+        TestDefaults.removeSuite(suiteName)
     }
 
     func dictate() async {

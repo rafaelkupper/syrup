@@ -7,7 +7,7 @@ struct TypedDeliveryTests {
     @Test(arguments: [["result", " more"], ["x"], [String(repeating: "word ", count: 50), "end"]])
     func streamingSmartSpacingSurvivesTheRealTypist(deltas: [String]) async {
         let suite = testDomainName("FollowUpReview")
-        let defaults = UserDefaults(suiteName: suite)!
+        let defaults = TestDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
         settings.autoPasteEnabled = true
@@ -46,7 +46,7 @@ struct TypedDeliveryTests {
     @Test(arguments: [(ownProcess: true, expectedPastes: 0), (ownProcess: false, expectedPastes: 1)])
     func onboardingHoldsPasteOnlyWhileSyrupIsInFront(ownProcess: Bool, expectedPastes: Int) async {
         let suite = testDomainName("FollowUpReview")
-        let defaults = UserDefaults(suiteName: suite)!
+        let defaults = TestDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
         settings.autoPasteEnabled = true

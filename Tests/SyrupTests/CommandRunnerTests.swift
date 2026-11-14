@@ -31,6 +31,24 @@ struct CommandRunnerTests {
         #expect(started.duration(to: clock.now) < .seconds(2))
     }
 
+    /// A CLI that started a helper: stopping the run stops the helper too, not just the CLI.
+    @MainActor @Test func aTimeoutAlsoStopsTheHelpersTheCLIStarted() async throws {
+        let pidFile = FileManager.default.temporaryDirectory.appending(path: "SyrupHelper.\(UUID()).pid")
+        defer { try? FileManager.default.removeItem(at: pidFile) }
+        await #expect(throws: CommandRunnerError.timedOut) {
+            _ = try await runner.run(
+                executableURL: URL(filePath: "/bin/sh"),
+                arguments: ["-c", #"/bin/sleep 30 & echo $! > "$PIDFILE"; /bin/sleep 30"#], stdin: Data(),
+                environment: ["PATH": "/usr/bin:/bin", "PIDFILE": pidFile.path(percentEncoded: false)], timeout: 0.3
+            )
+        }
+        let helper = try #require(Int32(String(decoding: try Data(contentsOf: pidFile), as: UTF8.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines)))
+        // A killed helper is gone once launchd has reaped it.
+        await eventually("The helper is still running") { kill(helper, 0) != 0 }
+        #expect(kill(helper, 0) != 0)
+    }
+
     @Test func runawayOutputIsStoppedAtTheLimit() async throws {
         await #expect(throws: CommandRunnerError.outputTooLarge) {
             _ = try await sh("/usr/bin/yes", timeout: 20)

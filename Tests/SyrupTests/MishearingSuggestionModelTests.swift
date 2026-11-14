@@ -188,14 +188,14 @@ struct MishearingSuggestionModelTests {
 
     private func withSettings(_ body: (AppSettings) -> Void) {
         let name = testDomainName("MishearingSuggestionTests")
-        let defaults = UserDefaults(suiteName: name)!
+        let defaults = TestDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
         body(AppSettings(userDefaults: defaults))
     }
 
     private func withSettings(_ body: @MainActor (AppSettings, UserDefaults) async -> Void) async {
         let name = testDomainName("MishearingSuggestionTests")
-        let defaults = UserDefaults(suiteName: name)!
+        let defaults = TestDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
         await body(AppSettings(userDefaults: defaults), defaults)
     }

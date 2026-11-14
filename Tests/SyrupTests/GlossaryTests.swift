@@ -92,7 +92,7 @@ struct GlossaryTests {
     @Test
     func unknownVersionRunsEmptyWithoutReplacingStoredBlob() throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
         }
@@ -114,7 +114,7 @@ struct GlossaryTests {
     @Test
     func unknownProposalVersionSurvivesNewProposals() throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
         }
@@ -151,7 +151,7 @@ struct GlossaryTests {
     @Test
     func corruptBlobRecoversWithEmptyGlossary() throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
         }
@@ -176,7 +176,7 @@ struct GlossaryTests {
     ])
     func unusableBlobsSurviveTheFirstEdit(key: String, blob: Data) throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer { userDefaults.removePersistentDomain(forName: suiteName) }
         userDefaults.set(blob, forKey: key)
         let backupKey = AppSettings.unusableBlobBackupKey(for: blob, key: key)
@@ -204,11 +204,30 @@ struct GlossaryTests {
         #expect(backups.count == 1)
     }
 
+    /// A backup holds user content, so a second unreadable blob replaces the first backup instead of
+    /// adding another.
+    @Test
+    func onlyTheNewestBackupPerKeyIsKept() throws {
+        let suiteName = testDomainName("SyrupTests")
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
+        defer { userDefaults.removePersistentDomain(forName: suiteName) }
+        let first = Data([0xFF]), second = Data([0xFE])
+        userDefaults.set(Data([0x01]), forKey: "workflowListV3.unreadable.unrelated-key-prefix-check")
+        userDefaults.set(first, forKey: "glossaryV1")
+        _ = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
+        userDefaults.set(second, forKey: "glossaryV1")
+        _ = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
+
+        let backups = userDefaults.dictionaryRepresentation().keys.filter { $0.hasPrefix("glossaryV1.unreadable.") }
+        #expect(backups == [AppSettings.unusableBlobBackupKey(for: second, key: "glossaryV1")])
+        #expect(userDefaults.data(forKey: "workflowListV3.unreadable.unrelated-key-prefix-check") != nil)
+    }
+
     /// A newer build's blob is not copied: it stays where it is and is never overwritten.
     @Test
     func aNewerBlobGetsNoBackup() throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer { userDefaults.removePersistentDomain(forName: suiteName) }
         let futureBlob = Data(#"{"version":2,"terms":"a newer shape"}"#.utf8)
         userDefaults.set(futureBlob, forKey: "glossaryV1")
@@ -222,7 +241,7 @@ struct GlossaryTests {
     @Test
     func appSettingsPersistsAndReloadsNormalizedGlossaryBlob() throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
         }

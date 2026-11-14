@@ -7,7 +7,7 @@ struct AppSettingsTests {
     @Test
     func defaultSettingsUseMilestone7Values() throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
         }
@@ -49,7 +49,7 @@ struct AppSettingsTests {
     @Test
     func glossaryProposalsPersistAndReloadAsVersionedBlob() throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
         }
@@ -92,7 +92,7 @@ struct AppSettingsTests {
     @Test
     func milestone7SettingsPersistRawValuesInUserDefaults() async throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
         }
@@ -115,10 +115,10 @@ struct AppSettingsTests {
         settings.lowerOtherAudioWhileRecording = true
         settings.autoPasteEnabled = true
         settings.streamingDeliveryEnabled = true
-        await settings.setPersistHistory(true, history: enabledHistoryStore())
+        await settings.privacyOptIns(history: enabledHistoryStore()).setPersistHistory(true)
         settings.showRecordingCue = false
         settings.includeCommonTechTerms = false
-        settings.setGlossaryLearning(true, recordingArchive: nil)
+        settings.setGlossaryLearningForTesting(true)
         settings.showLiveTranscript = false
         settings.maximumRecordingDurationSeconds = 180
         settings.selectedMicrophoneID = "input-device-uid"
@@ -168,31 +168,32 @@ struct AppSettingsTests {
     @Test
     func disablingGlossaryLearningDeletesPendingRecordings() async throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer { userDefaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(
             userDefaults: userDefaults,
             defaultMicrophoneIDProvider: { "" }
         )
         let archive = SpyRecordingArchive()
+        let optIns = settings.privacyOptIns(recordingArchive: archive)
 
-        await settings.setGlossaryLearning(true, recordingArchive: archive).value
+        await optIns.setGlossaryLearning(true).value
         #expect(await archive.snapshot().deleteAllCount == 0)
 
-        await settings.setGlossaryLearning(false, recordingArchive: archive).value
+        await optIns.setGlossaryLearning(false).value
         #expect(await archive.snapshot().deleteAllCount == 1)
     }
 
     @Test(arguments: [false, true])
     func turningLearningOffDeletesRecordingsWithoutAnyView(deletionFails: Bool) async throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer { userDefaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
-        settings.setGlossaryLearning(true, recordingArchive: nil)
+        settings.setGlossaryLearningForTesting(true)
         let archive = deletionFails ? SpyRecordingArchive(deleteAllError: .deleteAllFailed(code: 513)) : SpyRecordingArchive()
 
-        let deletion = settings.setGlossaryLearning(false, recordingArchive: archive)
+        let deletion = settings.privacyOptIns(recordingArchive: archive).setGlossaryLearning(false)
         #expect(settings.glossaryLearningEnabled == false)
         await deletion.value
 
@@ -203,7 +204,7 @@ struct AppSettingsTests {
     @Test
     func failedStartupCleanupNeverEnablesGlossaryLearning() async throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer { userDefaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(
             userDefaults: userDefaults,
@@ -222,21 +223,43 @@ struct AppSettingsTests {
     @Test
     func anOlderFailedOptOutCannotUndoANewerOne() async throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer { userDefaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
-        settings.setGlossaryLearning(true, recordingArchive: nil)
-        let failing = SpyRecordingArchive(deleteAllError: .deleteAllFailed(code: 513)), working = SpyRecordingArchive()
+        let archive = SpyRecordingArchive(holdsFirstDeleteAllThenFails: true)
+        let optIns = settings.privacyOptIns(recordingArchive: archive)
+        optIns.setGlossaryLearning(true)
 
-        let first = settings.setGlossaryLearning(false, recordingArchive: failing)
-        settings.setGlossaryLearning(true, recordingArchive: nil)
-        let second = settings.setGlossaryLearning(false, recordingArchive: working)
+        let first = optIns.setGlossaryLearning(false)
+        await archive.firstDeleteAllStarted()
+        optIns.setGlossaryLearning(true)
+        let second = optIns.setGlossaryLearning(false)
         await second.value
+        archive.releaseFirstDeleteAll()
         await first.value
 
-        #expect(await failing.snapshot().deleteAllCount == 1)
-        #expect(await working.snapshot().deleteAllCount == 1)
+        #expect(await archive.snapshot().deleteAllCount == 2)
         #expect(settings.glossaryLearningEnabled == false)
+    }
+
+    /// Off, then on again before the deletion started: nothing is deleted, so a recording made after
+    /// turning learning back on survives.
+    @Test
+    func anOptOutSupersededBeforeItsDeletionStartsDeletesNothing() async throws {
+        let suiteName = testDomainName("SyrupTests")
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
+        defer { userDefaults.removePersistentDomain(forName: suiteName) }
+        let settings = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
+        let archive = SpyRecordingArchive()
+        let optIns = settings.privacyOptIns(recordingArchive: archive)
+        optIns.setGlossaryLearning(true)
+
+        let off = optIns.setGlossaryLearning(false)
+        optIns.setGlossaryLearning(true)
+        await off.value
+
+        #expect(await archive.snapshot().deleteAllCount == 0)
+        #expect(settings.glossaryLearningEnabled)
     }
 
     /// The language check awaits Speech. A workflow switch meanwhile must not move the replacement
@@ -244,7 +267,7 @@ struct AppSettingsTests {
     @Test
     func aDictationLocaleReplacementStaysOnTheWorkflowItWasFoundFor() async throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer { userDefaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
         let first = settings.activeWorkflow.id
@@ -266,7 +289,7 @@ struct AppSettingsTests {
     @Test
     func aDictationLocaleEditedDuringTheCheckIsKept() async throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer { userDefaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
         let workflow = settings.activeWorkflow.id
@@ -283,7 +306,7 @@ struct AppSettingsTests {
     @Test
     func invalidPersistedEnumValuesFallBackToSafeDefaults() throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
         }
@@ -311,7 +334,7 @@ struct AppSettingsTests {
     @Test
     func workflowListMigratesFromFlatSettingsAndPersistsAsBlob() throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
         }
@@ -338,7 +361,7 @@ struct AppSettingsTests {
     @Test
     func versionOneWorkflowBlobUpgradesWithoutLosingWorkflows() throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
         }
@@ -383,7 +406,7 @@ struct AppSettingsTests {
     @Test
     func contextualRunSnapshotExcludesCapturedSelection() throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
         }
@@ -433,7 +456,7 @@ struct AppSettingsTests {
     @Test
     func runConfigurationDefaultsToDictationWithoutCapturedContext() throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
         }
@@ -454,7 +477,7 @@ struct AppSettingsTests {
     @Test
     func workflowMutationsPreserveLastWorkflowInvariant() throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
         }
@@ -490,7 +513,7 @@ struct AppSettingsTests {
     ])
     func accidentalEnglishDictationDefaultMigratesOnceToPortugueseBrazil(englishLocaleID: String) throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
         }
@@ -517,7 +540,7 @@ struct AppSettingsTests {
     @Test
     func nonEnglishDictationLocaleSurvivesPortugueseDefaultMigration() throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
         }
@@ -536,7 +559,7 @@ struct AppSettingsTests {
     @Test
     func toneInstructionBridgesPresetAndCustomStorage() throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
         }
@@ -558,7 +581,7 @@ struct AppSettingsTests {
     @Test
     func selectedMicrophoneIDPersistsInUserDefaults() throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
         }
@@ -581,7 +604,7 @@ struct AppSettingsTests {
     @Test
     func selectedMicrophoneIDDefaultsToBuiltInMicrophoneWhenAvailable() throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
         }
@@ -598,7 +621,7 @@ struct AppSettingsTests {
     @Test
     func playSoundsPersistsInUserDefaults() throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
         }
@@ -621,7 +644,7 @@ struct AppSettingsTests {
     @Test
     func successSoundPersistsAndFallsBackToDefault() throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
         }
@@ -650,7 +673,7 @@ struct AppSettingsTests {
     @Test
     func maximumRecordingDurationIsClampedAndPersisted() throws {
         let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
         }

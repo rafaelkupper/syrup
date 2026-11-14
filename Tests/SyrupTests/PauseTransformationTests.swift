@@ -49,7 +49,7 @@ struct PauseTransformationPolicyTests {
 
     @MainActor @Test func resolvedEndpointControlsEligibilityAndIsFrozen() {
         let name = testDomainName("SyrupPauseEndpoint")
-        let defaults = UserDefaults(suiteName: name)!
+        let defaults = TestDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
         settings.baseURL = "http://localhost:1234/v1"
@@ -71,7 +71,7 @@ struct PauseTransformationPolicyTests {
 
     @MainActor @Test func preferenceDefaultsOffAndPersistsAsBool() {
         let name = testDomainName("SyrupPauseSettings")
-        let defaults = UserDefaults(suiteName: name)!
+        let defaults = TestDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
         #expect(!settings.transformsOnPause)
@@ -531,7 +531,7 @@ private final class PauseFixture {
 
     init(final: String = "fixture", enabled: Bool = true, provider kind: TranslationProvider = .appleOnDevice,
          local: Bool = true, attempt: FakeTextTransformer = FakeTextTransformer(.suspended)) {
-        settings = AppSettings(userDefaults: UserDefaults(suiteName: name)!, defaultMicrophoneIDProvider: { "" })
+        settings = AppSettings(userDefaults: TestDefaults(suiteName: name)!, defaultMicrophoneIDProvider: { "" })
         settings.transformsOnPause = enabled
         settings.translationProvider = kind
         settings.showRecordingCue = false
@@ -578,7 +578,7 @@ private final class PauseFixture {
     func completed() async { await pauseWait { self.state.pipelineState == .idle } }
     func cleanUp() {
         state.cancelRequested()
-        UserDefaults.standard.removePersistentDomain(forName: name)
+        TestDefaults.removeSuite(name)
     }
 }
 

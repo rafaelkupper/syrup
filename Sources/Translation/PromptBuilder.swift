@@ -81,13 +81,13 @@ enum PromptBuilder {
         return ([header] + rows).joined(separator: "\n")
     }
 
-    /// A rendered instruction from an older history record, with its glossary block replaced by
-    /// `glossary`'s current one, so a retry never sends a deleted term or misses a new one. Newer
-    /// records keep the instruction's parts and are composed again instead. The block starts at the
-    /// last header that begins the text or follows a blank line, since it follows the base, and runs to
-    /// the output contract or the end. A base that itself contained the header after a blank line
-    /// loses that part; only such old records are parsed.
-    static func replacingGlossary(in instruction: String, with glossary: GlossaryList) -> String {
+    /// The parts of a custom instruction from an older history record, which kept only the rendered
+    /// text, so a retry composes them with the current glossary and never sends a deleted term or
+    /// misses a new one. Newer records keep the parts. The glossary block starts at the last header
+    /// that begins the text or follows a blank line, since it follows the base, and runs to the output
+    /// contract or the end. A base that itself contained the header after a blank line loses that
+    /// part; only such old records are parsed.
+    static func customPrompt(fromLegacy instruction: String) -> TransformationSnapshot.CustomPrompt {
         let contractSuffix = "\n\n" + outputContract
         let hasContract = instruction.hasSuffix(contractSuffix)
         let body = hasContract ? String(instruction.dropLast(contractSuffix.count)) : instruction
@@ -98,9 +98,7 @@ enum PromptBuilder {
         } else {
             body
         }
-        return compose(
-            base: base, glossary: glossaryBlock(for: glossary), context: nil, contract: hasContract ? outputContract : nil
-        )
+        return TransformationSnapshot.CustomPrompt(base: base, enforcesOutputContract: hasContract)
     }
 
     static func systemPrompt(

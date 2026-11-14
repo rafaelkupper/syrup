@@ -54,7 +54,7 @@ struct LLMMishearingJudge: MishearingJudging {
 
         do {
             let response = try await transformer.transform(body, instruction: instruction)
-            return Self.parseFindings(from: response)
+            return Self.parseFindings(from: response).map { Self.verified($0, against: pair) }
         } catch {
             Self.logger.error("mishearing_judge_failed")
             return nil
@@ -98,6 +98,39 @@ struct LLMMishearingJudge: MishearingJudging {
                 confidence: finding.confidence
             )
         }
+    }
+
+    /// One dictation has a handful of terms; a reply with more findings is a judge gone wrong.
+    static let maximumFindingsPerPair = 5
+    static let maximumMishearingsPerFinding = 3
+    /// Anything longer is a phrase, not vocabulary.
+    static let maximumTermCharacters = 60
+
+    /// Keeps only what the two transcripts support: the term must appear in transcript B and each
+    /// mishearing in transcript A, as whole words, ignoring case and punctuation. A judge that invents
+    /// either, or floods the reply, adds nothing, and the counts and lengths are capped.
+    static func verified(_ findings: [JudgeFinding], against pair: TranscriptPair) -> [JudgeFinding] {
+        let heard = wordText(pair.appleTranscript)
+        let recognized = wordText(pair.whisperTranscript)
+        func appears(_ phrase: String, in text: String) -> Bool {
+            let words = wordText(phrase)
+            return words.trimmingCharacters(in: .whitespaces).isEmpty == false
+                && phrase.count <= maximumTermCharacters && text.contains(words)
+        }
+        let supported = findings.compactMap { finding -> JudgeFinding? in
+            guard appears(finding.term, in: recognized) else { return nil }
+            let mishearings = finding.mishearings.filter { appears($0, in: heard) }.prefix(maximumMishearingsPerFinding)
+            guard mishearings.isEmpty == false else { return nil }
+            return JudgeFinding(term: finding.term, mishearings: Array(mishearings), confidence: finding.confidence)
+        }
+        return Array(supported.prefix(maximumFindingsPerPair))
+    }
+
+    /// Lowercased words separated by single spaces, with a space at each end so whole words match.
+    private static func wordText(_ text: String) -> String {
+        let words = text.lowercased().unicodeScalars
+            .map { CharacterSet.punctuationCharacters.union(.symbols).contains($0) ? " " : Character($0) }
+        return " " + String(words).split(whereSeparator: \.isWhitespace).joined(separator: " ") + " "
     }
 
     private static func isOpeningFence(_ line: String) -> Bool {

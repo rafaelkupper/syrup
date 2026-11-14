@@ -62,7 +62,7 @@ struct SpeechEngineTests {
 
     @Test func runsAndDuplicatesCarryTheWorkflowEngine() throws {
         let suite = testDomainName("SpeechEngineTests")
-        let defaults = try #require(UserDefaults(suiteName: suite))
+        let defaults = try #require(TestDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
         let id = settings.activeWorkflow.id

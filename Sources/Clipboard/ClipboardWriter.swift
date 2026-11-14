@@ -123,11 +123,10 @@ private struct PasteboardItemSnapshot {
         var didSkipData = item.types.contains { Self.restorableTypes.contains($0) == false }
         var values: [(type: NSPasteboard.PasteboardType, data: Data)] = []
 
+        // The pasteboard has no size query, so one full read of the text is unavoidable; reading the
+        // UTF-8 data directly avoids a second, decoded copy before the limit applies.
         for type in Self.restorableTypes where item.types.contains(type) {
-            guard let string = item.string(forType: type),
-                  let data = string.data(using: .utf8) else {
-                continue
-            }
+            guard let data = item.data(forType: type) else { continue }
             byteCount += data.count
             if byteCount > remainingByteLimit {
                 didSkipData = true

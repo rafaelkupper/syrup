@@ -33,15 +33,15 @@ final class JudgingCrossCheckSink: CrossCheckSink {
         }
 
         guard settings.glossaryLearningEnabled, Task.isCancelled == false else { return false }
-        for finding in findings {
-            settings.addGlossaryProposal(GlossaryProposal(
+        settings.addGlossaryProposals(findings.map { finding in
+            GlossaryProposal(
                 id: UUID(),
                 term: finding.term,
                 mishearings: finding.mishearings,
                 confidence: finding.confidence,
                 createdAt: .now
-            ))
-        }
+            )
+        })
         return true
     }
 }

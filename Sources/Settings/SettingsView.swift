@@ -64,6 +64,7 @@ struct SettingsView: View {
                     settings: settings,
                     navigation: navigation,
                     recordingArchive: recordingArchive,
+                    privacyOptIns: state.privacyOptIns,
                     whisperModelManager: whisperModelManager,
                     learningCoordinator: learningCoordinator
                 )
@@ -79,10 +80,12 @@ struct SettingsView: View {
                     history: history,
                     usageStats: state.usageStats,
                     recordingArchive: state.recordingArchive,
+                    privacyOptIns: state.privacyOptIns,
                     navigation: navigation,
                     permissions: permissions,
                     autoPaster: autoPaster,
-                    onPermissionAction: completePermissionAction
+                    onPermissionAction: completePermissionAction,
+                    keychainStore: keychainStore
                 )
                 .frame(width: Self.standardSize.width, height: Self.standardSize.height)
             }

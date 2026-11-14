@@ -123,6 +123,8 @@ final class AppState {
     @ObservationIgnored private var hotkeyController: HotkeyController?
     @ObservationIgnored let recordingCue: (any RecordingCuePresenting)?
     @ObservationIgnored let recordingArchive: (any RecordingArchiving)?
+    /// Changes Keep history and glossary learning, with this app's own history store and archive.
+    @ObservationIgnored let privacyOptIns: PrivacyOptIns
     @ObservationIgnored private var didNotifyEmptySelectionContext = false
     @ObservationIgnored var didNotifySpeechEngineFallback = false
     @ObservationIgnored private var didNotifyUntrustedSelectionContext = false
@@ -208,6 +210,7 @@ final class AppState {
         self.processActivity = processActivity
         self.recordingCue = recordingCue
         self.recordingArchive = recordingArchive
+        self.privacyOptIns = PrivacyOptIns(settings: settings, history: history, recordingArchive: recordingArchive)
         self.outputDucker = outputDucker
 
         if let appFeedback = feedback as? AppFeedback {
@@ -536,17 +539,21 @@ final class AppState {
         } ?? text
         do {
             try pasteboard.write(delivered)
+            // Whenever it copied without pasting, the copied flash shows, every time: the notice for
+            // missing Accessibility appears only once per launch.
             if pinsTarget, target == nil {
                 delivery.notifyNoCapturedTarget()
+                showSuccessFeedback()
                 return
             }
-            try await delivery.pasteCompletedText(delivered, contextTarget: usesSpacing ? target : nil,
-                                                  usesSpacing: usesSpacing, knownContext: context, canContinue: { [weak self] in
+            let pasted = try await delivery.pasteCompletedText(delivered, contextTarget: usesSpacing ? target : nil,
+                                                               usesSpacing: usesSpacing, knownContext: context, canContinue: { [weak self] in
                 self?.pendingPasteID == pasteID && self?.canCopyLastResult == true
             }, targetIsCurrent: {
                 guard pinsTarget else { return true }
                 return await target?.isCurrent() == true
             })
+            if pasted == false { showSuccessFeedback() }
         } catch is CancellationError {
         } catch {
             presentError(error)

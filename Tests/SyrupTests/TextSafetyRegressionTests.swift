@@ -12,7 +12,7 @@ struct TextSafetyRegressionTests {
     ])
     func defaultTranscribeKeepsOrdinaryWords(locale: String, spoken: String) async {
         let suite = testDomainName("ReviewRepro")
-        let defaults = UserDefaults(suiteName: suite)!
+        let defaults = TestDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
         let template = WorkflowTemplate.templates().first { $0.id == "transcribe" }!

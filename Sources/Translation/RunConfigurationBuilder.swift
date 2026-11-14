@@ -105,31 +105,37 @@ enum RunConfigurationBuilder {
             inputText = transcript
             purpose = .dictation
         }
-        let instruction = switch transformation {
+        // The new record keeps what this retry sends, not what the original run sent.
+        let instruction: String
+        let snapshot: TransformationSnapshot
+        switch transformation {
         case .translation(let targetLanguage, let toneInstruction):
-            PromptBuilder.systemPrompt(
+            instruction = PromptBuilder.systemPrompt(
                 targetLanguage: targetLanguage, toneInstruction: toneInstruction,
                 glossary: glossary, dictation: dictation
             )
-        case .custom(_, _, let prompt?):
-            PromptBuilder.instruction(
+            snapshot = transformation
+        case .custom(let workflowName, let rendered, let saved):
+            let prompt = saved ?? PromptBuilder.customPrompt(fromLegacy: rendered)
+            instruction = PromptBuilder.instruction(
                 for: .custom(instruction: prompt.base, enforceOutputContract: prompt.enforcesOutputContract),
                 glossary: glossary
             )
-        case .custom(_, let rendered, nil):
-            PromptBuilder.replacingGlossary(in: rendered, with: glossary)
+            snapshot = .custom(workflowName: workflowName, instruction: instruction, prompt: prompt)
         case .revision(let adjustment, _):
-            revisionInstruction(adjustment: adjustment, glossaryBlock: PromptBuilder.glossaryBlock(for: glossary))
+            instruction = revisionInstruction(adjustment: adjustment, glossaryBlock: PromptBuilder.glossaryBlock(for: glossary))
+            snapshot = .revision(adjustment: adjustment, instruction: instruction)
         case .contextual(_, let rendered):
-            rendered
+            instruction = rendered
+            snapshot = transformation
         }
         let configuration = RunConfiguration(
             workflowID: activeWorkflow.id,
-            workflowName: transformation.displayName,
+            workflowName: snapshot.displayName,
             dictationLocaleID: activeWorkflow.dictationLocaleID,
             instruction: instruction,
             provider: provider,
-            transformation: transformation,
+            transformation: snapshot,
             purpose: purpose
         )
         return (configuration, inputText)

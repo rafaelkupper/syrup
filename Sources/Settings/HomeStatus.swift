@@ -168,6 +168,16 @@ enum HomeStatus {
     }
 
     /// Where a run's text goes for the default provider. Nil means it stays on this Mac.
+    /// `resolvedHost` is the host runs resolve to. When it differs from the saved endpoint's, a Debug
+    /// build's development environment is overriding it, and the label says so.
+    static func destination(provider: TranslationProvider, baseURL: String, resolvedHost: String?) -> String? {
+        let saved = destination(provider: provider, baseURL: baseURL)
+        guard provider == .openAICompatible, let resolvedHost, resolvedHost != URL(string: baseURL)?.host() else {
+            return saved
+        }
+        return "\(resolvedHost) (development override)"
+    }
+
     static func destination(provider: TranslationProvider, baseURL: String) -> String? {
         switch provider {
         case .appleOnDevice:

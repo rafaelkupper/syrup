@@ -6,6 +6,9 @@ enum PipelineError: Error, Equatable {
     case selectionAccessibilityRequired
     case selectionSourceChanged
     case streamingFailed(String)
+    /// A run reached transformation without the transformer it prepares at the trigger. It should
+    /// never happen; if it does, the person sees why the run stopped instead of nothing.
+    case transformerNotPrepared
 }
 
 /// The one place typed errors from every module become the single line a person sees.
@@ -42,6 +45,8 @@ func userMessage(for error: Error) -> String {
             return "The selected editor changed - select the text and try again."
         case .streamingFailed(let message):
             return "\(message) - partial text may remain in the target app"
+        case .transformerNotPrepared:
+            return "Syrup couldn't start the transformation. Try again."
         }
     }
 
@@ -85,7 +90,7 @@ func userMessage(for error: Error) -> String {
         case .providerReportedError:
             return "The model reported an error before finishing - the result was not delivered."
         case .responseTooLarge:
-            return "The model returned far more text than expected and was stopped"
+            return "The model returned far more text than expected and was stopped."
         case .cannotConnect(let host):
             return "Can't reach \(host)"
         case .timedOut:

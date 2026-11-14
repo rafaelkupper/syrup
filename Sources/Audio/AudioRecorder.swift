@@ -239,11 +239,14 @@ final class AudioQueueCaptureSession: AudioCaptureSessioning, @unchecked Sendabl
         }
 
         AudioQueueStop(audioQueue, true)
+        // Callbacks run on `callbackQueue`; waiting for it means none is still reading a buffer when
+        // the queue and its buffers are disposed. Neither caller runs on that queue.
+        callbackQueue.sync {}
         AudioQueueDispose(audioQueue, true)
     }
 
-    /// AudioQueueStop invokes final callbacks synchronously. Accept them while
-    /// draining, but never enqueue more input. Cancellation uses stop() instead.
+    /// Final callbacks from AudioQueueStop are accepted while draining, but never enqueue more input.
+    /// Cancellation uses stop() instead.
     func finish() throws {
         let audioQueue = lock.withLock { () -> AudioQueueRef? in
             draining = true
@@ -251,6 +254,9 @@ final class AudioQueueCaptureSession: AudioCaptureSessioning, @unchecked Sendabl
         }
         guard let audioQueue else { return }
         AudioQueueStop(audioQueue, true)
+        // A final callback the stop dispatched may not have run yet. Running it here, before stop()
+        // marks the session stopped, keeps the last buffer instead of dropping it.
+        callbackQueue.sync {}
         stop()
         if lock.withLock({ overflowed }) {
             throw AudioRecordingError.audioBufferOverflow

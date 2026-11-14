@@ -8,11 +8,17 @@ struct PrivacySettingsPane: View {
     @Bindable var history: HistoryStore
     let usageStats: UsageStatsStore
     let recordingArchive: (any RecordingArchiving)?
+    let privacyOptIns: PrivacyOptIns
     @Bindable var navigation: SettingsNavigation
     let permissions: PermissionStatusModel
     let autoPaster: any AutoPasting
     let onPermissionAction: () -> Void
+    /// Reads the saved key, to name the endpoint runs actually use.
+    let keychainStore: KeychainStore
     @State private var leftoverRecordings = 0
+    /// The endpoint a run would use, resolved like a run resolves it. In a Debug build with no saved
+    /// key, a complete development environment overrides the saved endpoint.
+    @State private var resolvedEndpointHost: String?
 
     var body: some View {
         Form {
@@ -34,6 +40,11 @@ struct PrivacySettingsPane: View {
         .formStyle(.grouped)
         .task(id: settings.glossaryLearningEnabled) {
             leftoverRecordings = await recordingArchive?.storedRecordingCount() ?? 0
+        }
+        .task(id: settings.baseURL + "\n" + settings.modelName) {
+            resolvedEndpointHost = try? await OpenAICompatibleSettingsConfigurationResolver.configuration(
+                baseURLString: settings.baseURL, modelName: settings.modelName, keychainStore: keychainStore
+            ).baseURL.host()
         }
     }
 
@@ -68,7 +79,9 @@ struct PrivacySettingsPane: View {
     }
 
     private var defaultDestination: String? {
-        HomeStatus.destination(provider: settings.translationProvider, baseURL: settings.baseURL)
+        HomeStatus.destination(
+            provider: settings.translationProvider, baseURL: settings.baseURL, resolvedHost: resolvedEndpointHost
+        )
     }
 
     private func destinationLabel(_ destination: String?) -> some View {
@@ -156,7 +169,7 @@ struct PrivacySettingsPane: View {
         Binding {
             settings.persistHistory
         } set: { isEnabled in
-            Task { await settings.setPersistHistory(isEnabled, history: history) }
+            Task { await privacyOptIns.setPersistHistory(isEnabled) }
         }
     }
 

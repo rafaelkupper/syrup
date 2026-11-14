@@ -7,8 +7,8 @@ import Testing
 struct PipelineLifecycleRegressionTests {
     private func settings(learning: Bool = false) -> (AppSettings, String) {
         let name = testDomainName("SyrupReview")
-        let settings = AppSettings(userDefaults: UserDefaults(suiteName: name)!, defaultMicrophoneIDProvider: { "" })
-        settings.setGlossaryLearning(learning, recordingArchive: nil)
+        let settings = AppSettings(userDefaults: TestDefaults(suiteName: name)!, defaultMicrophoneIDProvider: { "" })
+        settings.setGlossaryLearningForTesting(learning)
         settings.showRecordingCue = false
         settings.playSounds = false
         return (settings, name)
@@ -26,7 +26,7 @@ struct PipelineLifecycleRegressionTests {
 
     @Test func cancellationDuringPermissionMustNotLeaveCaptureRunning() async throws {
         let (settings, name) = settings()
-        defer { UserDefaults.standard.removePersistentDomain(forName: name) }
+        defer { TestDefaults.removeSuite(name) }
         let permission = ReviewPermissionGate()
         let capture = ReviewCapture()
         let realRecorder = AudioRecorder(settings: settings, deviceCatalog: ReviewDeviceCatalog(), microphonePermissionRequester: {
@@ -49,7 +49,7 @@ struct PipelineLifecycleRegressionTests {
 
     @Test func oldFailureCleanupMustNotOverwriteNewRun() async throws {
         let (settings, name) = settings(learning: true)
-        defer { UserDefaults.standard.removePersistentDomain(forName: name) }
+        defer { TestDefaults.removeSuite(name) }
         let archive = ReviewCleanupArchive()
         let recorder = FakeRecorder()
         let state = AppState.fixture(settings: settings, audioRecorder: recorder,
@@ -71,7 +71,7 @@ struct PipelineLifecycleRegressionTests {
 
     @Test func earlyRecognitionFailureMustStopRecordingWithoutRelease() async throws {
         let (settings, name) = settings()
-        defer { UserDefaults.standard.removePersistentDomain(forName: name) }
+        defer { TestDefaults.removeSuite(name) }
         let recorder = FakeRecorder()
         let transcriber = FakeTranscriber(.failure(.speechPermission))
         let state = AppState.fixture(settings: settings, audioRecorder: recorder,

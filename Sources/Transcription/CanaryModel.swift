@@ -59,6 +59,7 @@ final class CanaryModel {
         let total = Double(downloadBytes)
         var finished = 0
         for file in files {
+            try Task.checkCancellation()
             let destination = directory.appending(path: file.path)
             if matches(destination, file) {
                 finished += file.bytes
@@ -365,10 +366,16 @@ private final class FileDownload: NSObject, URLSessionDownloadDelegate, @uncheck
         let delegate = FileDownload(destination: destination, progress: progress)
         let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
         defer { session.finishTasksAndInvalidate() }
-        try await withCheckedThrowingContinuation { continuation in
-            delegate.lock.withLock { delegate.continuation = continuation }
-            session.downloadTask(with: url).resume()
+        let task = session.downloadTask(with: url)
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                delegate.lock.withLock { delegate.continuation = continuation }
+                task.resume()
+            }
+        } onCancel: {
+            task.cancel()
         }
+        try Task.checkCancellation()
     }
 
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64,

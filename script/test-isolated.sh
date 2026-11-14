@@ -7,10 +7,14 @@
 # preference domain its tests create (testDomainName: org.syrup.tests.<token>.<name>.<UUID>). Only
 # names under those two prefixes are ever deleted, so no other app's preferences can match.
 #
-# On exit a run removes its own files. A run that was killed leaves them behind, so each run also
-# cleans up after earlier runs that are over: every run leaves a marker in a fixed folder (whatever
-# its TMPDIR) holding its script's PID and temporary copy, and a run counts as over once that PID no
-# longer runs this script. A run paused in a debugger is still running, so it keeps its files.
+# Tests keep their preferences in memory (TestDefaults in TestSupport.swift), so they write no
+# preference files. The one file a run writes is its host's own domain, where KeyboardShortcuts
+# saves the default shortcuts. cfprefsd can save it up to about 10 seconds after the test process
+# ends, so on exit this script deletes it if it is there, and the next run deletes it otherwise.
+# A run that was killed leaves its files behind, so each run also cleans up after earlier runs that
+# are over: every run leaves a marker in a fixed folder (whatever its TMPDIR) holding its script's
+# PID and temporary copy, and a run counts as over once that PID no longer runs this script. A run
+# paused in a debugger is still running, so it keeps its files.
 set -eu
 source_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 test_root=${SYRUP_TEST_ROOT:-$(mktemp -d "${TMPDIR:-/tmp}/syrup-tests.XXXXXX")}
@@ -47,12 +51,9 @@ remove_finished_runs() {
     find "$preferences" -maxdepth 1 -type f -mmin +60 -name "$domain_prefix.local.*.plist" -delete
 }
 
-# cfprefsd writes some files after the test process exits, so a detached second pass removes those
-# a few seconds later. The marker stays, so the next run checks once more.
+# The marker stays, so the next run checks once more.
 finish_test_run() {
     remove_run_prefs "$run_token"
-    nohup sh -c 'sleep 10; find "$1" -maxdepth 1 -type f \( -name "$2.$4.*.plist" -o -name "$3.$4.plist" \) -delete' \
-        sh "$preferences" "$domain_prefix" "$host_prefix" "$run_token" >/dev/null 2>&1 &
     if [ -z "${SYRUP_TEST_ROOT:-}" ]; then rm -rf "$test_root"; fi
 }
 

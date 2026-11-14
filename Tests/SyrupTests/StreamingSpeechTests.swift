@@ -29,9 +29,10 @@ private final class FakeBackend: StreamingSpeechBackend, Sendable {
     }
 }
 
-/// Holds an `append` inside the backend until the test releases it.
+/// Holds the first `append` inside the backend until the test releases it; later calls pass.
 private final class GatedBackend: StreamingSpeechBackend, Sendable {
     let events = Mutex<[String]>([])
+    private let isFirstAppend = Mutex(true)
     private let started = AsyncStream<Void>.makeStream()
     private let release = AsyncStream<Void>.makeStream()
 
@@ -42,13 +43,21 @@ private final class GatedBackend: StreamingSpeechBackend, Sendable {
     }
 
     func append(_ samples: [Float]) async throws {
-        events.withLock { $0.append("append start") }
+        events.withLock { $0.append("append") }
+        let isFirst = isFirstAppend.withLock { isFirst in
+            defer { isFirst = false }
+            return isFirst
+        }
+        guard isFirst else { return }
         started.continuation.yield()
         for await _ in release.stream { break }
         events.withLock { $0.append("append end") }
     }
 
-    func finish() async throws -> String { "" }
+    func finish() async throws -> String {
+        events.withLock { $0.append("finish") }
+        return ""
+    }
 
     func appendStarted() async {
         for await _ in started.stream { return }
@@ -72,6 +81,17 @@ struct StreamingSpeechTests {
         return source.stream
     }
 
+    private func audio48kHz() -> AudioBufferSequence {
+        let format = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 4_096)!
+        buffer.frameLength = 4_096
+        for frame in 0..<4_096 { buffer.floatChannelData![0][frame] = sin(Float(frame) / 10) }
+        let source = AudioBufferStream.make()
+        source.continuation.yield(buffer)
+        source.continuation.finish()
+        return source.stream
+    }
+
     @Test func refusesToRunBeforeLoading() async throws {
         let transcriber = StreamingTranscriber(engine: StreamingSpeechEngine(backend: FakeBackend()))
         await #expect(throws: ParakeetError.notLoaded) {
@@ -91,21 +111,96 @@ struct StreamingSpeechTests {
         #expect(backend.events.withLock { $0.first { $0.hasPrefix("begin") } } == "begin pt-BR")
     }
 
-    /// The cancelled run's chunk is held inside the backend until the next run's `begin` has joined
-    /// the queue, so the order below is the one under test in every schedule.
+    /// The cancelled run's chunk is held inside the backend until the next run's `begin` has
+    /// joined the queue, so the order below is the one under test in every schedule.
     @Test func aNewRunWaitsForTheChunkACancelledRunIsStillProcessing() async throws {
         let backend = GatedBackend()
         let engine = StreamingSpeechEngine(backend: backend)
         try await engine.load(from: URL(fileURLWithPath: "/nonexistent"))
-        let cancelled = Task { try await engine.append([0, 0]) }
+        let first = try await engine.begin(localeID: "pt-BR", onPartialTranscript: nil)
+        let cancelled = Task { try await engine.append([0, 0], session: first) }
         await backend.appendStarted()
         cancelled.cancel()
         let next = Task { try await engine.begin(localeID: "en-US", onPartialTranscript: nil) }
-        await eventually { await engine.queuedOperations == 2 }
+        await eventually { await engine.currentSession == first + 1 }
         backend.releaseAppend()
-        try await next.value
+        _ = try await next.value
         _ = try? await cancelled.value
-        #expect(backend.events.withLock { $0 } == ["load", "append start", "append end", "begin en-US"])
+        #expect(backend.events.withLock { $0 } == ["load", "begin pt-BR", "append", "append end", "begin en-US"])
+    }
+
+    /// 48 kHz input leaves samples in the converter that only `finish()` releases. Once the next
+    /// run has begun, the cancelled run must not append them.
+    @Test func aCancelledRunCannotFeedItsLastSamplesToTheNextRun() async throws {
+        let backend = GatedBackend()
+        let engine = StreamingSpeechEngine(backend: backend)
+        try await engine.load(from: URL(fileURLWithPath: "/nonexistent"))
+        let request = TranscriptionRequest(locale: Locale(identifier: "en-US"), vocabulary: [], onPartialTranscript: nil)
+        let cancelled = Task { try await StreamingTranscriber(engine: engine).transcribe(audio48kHz(), request: request) }
+        await backend.appendStarted()
+        cancelled.cancel()
+        let next = Task { try await engine.begin(localeID: "pt-BR", onPartialTranscript: nil) }
+        await eventually { await engine.currentSession == 2 }
+        backend.releaseAppend()
+        _ = try await next.value
+        await #expect(throws: CancellationError.self) { _ = try await cancelled.value }
+        #expect(backend.events.withLock { $0 } == ["load", "begin en-US", "append", "append end", "begin pt-BR"])
+    }
+
+    @Test func theSameAudioUncancelledDrainsTheConverterBeforeFinishing() async throws {
+        let backend = GatedBackend()
+        let engine = StreamingSpeechEngine(backend: backend)
+        try await engine.load(from: URL(fileURLWithPath: "/nonexistent"))
+        let request = TranscriptionRequest(locale: Locale(identifier: "en-US"), vocabulary: [], onPartialTranscript: nil)
+        let run = Task { try await StreamingTranscriber(engine: engine).transcribe(audio48kHz(), request: request) }
+        await backend.appendStarted()
+        backend.releaseAppend()
+        _ = try await run.value
+        #expect(backend.events.withLock { $0 } == ["load", "begin en-US", "append", "append end", "append", "finish"])
+    }
+
+    @Test func aCallFromAnEarlierSessionIsRefused() async throws {
+        let engine = StreamingSpeechEngine(backend: FakeBackend())
+        try await engine.load(from: URL(fileURLWithPath: "/nonexistent"))
+        let first = try await engine.begin(localeID: "en-US", onPartialTranscript: nil)
+        let second = try await engine.begin(localeID: "en-US", onPartialTranscript: nil)
+        await #expect(throws: CancellationError.self) { try await engine.append([0], session: first) }
+        await #expect(throws: CancellationError.self) { _ = try await engine.finish(session: first) }
+        try await engine.append([0], session: second)
+        #expect(try await engine.finish(session: second) == "  final words \n")
+    }
+
+    /// A folder with the file the old check looked for, but missing a model, is not installed.
+    @Test func aStreamingModelCountsAsInstalledOnlyWithEveryFileItLoads() throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: testDomainName("StreamingModelFiles"), directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: root) }
+        func add(_ names: [String], in directory: URL) throws {
+            for name in names {
+                var file = directory.appending(path: name)
+                if name.hasSuffix(".mlmodelc") { file = file.appending(path: "coremldata.bin") }
+                try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try Data("x".utf8).write(to: file)
+            }
+        }
+
+        let nemotron = root.appending(path: "nemotron", directoryHint: .isDirectory)
+        let variant = NemotronBackend.variantDirectory(in: nemotron)
+        try add(["metadata.json"], in: variant)
+        #expect(NemotronBackend.modelsExist(at: nemotron) == false)
+        try add(["tokenizer.json", "encoder.mlmodelc", "decoder.mlmodelc"], in: variant)
+        #expect(NemotronBackend.modelsExist(at: nemotron) == false, "A decoder without its joint is not a decoder layout")
+        try FileManager.default.createDirectory(at: variant.appending(path: "joint.mlmodelc"), withIntermediateDirectories: true)
+        #expect(NemotronBackend.modelsExist(at: nemotron) == false, "A model folder without coremldata.bin is unfinished")
+        try add(["joint.mlmodelc"], in: variant)
+        #expect(NemotronBackend.modelsExist(at: nemotron))
+
+        let unified = root.appending(path: "unified", directoryHint: .isDirectory)
+        let config = UnifiedConfig()
+        let encoder = config.family.streamingEncoderFile(precision: .int8, contextSuffix: config.contextSuffix)
+        try add([encoder], in: unified)
+        #expect(ParakeetUnifiedBackend.modelsExist(at: unified) == false)
+        try add([config.family.decoderFile, config.family.jointDecisionFile, config.family.vocab], in: unified)
+        #expect(ParakeetUnifiedBackend.modelsExist(at: unified))
     }
 
     @Test func modelFoldersMatchFluidAudio() {
