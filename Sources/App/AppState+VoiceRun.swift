@@ -230,8 +230,7 @@ extension AppState {
         guard text.isEmpty == false else {
             throw PipelineError.emptyTranscript
         }
-        if let notice = run.speechModel.fallbackNotice, didNotifySpeechEngineFallback == false {
-            didNotifySpeechEngineFallback = true
+        if let notice = speech.fallbackNoticeToShow(run.speechModel.fallbackNotice) {
             feedback.notifyError(message: notice)
         }
         return VoiceTranscript(raw: transcript.trimmingCharacters(in: .whitespacesAndNewlines), text: text)

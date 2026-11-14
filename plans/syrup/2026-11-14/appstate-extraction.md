@@ -100,7 +100,9 @@ For each owner: break one rule on purpose, run the named suite, record the faili
 | `ResultActions` | `cancelPendingPaste()` does nothing, so a run no longer stops a waiting Paste Last | `aRunThatStartsAndEndsWhilePasteLastWaitsCancelsIt` (no older test caught it) | Yes |
 | `ResultActions` | Paste Last's `canContinue` ignores newer requests | `aNewerPasteLastSupersedesOneStillWaiting`, `aRunThatStartsAndEndsWhilePasteLastWaitsCancelsIt` | Yes |
 | `ResultActions` | `pendingClipboardResult` is `@ObservationIgnored` | `copyResultAgainObserversHearAFailedClipboardWrite` | Yes |
-| `SpeechReadiness` | | | |
+| `SpeechReadiness` | An unchanged set of bound locales is prepared again (dedupe removed) | `anUnchangedSetOfBoundLocalesIsNotPreparedAgain` | Yes |
+| `SpeechReadiness` | Bound workflows' models are not loaded | `refreshingShortcutsWarmsTheActiveWorkflowsModelEachTime` | Yes |
+| `SpeechReadiness` | The fallback notice shows on every run | `aModelThatIsNotReadyFallsBackToAppleWithOneNotice` (all six states) | Yes |
 | `RecordingFiler` | | | |
 
 ## Done when
@@ -118,3 +120,4 @@ For each owner: break one rule on purpose, run the named suite, record the faili
 - Step 2: `OutputVolumeChain` extracted. Full run identical to step 1.
 - Step 3: `StatusIndicator` extracted. Full run identical to step 1.
 - Step 4: `ResultActions` extracted. The moved code was diffed against the old section: apart from the host calls listed under Owners, the only addition is `cancelPendingPaste()`. Full run identical to step 1.
+- Step 5: `SpeechReadiness` extracted; `AppState` no longer stores `speechModels`, which nothing outside these methods read. Full run identical to step 1.

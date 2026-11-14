@@ -67,14 +67,12 @@ final class AppState {
 
     @ObservationIgnored let audioRecorder: any AudioRecording
     @ObservationIgnored let transcriber: any Transcriber
-    @ObservationIgnored let speechModels: [SpeechEngine: InstalledSpeechModel]
     let usageStats: UsageStatsStore
     @ObservationIgnored let transformerProvider: any TransformerSnapshotting
     @ObservationIgnored let pasteboard: any PasteboardWriting
     @ObservationIgnored let feedback: any AppFeedbackProviding
     @ObservationIgnored let metrics: any PipelineMetricsRecording
     @ObservationIgnored let delivery: DeliveryCoordinator
-    @ObservationIgnored private var preparedHotkeyLocaleIDs: Set<String> = []
     @ObservationIgnored let captureDeliveryTarget: @MainActor (pid_t?) async -> DeliveryTarget?
     @ObservationIgnored let frontmostApplication: @MainActor (Bool) -> (bundleID: String?, processID: pid_t?)
     @ObservationIgnored let selectionReader: any SelectionReading
@@ -85,6 +83,7 @@ final class AppState {
     @ObservationIgnored let outputVolume: OutputVolumeChain
     @ObservationIgnored let status: StatusIndicator
     @ObservationIgnored let results: ResultActions
+    @ObservationIgnored let speech: SpeechReadiness
     /// Run tasks that have not returned yet, keyed by run ID. See `launch`.
     @ObservationIgnored private var runTasks: [UUID: Task<Void, Never>] = [:]
     @ObservationIgnored let streamingTypistFactory: () -> any StreamingTyping
@@ -95,7 +94,6 @@ final class AppState {
     @ObservationIgnored private var hotkeyController: HotkeyController?
     @ObservationIgnored let recordingCue: (any RecordingCuePresenting)?
     @ObservationIgnored private var didNotifyEmptySelectionContext = false
-    @ObservationIgnored var didNotifySpeechEngineFallback = false
     @ObservationIgnored private var didNotifyUntrustedSelectionContext = false
     @ObservationIgnored private var didRequestSelectionAccessibilityTrust = false
 
@@ -147,7 +145,7 @@ final class AppState {
         self.keychainStore = keychainStore
         self.audioRecorder = audioRecorder
         self.transcriber = transcriber
-        self.speechModels = speechModels
+        self.speech = SpeechReadiness(settings: settings, assetManager: transcriberAssetManager, models: speechModels)
         self.usageStats = usageStats
         self.transformerProvider = transformerProvider
         self.pasteboard = pasteboard
@@ -226,15 +224,11 @@ final class AppState {
         hotkeyController?.rebuildWorkflowShortcuts(
             workflowIDs: settings.workflowList.workflows.map(\.id)
         )
-        prepareBoundSpeechModels()
+        speech.prepareBoundWorkflows()
     }
 
     func refreshDictationLocales() async {
-        await settings.refreshActiveDictationLocale { [transcriberAssetManager] localeID in
-            await transcriberAssetManager.refreshSupportedLocales(selecting: localeID)
-        }
-        transcriberAssetManager.prepareSelectedLocale(settings.activeWorkflow.dictationLocaleID)
-        prepareBoundSpeechModels()
+        await speech.refreshDictationLocales()
     }
 
     var isMenuBarSymbolAnimated: Bool {
@@ -413,7 +407,7 @@ final class AppState {
             activities: processActivity,
             isVoiceInput: workflow.input == .voice,
             providerSnapshot: initialConfiguration.purpose.isTransformation ? transformerProvider.snapshot(for: initialConfiguration.provider) : nil,
-            speechModel: workflow.input == .voice ? speechModelSelection(for: initialConfiguration) : (nil, nil)
+            speechModel: workflow.input == .voice ? speech.modelSelection(for: initialConfiguration) : (nil, nil)
         )
         let prepareAfterSelection = workflow.includeSelectionContext && run.configuration.provider == .appleOnDevice
         let context = RunContextRequest(
@@ -520,7 +514,7 @@ final class AppState {
             holdsPaste: holdsPasteNow,
             activities: processActivity,
             providerSnapshot: configuration.purpose.isTransformation ? transformerProvider.snapshot(for: configuration.provider) : nil,
-            speechModel: speechModelSelection(for: configuration)
+            speechModel: speech.modelSelection(for: configuration)
         )
         beginRun(run, state: .recording)
         let runID = run.id
@@ -776,30 +770,6 @@ final class AppState {
         } else {
             feedback.notifyError(message: message)
         }
-    }
-
-    private func speechModelSelection(for configuration: RunConfiguration) -> (transcriber: (any Transcriber)?, fallbackNotice: String?) {
-        guard let installed = speechModels[configuration.speechEngine] else { return (nil, nil) }
-        guard let notice = installed.models.state.fallbackNotice(modelName: configuration.speechEngine.displayName) else {
-            return (installed.transcriber, nil)
-        }
-        installed.models.loadIfDownloaded()
-        return (nil, notice)
-    }
-
-    private func prepareBoundSpeechModels() {
-        let bound = settings.workflowList.workflows
-            .filter { (HotkeyController.hasShortcut(forWorkflow: $0.id) || settings.workflowList.appRouting.values.contains($0.id)) && $0.input == .voice }
-            + [settings.activeWorkflow]
-        for engine in Set(bound.filter { $0.input == .voice }.map(\.speechEngine)) {
-            speechModels[engine]?.models.loadIfDownloaded()
-        }
-        let required = Set(bound.map {
-            TranscriberAssetManager.bcp47Identifier(for: Locale(identifier: $0.dictationLocaleID))
-        })
-        guard required != preparedHotkeyLocaleIDs else { return }
-        preparedHotkeyLocaleIDs = required
-        transcriberAssetManager.prepareLocales(Array(required))
     }
 }
 
