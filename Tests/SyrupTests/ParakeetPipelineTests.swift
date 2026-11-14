@@ -217,12 +217,11 @@ struct ParakeetPipelineTests {
         #expect(harness.state.history.records.isEmpty)
     }
 
-    @Test(arguments: [false, true])
-    func cancelWhileFallingBackToAppleStopsAppleAndDiscardsTheRecording(learning: Bool) async throws {
+    @Test
+    func cancelWhileFallingBackToAppleStopsApple() async throws {
         let apple = FakeTranscriber(.suspended)
         let parakeet = FakeTranscriber(.suspended)
-        let archive = learning ? SpyRecordingArchive() : nil
-        let harness = try Harness(apple: apple, parakeet: parakeet, archive: archive)
+        let harness = try Harness(apple: apple, parakeet: parakeet)
         harness.state.triggerPressed()
         await apple.waitForCall()
         await parakeet.waitForCall()
@@ -234,15 +233,6 @@ struct ParakeetPipelineTests {
         harness.state.cancelRequested()
         await harness.wait { await apple.cancellationCount == 1 }
         #expect(await apple.cancellationCount == 1)
-        if let archive {
-            await harness.wait { await archive.snapshot().discardedEntryIDs.count == 1 }
-            let snapshot = await archive.snapshot()
-            #expect(snapshot.begunEntryIDs.count == 1)
-            #expect(snapshot.discardedEntryIDs == snapshot.begunEntryIDs)
-            for id in snapshot.begunEntryIDs {
-                try? FileManager.default.removeItem(at: await archive.audioFileURL(id: id))
-            }
-        }
         #expect(harness.state.pipelineState == .idle)
         #expect(harness.clipboard.writes.isEmpty)
         #expect(harness.state.history.records.isEmpty)
@@ -264,19 +254,12 @@ struct ParakeetPipelineTests {
     }
 
     @Test(arguments: [true, false])
-    func learningArchivesOnlyApplesTranscript(appleSucceeds: Bool) async throws {
-        let archive = SpyRecordingArchive()
+    func aModelRunDeliversItsOwnTranscriptWhateverAppleDoes(appleSucceeds: Bool) async throws {
         let apple = FakeTranscriber(appleSucceeds ? .success("apple words") : .failure(.transcriber))
-        let harness = try Harness(apple: apple, parakeet: FakeTranscriber(.success("parakeet words")), archive: archive)
+        let harness = try Harness(apple: apple, parakeet: FakeTranscriber(.success("parakeet words")))
         await harness.dictate()
-        await harness.wait {
-            let snapshot = await archive.snapshot()
-            return snapshot.commits.count + snapshot.discardedEntryIDs.count == 1
-        }
-        let snapshot = await archive.snapshot()
+        await harness.state.waitForPendingWork()
         #expect(harness.clipboard.writes == ["parakeet words"])
-        #expect(snapshot.commits.map(\.appleTranscript) == (appleSucceeds ? ["apple words"] : []))
-        #expect(snapshot.discardedEntryIDs.count == (appleSucceeds ? 0 : 1))
     }
 
     @Test func fanOutKeepsFeedingOneOutputAfterTheOtherConsumerIsCancelled() async throws {
@@ -326,7 +309,6 @@ private final class Harness {
         models: FakeParakeetModels = FakeParakeetModels(.ready),
         engine: SpeechEngine = .parakeetUltra,
         locale: String = "pt-BR",
-        archive: SpyRecordingArchive? = nil,
         clock: any RecordingClock = FastForwardClock(),
         recordingCue: (any RecordingCuePresenting)? = nil
     ) throws {
@@ -337,7 +319,6 @@ private final class Harness {
         self.clipboard = clipboard
         self.feedback = feedback
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
-        settings.privacyOptIns.setGlossaryLearning(archive != nil)
         settings.workflowList = WorkflowList(workflows: [Workflow(
             id: UUID(), name: "Dictate", kind: kind, dictationLocaleID: locale,
             translationProvider: nil, speechEngine: engine
@@ -345,8 +326,7 @@ private final class Harness {
         state = AppState.fixture(
             settings: settings, audioRecorder: recorder, transcriber: apple, speechModels: [engine == .apple ? .parakeetUltra : engine: InstalledSpeechModel(transcriber: parakeet, models: models)],
             transformer: FakeTextTransformer(.failure(.transformer)), pasteboard: clipboard,
-            feedback: feedback, maximumRecordingDurationNanoseconds: 0, recordingClock: clock, recordingCue: recordingCue,
-            recordingArchive: archive
+            feedback: feedback, maximumRecordingDurationNanoseconds: 0, recordingClock: clock, recordingCue: recordingCue
         )
     }
 

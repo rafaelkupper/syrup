@@ -23,7 +23,7 @@ enum HotkeyMode: String, CaseIterable, Identifiable, Sendable {
 @Observable
 final class AppSettings {
     @ObservationIgnored private let userDefaults: UserDefaults
-    /// The only way to change `persistHistory` and `glossaryLearningEnabled`.
+    /// The only way to change `persistHistory`.
     @ObservationIgnored private(set) lazy var privacyOptIns = PrivacyOptIns(settings: self)
 
     var hotkeyMode: HotkeyMode {
@@ -175,12 +175,6 @@ final class AppSettings {
             userDefaults.set(includeCommonTechTerms, forKey: Self.includeCommonTechTermsKey)
         }
     }
-    /// Changes only through `PrivacyOptIns`, so nothing can skip deleting recordings on opt-out.
-    fileprivate(set) var glossaryLearningEnabled: Bool {
-        didSet {
-            userDefaults.set(glossaryLearningEnabled, forKey: Self.glossaryLearningEnabledKey)
-        }
-    }
     var showLiveTranscript: Bool {
         didSet {
             userDefaults.set(showLiveTranscript, forKey: Self.showLiveTranscriptKey)
@@ -259,7 +253,6 @@ final class AppSettings {
         self.persistHistory = userDefaults.object(forKey: Self.persistHistoryKey) as? Bool ?? false
         self.showRecordingCue = userDefaults.object(forKey: Self.showRecordingCueKey) as? Bool ?? true
         self.includeCommonTechTerms = userDefaults.object(forKey: Self.includeCommonTechTermsKey) as? Bool ?? true
-        self.glossaryLearningEnabled = userDefaults.object(forKey: Self.glossaryLearningEnabledKey) as? Bool ?? false
         self.showLiveTranscript = userDefaults.object(forKey: Self.showLiveTranscriptKey) as? Bool ?? true
         self.workflowList = Self.resolvedWorkflowList(in: userDefaults)
         self.glossaryList = Self.resolvedGlossaryList(in: userDefaults)
@@ -326,7 +319,6 @@ final class AppSettings {
     private static let persistHistoryKey = "persistHistory"
     private static let showRecordingCueKey = "showRecordingCue"
     private static let includeCommonTechTermsKey = "includeCommonTechTerms"
-    private static let glossaryLearningEnabledKey = "glossaryLearningEnabled"
     private static let showLiveTranscriptKey = "showLiveTranscript"
     private static let avoidBluetoothMicrophoneKey = "avoidBluetoothMicrophone"
     private static let dictateWithFnKeyKey = "dictateWithFnKey"
@@ -465,13 +457,6 @@ final class AppSettings {
     @discardableResult
     func addGlossaryProposal(_ proposal: GlossaryProposal) -> Bool {
         glossaryProposals.addIfNew(proposal, existingGlossary: glossaryList)
-    }
-
-    /// Adds several proposals with one write of the stored list.
-    func addGlossaryProposals(_ proposals: [GlossaryProposal]) {
-        var list = glossaryProposals
-        let added = proposals.filter { list.addIfNew($0, existingGlossary: glossaryList) }
-        if added.isEmpty == false { glossaryProposals = list }
     }
 
     func removeGlossaryProposal(id: UUID) {
@@ -704,33 +689,30 @@ final class AppSettings {
     }
 }
 
-/// The only way to change the two privacy opt-ins. Each `AppSettings` makes exactly one, and only
-/// this file can set the two settings or make another, so there is one supersession counter and no
-/// second owner without the stores. `AppState` attaches the stores the opt-outs must empty, the
-/// app's history store and recording archive, once when it starts.
+/// The only way to change the history opt-in. Each `AppSettings` makes exactly one, and only this
+/// file can set the setting or make another, so there is no second owner without the store.
+/// `AppState` attaches the store the opt-out must empty, the app's history store, once when it starts.
 @MainActor
 final class PrivacyOptIns {
     private unowned let settings: AppSettings
-    private var stores: (history: HistoryStore, recordingArchive: (any RecordingArchiving)?)?
-    /// Counts learning changes, so an older opt-out cannot act after a newer choice.
-    private var glossaryLearningChange = 0
+    private var history: HistoryStore?
     private static let logger = Logger(subsystem: "org.syrup.SyrupApp", category: "Settings")
 
     fileprivate init(settings: AppSettings) {
         self.settings = settings
     }
 
-    /// Once: attaching other stores later would let an opt-out miss what the first ones kept.
-    func attach(history: HistoryStore, recordingArchive: (any RecordingArchiving)?) {
-        precondition(stores == nil, "The privacy opt-ins already have their stores")
-        stores = (history, recordingArchive)
+    /// Once: attaching another store later would let an opt-out miss what the first one kept.
+    func attach(history: HistoryStore) {
+        precondition(self.history == nil, "The privacy opt-ins already have their store")
+        self.history = history
     }
 
     #if DEBUG
-    /// Tests only: lets another `AppState` on the same settings attach its stores, standing in for a
+    /// Tests only: lets another `AppState` on the same settings attach its store, standing in for a
     /// relaunch. Release builds cannot re-attach.
     func detachForTesting() {
-        stores = nil
+        history = nil
     }
     #endif
 
@@ -738,7 +720,7 @@ final class PrivacyOptIns {
     /// only if that worked, so it never claims an opt-out it didn't honor. With no store attached,
     /// turning it off is refused: a file from an earlier launch may be on disk, with nothing to delete it.
     func setPersistHistory(_ isEnabled: Bool) async {
-        guard let history = stores?.history else {
+        guard let history else {
             if isEnabled || settings.persistHistory == false {
                 settings.persistHistory = isEnabled
             } else {
@@ -747,37 +729,5 @@ final class PrivacyOptIns {
             return
         }
         if await history.setPersistenceEnabled(isEnabled) { settings.persistHistory = isEnabled }
-    }
-
-    /// Glossary learning. The setting changes at once, and turning it off deletes every pending
-    /// recording in the returned task. If the deletion fails, the setting goes back on, so Syrup never
-    /// claims an opt-out it didn't honor. A newer change supersedes this one: if it comes before the
-    /// deletion starts, nothing is deleted, so turning learning back on keeps new recordings; and a
-    /// failure no longer turns learning back on. With no stores attached, turning it off is refused:
-    /// recordings from an earlier launch may be on disk. Attached stores without an archive belong to
-    /// an app that keeps no recordings, which has nothing to delete.
-    @discardableResult
-    func setGlossaryLearning(_ isEnabled: Bool) -> Task<Void, Never> {
-        guard let stores else {
-            if isEnabled || settings.glossaryLearningEnabled == false {
-                glossaryLearningChange += 1
-                settings.glossaryLearningEnabled = isEnabled
-            } else {
-                Self.logger.error("privacy_opt_out_refused setting=glossary_learning reason=no_store")
-            }
-            return Task {}
-        }
-        glossaryLearningChange += 1
-        let change = glossaryLearningChange
-        settings.glossaryLearningEnabled = isEnabled
-        guard isEnabled == false, let recordingArchive = stores.recordingArchive else { return Task {} }
-        return Task {
-            guard glossaryLearningChange == change else { return }
-            do {
-                try await recordingArchive.deleteAll()
-            } catch {
-                if glossaryLearningChange == change { settings.glossaryLearningEnabled = true }
-            }
-        }
     }
 }

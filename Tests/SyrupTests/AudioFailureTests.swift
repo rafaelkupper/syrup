@@ -9,17 +9,12 @@ import Testing
 @MainActor
 struct AudioFailureTests {
     @Test func audioStagesPreserveUpstreamFailure() async throws {
-        let directory = FileManager.default.temporaryDirectory.appending(path: testDomainName("SyrupAudioFailure"))
-        defer { try? FileManager.default.removeItem(at: directory) }
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let (source, continuation) = AudioBufferSequence.makeStream()
         let metered = AudioLevelTap.attach(to: source) { _ in }
-        let tee = RecordingTee.attach(to: metered, fileURL: directory.appending(path: "fixture.wav"))
         continuation.finish(throwing: AudioRecordingError.audioBufferOverflow)
         await #expect(throws: AudioRecordingError.audioBufferOverflow) {
-            for try await _ in tee.stream {}
+            for try await _ in metered {}
         }
-        await tee.waitForCompletion()
     }
 
     @Test func stereoMeterHandlesProductionInterleavedFormat() throws {

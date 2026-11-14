@@ -35,7 +35,6 @@ struct AppSettingsTests {
         #expect(settings.persistHistory == false)
         #expect(settings.showRecordingCue)
         #expect(settings.includeCommonTechTerms)
-        #expect(settings.glossaryLearningEnabled == false)
         #expect(settings.glossaryProposals == GlossaryProposalList())
         #expect(settings.showLiveTranscript)
         #expect(settings.workflowList.workflows.count == 1)
@@ -118,7 +117,6 @@ struct AppSettingsTests {
         await settings.attachedOptIns(history: enabledHistoryStore()).setPersistHistory(true)
         settings.showRecordingCue = false
         settings.includeCommonTechTerms = false
-        settings.privacyOptIns.setGlossaryLearning(true)
         settings.showLiveTranscript = false
         settings.maximumRecordingDurationSeconds = 180
         settings.selectedMicrophoneID = "input-device-uid"
@@ -145,7 +143,6 @@ struct AppSettingsTests {
         #expect(reloadedSettings.persistHistory)
         #expect(reloadedSettings.showRecordingCue == false)
         #expect(reloadedSettings.includeCommonTechTerms == false)
-        #expect(reloadedSettings.glossaryLearningEnabled)
         #expect(reloadedSettings.showLiveTranscript == false)
         #expect(reloadedSettings.maximumRecordingDurationSeconds == 180)
         #expect(reloadedSettings.selectedMicrophoneID == "input-device-uid")
@@ -158,93 +155,15 @@ struct AppSettingsTests {
         #expect(userDefaults.bool(forKey: "streamingDeliveryEnabled"))
         #expect(userDefaults.bool(forKey: "persistHistory"))
         #expect(userDefaults.bool(forKey: "includeCommonTechTerms") == false)
-        #expect(userDefaults.bool(forKey: "glossaryLearningEnabled"))
         #expect(userDefaults.string(forKey: "codexPath") == "/example/bin/codex")
         #expect(userDefaults.string(forKey: "codexModel") == "gpt-5.4-mini")
         #expect(userDefaults.integer(forKey: "maximumRecordingDurationSeconds") == 180)
         #expect(userDefaults.object(forKey: "apiKey") == nil)
     }
 
-    @Test
-    func disablingGlossaryLearningDeletesPendingRecordings() async throws {
-        let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
-        defer { userDefaults.removePersistentDomain(forName: suiteName) }
-        let settings = AppSettings(
-            userDefaults: userDefaults,
-            defaultMicrophoneIDProvider: { "" }
-        )
-        let archive = SpyRecordingArchive()
-        let optIns = settings.attachedOptIns(recordingArchive: archive)
-
-        await optIns.setGlossaryLearning(true).value
-        #expect(await archive.snapshot().deleteAllCount == 0)
-
-        await optIns.setGlossaryLearning(false).value
-        #expect(await archive.snapshot().deleteAllCount == 1)
-    }
-
-    @Test(arguments: [false, true])
-    func turningLearningOffDeletesRecordingsWithoutAnyView(deletionFails: Bool) async throws {
-        let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
-        defer { userDefaults.removePersistentDomain(forName: suiteName) }
-        let settings = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
-        settings.privacyOptIns.setGlossaryLearning(true)
-        let archive = deletionFails ? SpyRecordingArchive(deleteAllError: .deleteAllFailed(code: 513)) : SpyRecordingArchive()
-
-        let deletion = settings.attachedOptIns(recordingArchive: archive).setGlossaryLearning(false)
-        #expect(settings.glossaryLearningEnabled == false)
-        await deletion.value
-
-        #expect(await archive.snapshot().deleteAllCount == 1)
-        #expect(settings.glossaryLearningEnabled == deletionFails)
-    }
-
-    @Test
-    func failedStartupCleanupNeverEnablesGlossaryLearning() async throws {
-        let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
-        defer { userDefaults.removePersistentDomain(forName: suiteName) }
-        let settings = AppSettings(
-            userDefaults: userDefaults,
-            defaultMicrophoneIDProvider: { "" }
-        )
-        let archive = SpyRecordingArchive(deleteAllError: .deleteAllFailed(code: 513))
-
-        await deleteLeftoverRecordingsIfLearningIsOff(settings: settings, recordingArchive: archive)
-
-        #expect(settings.glossaryLearningEnabled == false)
-        #expect(await archive.snapshot().deleteAllCount == 1)
-    }
-
-    /// Off, on, off again: the first deletion fails after the second succeeded. The person's latest
-    /// choice, off, stands.
-    @Test
-    func anOlderFailedOptOutCannotUndoANewerOne() async throws {
-        let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
-        defer { userDefaults.removePersistentDomain(forName: suiteName) }
-        let settings = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
-        let archive = SpyRecordingArchive(holdsFirstDeleteAllThenFails: true)
-        let optIns = settings.attachedOptIns(recordingArchive: archive)
-        optIns.setGlossaryLearning(true)
-
-        let first = optIns.setGlossaryLearning(false)
-        await archive.firstDeleteAllStarted()
-        optIns.setGlossaryLearning(true)
-        let second = optIns.setGlossaryLearning(false)
-        await second.value
-        archive.releaseFirstDeleteAll()
-        await first.value
-
-        #expect(await archive.snapshot().deleteAllCount == 2)
-        #expect(settings.glossaryLearningEnabled == false)
-    }
-
-    /// One owner per settings. Before the app attaches its stores, an opt-out is refused: files from
-    /// an earlier launch may be on disk with nothing attached to delete them. Once attached, turning
-    /// learning off deletes from the archive.
+    /// One owner per settings. Before the app attaches its store, an opt-out is refused: a file from
+    /// an earlier launch may be on disk with nothing attached to delete it. Once attached, turning
+    /// history off works.
     @Test
     func anOptOutBeforeTheStoresAreAttachedIsRefused() async throws {
         let suiteName = testDomainName("SyrupTests")
@@ -252,39 +171,14 @@ struct AppSettingsTests {
         defer { userDefaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
         #expect(settings.privacyOptIns === settings.privacyOptIns)
-        let archive = SpyRecordingArchive()
 
-        settings.privacyOptIns.setGlossaryLearning(true)
-        await settings.privacyOptIns.setGlossaryLearning(false).value
-        #expect(settings.glossaryLearningEnabled, "Refused, so it stays on")
         await settings.privacyOptIns.setPersistHistory(true)
         await settings.privacyOptIns.setPersistHistory(false)
         #expect(settings.persistHistory, "Refused, so it stays on")
 
-        settings.privacyOptIns.attach(history: enabledHistoryStore(), recordingArchive: archive)
-        await settings.privacyOptIns.setGlossaryLearning(false).value
-        #expect(settings.glossaryLearningEnabled == false)
-        #expect(await archive.snapshot().deleteAllCount == 1)
-    }
-
-    /// Off, then on again before the deletion started: nothing is deleted, so a recording made after
-    /// turning learning back on survives.
-    @Test
-    func anOptOutSupersededBeforeItsDeletionStartsDeletesNothing() async throws {
-        let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
-        defer { userDefaults.removePersistentDomain(forName: suiteName) }
-        let settings = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
-        let archive = SpyRecordingArchive()
-        let optIns = settings.attachedOptIns(recordingArchive: archive)
-        optIns.setGlossaryLearning(true)
-
-        let off = optIns.setGlossaryLearning(false)
-        optIns.setGlossaryLearning(true)
-        await off.value
-
-        #expect(await archive.snapshot().deleteAllCount == 0)
-        #expect(settings.glossaryLearningEnabled)
+        settings.privacyOptIns.attach(history: enabledHistoryStore())
+        await settings.privacyOptIns.setPersistHistory(false)
+        #expect(settings.persistHistory == false)
     }
 
     /// The language check awaits Speech. A workflow switch meanwhile must not move the replacement

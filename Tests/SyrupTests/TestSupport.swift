@@ -79,11 +79,9 @@ final class TestDefaults: UserDefaults {
 @MainActor
 extension AppSettings {
     /// The settings' opt-in owner, attached to the stores a test gives it.
-    func attachedOptIns(
-        history: HistoryStore = HistoryStore(), recordingArchive: (any RecordingArchiving)? = nil
-    ) -> PrivacyOptIns {
+    func attachedOptIns(history: HistoryStore = HistoryStore()) -> PrivacyOptIns {
         privacyOptIns.detachForTesting()
-        privacyOptIns.attach(history: history, recordingArchive: recordingArchive)
+        privacyOptIns.attach(history: history)
         return privacyOptIns
     }
 }
@@ -554,112 +552,6 @@ final class FailingPasteboard: PasteboardWriting {
     }
 }
 
-actor SpyRecordingArchive: RecordingArchiving {
-    struct Commit: Equatable, Sendable {
-        let id: UUID
-        let localeID: String
-        let appleTranscript: String
-    }
-
-    struct Snapshot: Sendable {
-        let begunEntryIDs: [UUID]
-        let commits: [Commit]
-        let discardedEntryIDs: [UUID]
-        let deletedEntryIDs: [UUID]
-        let deleteAllCount: Int
-    }
-
-    private(set) var begunEntryIDs: [UUID] = []
-    private(set) var commits: [Commit] = []
-    private(set) var discardedEntryIDs: [UUID] = []
-    private(set) var deletedEntryIDs: [UUID] = []
-    private(set) var deleteAllCount = 0
-    private let deleteAllError: RecordingArchiveError?
-    private let holdsFirstDeleteAllThenFails: Bool
-    private let firstDeleteAll = AsyncStream<Void>.makeStream()
-    private let release = AsyncStream<Void>.makeStream()
-
-    /// `holdsFirstDeleteAllThenFails`: the first `deleteAll` waits for `releaseFirstDeleteAll`, then fails.
-    init(deleteAllError: RecordingArchiveError? = nil, holdsFirstDeleteAllThenFails: Bool = false) {
-        self.deleteAllError = deleteAllError
-        self.holdsFirstDeleteAllThenFails = holdsFirstDeleteAllThenFails
-    }
-
-    func firstDeleteAllStarted() async {
-        for await _ in firstDeleteAll.stream { return }
-    }
-
-    nonisolated func releaseFirstDeleteAll() {
-        release.continuation.yield()
-    }
-
-    func beginEntry(id: UUID) async throws -> URL {
-        begunEntryIDs.append(id)
-        return FileManager.default.temporaryDirectory
-            .appending(path: "SyrupSpyRecordingArchive.\(id.uuidString).wav")
-    }
-
-    func commitEntry(id: UUID, localeID: String, appleTranscript: String) async {
-        commits.append(Commit(
-            id: id,
-            localeID: localeID,
-            appleTranscript: appleTranscript
-        ))
-    }
-
-    func discardEntry(id: UUID) async -> Bool {
-        discardedEntryIDs.append(id)
-        return true
-    }
-
-    func unresolvedDeletions() async -> Set<UUID> { [] }
-
-    func pendingEntryCounts() async -> AsyncStream<Int> {
-        let count = await pendingEntries().count
-        return AsyncStream { $0.yield(count); $0.finish() }
-    }
-
-    func pendingEntries() async -> [RecordingSidecar] {
-        []
-    }
-
-    func audioFileURL(id: UUID) async -> URL {
-        FileManager.default.temporaryDirectory
-            .appending(path: "SyrupSpyRecordingArchive.\(id.uuidString).wav")
-    }
-
-    func recordAttempt(id: UUID) async -> Int {
-        1
-    }
-
-    func deleteEntry(id: UUID) async -> Bool {
-        deletedEntryIDs.append(id)
-        return true
-    }
-
-    func deleteAll() async throws {
-        deleteAllCount += 1
-        if holdsFirstDeleteAllThenFails, deleteAllCount == 1 {
-            firstDeleteAll.continuation.yield()
-            for await _ in release.stream { break }
-            throw RecordingArchiveError.deleteAllFailed(code: 513)
-        }
-        if let deleteAllError {
-            throw deleteAllError
-        }
-    }
-
-    func snapshot() -> Snapshot {
-        Snapshot(
-            begunEntryIDs: begunEntryIDs,
-            commits: commits,
-            discardedEntryIDs: discardedEntryIDs,
-            deletedEntryIDs: deletedEntryIDs,
-            deleteAllCount: deleteAllCount
-        )
-    }
-}
-
 @MainActor
 final class SpyAutoPaster: AutoPasting {
     var isTrusted: Bool
@@ -977,7 +869,6 @@ extension AppState {
         installHotkeys: Bool = false,
         selectionReader: any SelectionReading = FakeSelectionReader(.empty),
         recordingCue: (any RecordingCuePresenting)? = nil,
-        recordingArchive: (any RecordingArchiving)? = nil,
         outputDucker: OutputDucker? = nil,
         frontmostApplication: @escaping @MainActor (Bool) -> (bundleID: String?, processID: pid_t?) = { _ in (nil, nil) },
         captureDeliveryTarget: @escaping @MainActor (pid_t?) async -> DeliveryTarget? = { _ in nil }
@@ -1009,7 +900,6 @@ extension AppState {
             selectionReader: selectionReader,
             processActivity: processActivity,
             recordingCue: recordingCue,
-            recordingArchive: recordingArchive,
             outputDucker: outputDucker,
             frontmostApplication: frontmostApplication,
             captureDeliveryTarget: captureDeliveryTarget,

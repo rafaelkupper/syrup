@@ -108,6 +108,43 @@ struct OpenAISSEParsingTests {
         }
     }
 
+    /// Mistral's reasoning models stream like this (https://docs.mistral.ai/capabilities/reasoning/,
+    /// read 2026-11-14): while thinking, `delta.content` is a list holding a thinking chunk; at the
+    /// transition, one list holds a closing thinking chunk and the first text chunk; the answer is a
+    /// plain string. Thinking is progress, so a long think is not cut off, but never answer text.
+    @Test func mistralThinkingChunksAreProgressButNotAnswerText() throws {
+        var parser = OpenAISSEParser()
+        let thinking = try parser.append(
+            #"data: {"choices":[{"delta":{"content":[{"type":"thinking","thinking":[{"type":"text","text":"Plan the reply."}]}]}}]}"# + "\n"
+        )
+        #expect(thinking.isEmpty)
+        #expect(parser.progressChunks == 1)
+
+        let transition = try parser.append(
+            #"data: {"choices":[{"delta":{"content":[{"type":"thinking","thinking":[{"type":"text","text":" Done."}]},{"type":"text","text":"Hello"}]}}]}"# + "\n"
+        )
+        #expect(transition == [.delta("Hello")])
+        #expect(parser.progressChunks == 2)
+
+        let answer = try parser.append(#"data: {"choices":[{"delta":{"content":" there."}}]}"# + "\n")
+        #expect(answer == [.delta(" there.")])
+        #expect(parser.progressChunks == 3)
+    }
+
+    /// The other side of the rule: chunks that carry nothing generated are not progress, so a server
+    /// repeating them cannot hold a run open.
+    @Test(arguments: [
+        #"data: {"choices":[{"delta":{"role":"assistant","content":""}}]}"#,
+        #"data: {"choices":[{"delta":{"content":[{"type":"text","text":""}]}}]}"#,
+        #"data: {"choices":[{"delta":{"content":[{"type":"thinking","thinking":[]}]}}]}"#,
+        #"data: {"choices":[{"delta":{}}]}"#,
+    ])
+    func chunksCarryingNothingAreNotProgress(chunk: String) throws {
+        var parser = OpenAISSEParser()
+        #expect(try parser.append(chunk + "\n").isEmpty)
+        #expect(parser.progressChunks == 0)
+    }
+
     @Test func aChunkWithoutChoicesOrAnErrorIsSkipped() async throws {
         let output = try await consume(
             #"data: {"usage":{"prompt_tokens":3,"completion_tokens":1}}"# + "\n\n"

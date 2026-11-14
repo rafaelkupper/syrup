@@ -1,15 +1,12 @@
 import AVFoundation
 import Foundation
 
-/// Child tasks one voice run starts. They are cancelled together when the run ends, however it ends,
-/// except work handed on to file the recording after a successful delivery.
+/// Child tasks one voice run starts. They are cancelled together when the run ends, however it ends.
 @MainActor
 final class VoiceRunWork {
     var transcription: Task<String, any Error>?
     var appleTranscription: Task<String, any Error>?
     var transformer: Task<any TextTransformer, Never>?
-    var provisionalRecordingID: UUID?
-    var recordingTee: RecordingTeeSession?
 
     func cancel() {
         transcription?.cancel()
@@ -18,15 +15,15 @@ final class VoiceRunWork {
     }
 }
 
-/// A finished transcript: `raw` as the engine returned it, trimmed, for usage counts and the learning
-/// archive; `text` after the workflow's corrections, which the rest of the run uses.
+/// A finished transcript: `raw` as the engine returned it, trimmed, for usage counts; `text` after
+/// the workflow's corrections, which the rest of the run uses.
 struct VoiceTranscript {
     let raw: String
     let text: String
 }
 
 /// The voice run, in phases: open the microphone, wait for the run's configuration, transcribe until
-/// the stop, then transform and deliver (`AppState+Delivery.swift`), then file the recording.
+/// the stop, then transform and deliver (`AppState+Delivery.swift`).
 extension AppState {
     func runPipeline(runID: UUID, resolvedConfiguration: Task<RunConfiguration?, Never>) async {
         let work = VoiceRunWork()
@@ -46,7 +43,6 @@ extension AppState {
             try await deliverTranscript(transcript, configuration: configuration, run: run, work: work)
             work.transformer = nil
             recordUsage(rawTranscript: transcript.raw, transcript: transcript.text, configuration: configuration, run: run)
-            fileRecording(rawTranscript: transcript.raw, configuration: configuration, work: work)
             if run.lowersOtherAudio, let outputVolumeWork {
                 _ = try? await withOperationTimeout(.seconds(1), error: CancellationError()) {
                     await outputVolumeWork.value
@@ -57,18 +53,14 @@ extension AppState {
             if isCurrentRun(runID) {
                 audioRecorder.stop()
             }
-            await work.recordingTee?.cancelAndWait()
-            if let provisionalRecordingID = work.provisionalRecordingID {
-                await recordingArchive?.discardEntry(id: provisionalRecordingID)
-            }
             finishRunFailed(runID, error: error)
         }
     }
 
     // MARK: - Recording and transcription
 
-    /// Starts capture and wraps the stream with the level tap, the pause-transformation copy, and the
-    /// opt-in learning archive. Returns once audio is flowing.
+    /// Starts capture and wraps the stream with the level tap and the pause-transformation copy.
+    /// Returns once audio is flowing.
     private func openMicrophone(for run: PipelineRun, work: VoiceRunWork) async throws -> AudioBufferSequence {
         let runID = run.id
         try Task.checkCancellation()
@@ -92,20 +84,6 @@ extension AppState {
             audio = capture.attach(to: audio) { [weak run] in
                 run?.pauseCheckTask?.cancel()
                 run?.pauseCheckTask = nil
-            }
-        }
-        if run.learnsFromRecording, settings.glossaryLearningEnabled, let recordingArchive {
-            do {
-                let fileURL = try await recordingArchive.beginEntry(id: runID)
-                work.provisionalRecordingID = runID
-                let session = RecordingTee.attach(to: audio, fileURL: fileURL, onOverflow: { [weak self] in
-                    Task { @MainActor in self?.recordingFailed(AudioRecordingError.audioBufferOverflow, runID: runID) }
-                })
-                work.recordingTee = session
-                audio = session.stream
-            } catch {
-                // Archiving is best-effort and must never fail a dictation. A pending cleanup
-                // also refuses new entries here, so retention caps stay enforceable.
             }
         }
         guard isCurrentRun(runID) else {
@@ -242,10 +220,8 @@ extension AppState {
         metrics.end(.transcriptionWindow, runID: runID)
         metrics.end(.releaseToTranscript, runID: runID)
         work.transcription = nil
-        if work.provisionalRecordingID == nil {
-            work.appleTranscription?.cancel()
-            work.appleTranscription = nil
-        }
+        work.appleTranscription?.cancel()
+        work.appleTranscription = nil
         guard isCurrentRun(runID) else { throw CancellationError() }
         try Task.checkCancellation()
 
@@ -305,33 +281,6 @@ extension AppState {
                 preparedTransformerTask: work.transformer,
                 recordReleaseToClipboard: true
             )
-        }
-    }
-
-    // MARK: - After delivery
-
-    /// Hands an opted-in recording to the archive. It is committed once the WAV is complete and Apple's
-    /// transcript of the same audio is known, without holding up the run.
-    private func fileRecording(rawTranscript: String, configuration: RunConfiguration, work: VoiceRunWork) {
-        defer { work.provisionalRecordingID = nil }
-        guard let recordingID = work.provisionalRecordingID, let recordingArchive else { return }
-        let tee = work.recordingTee
-        let appleTranscription = work.appleTranscription
-        work.appleTranscription = nil
-        recordingWork[recordingID] = Task { [weak self, settings] in
-            defer { self?.recordingWork[recordingID] = nil }
-            let archived = await tee?.waitForCompletion() ?? false
-            let appleTranscript = if let appleTranscription {
-                ((try? await appleTranscription.value) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-            } else {
-                rawTranscript
-            }
-            // An opt-out made while this recording was filed wins over the run's frozen opt-in.
-            if archived, settings.glossaryLearningEnabled, appleTranscript.isEmpty == false {
-                await recordingArchive.commitEntry(id: recordingID, localeID: configuration.dictationLocaleID, appleTranscript: appleTranscript)
-            } else {
-                await recordingArchive.discardEntry(id: recordingID)
-            }
         }
     }
 

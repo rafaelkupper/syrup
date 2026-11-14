@@ -13,9 +13,6 @@ struct SettingsView: View {
     @Bindable var navigation: SettingsNavigation
     let keychainStore: KeychainStore
     let autoPaster: any AutoPasting
-    let recordingArchive: (any RecordingArchiving)?
-    @Bindable var whisperModelManager: WhisperModelManager
-    let learningCoordinator: GlossaryLearningCoordinator?
     let workflowChangeHandler: () -> Void
     let settingsWindowFocusController = SettingsWindowFocusController()
     @State private var permissions = PermissionStatusModel()
@@ -60,13 +57,7 @@ struct SettingsView: View {
                 ModelsSettingsPane(settings: settings, speechModels: speechModels, keychainStore: keychainStore)
             }
             tab(.glossary) {
-                GlossarySettingsView(
-                    settings: settings,
-                    navigation: navigation,
-                    recordingArchive: recordingArchive,
-                    whisperModelManager: whisperModelManager,
-                    learningCoordinator: learningCoordinator
-                )
+                GlossarySettingsView(settings: settings, navigation: navigation)
             }
             // Toolbar tabs don't draw badges, so the icon carries the warning.
             Tab(
@@ -78,8 +69,6 @@ struct SettingsView: View {
                     settings: settings,
                     history: history,
                     usageStats: state.usageStats,
-                    recordingArchive: state.recordingArchive,
-                    navigation: navigation,
                     permissions: permissions,
                     autoPaster: autoPaster,
                     onPermissionAction: completePermissionAction,

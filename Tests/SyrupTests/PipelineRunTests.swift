@@ -256,30 +256,6 @@ struct PipelineRunTests {
         #expect(instruction.contains(PromptBuilder.selfCorrectionInstruction))
     }
 
-    @Test func quittingWaitsForACancelledRecordingToBeDiscarded() async throws {
-        let (settings, defaults) = try settings()
-        defer { defaults.removePersistentDomain(forName: suite) }
-        settings.privacyOptIns.setGlossaryLearning(true)
-        let archive = HeldDiscardArchive()
-        let recorder = FakeRecorder()
-        let state = AppState.fixture(
-            settings: settings, audioRecorder: recorder, transcriber: FakeTranscriber(.suspended),
-            transformer: FakeTextTransformer(.success("never")), pasteboard: SpyPasteboard(), feedback: SpyFeedback(),
-            autoPaster: SpyAutoPaster(), maximumRecordingDurationNanoseconds: 0, recordingClock: FastForwardClock(),
-            recordingArchive: archive
-        )
-        state.triggerPressed()
-        await eventually("The recording never started") { await archive.begun }
-
-        var quitFinished = false
-        let quit = Task { await state.prepareForTermination(); quitFinished = true }
-        await eventually("The cancelled run never reached its cleanup") { await archive.isHoldingDiscard }
-        #expect(quitFinished == false)
-        await archive.releaseDiscard()
-        await quit.value
-        #expect(await archive.discarded)
-    }
-
     @Test func quittingEndsTheActiveRun() async throws {
         let (settings, defaults) = try settings()
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -328,32 +304,4 @@ private final class SuspendedSelectionReader: SelectionReading {
         continuation?.resume(returning: RunSelectionCapture(selection: selection))
         continuation = nil
     }
-}
-
-private actor HeldDiscardArchive: RecordingArchiving {
-    private(set) var begun = false
-    private(set) var discarded = false
-    private var waiter: CheckedContinuation<Void, Never>?
-    var isHoldingDiscard: Bool { waiter != nil }
-
-    func beginEntry(id: UUID) async throws -> URL {
-        begun = true
-        return FileManager.default.temporaryDirectory.appending(path: "SyrupHeldDiscard-\(id).wav")
-    }
-    func commitEntry(id: UUID, localeID: String, appleTranscript: String) async {}
-    func discardEntry(id: UUID) async -> Bool {
-        await withCheckedContinuation { waiter = $0 }
-        discarded = true
-        try? FileManager.default.removeItem(at: FileManager.default.temporaryDirectory
-            .appending(path: "SyrupHeldDiscard-\(id).wav"))
-        return true
-    }
-    func releaseDiscard() { waiter?.resume(); waiter = nil }
-    func unresolvedDeletions() async -> Set<UUID> { [] }
-    func pendingEntryCounts() async -> AsyncStream<Int> { AsyncStream { $0.yield(0); $0.finish() } }
-    func pendingEntries() async -> [RecordingSidecar] { [] }
-    func audioFileURL(id: UUID) async -> URL { FileManager.default.temporaryDirectory }
-    func recordAttempt(id: UUID) async -> Int { 0 }
-    func deleteEntry(id: UUID) async -> Bool { true }
-    func deleteAll() async throws {}
 }

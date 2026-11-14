@@ -7,14 +7,11 @@ struct PrivacySettingsPane: View {
     @Bindable var settings: AppSettings
     @Bindable var history: HistoryStore
     let usageStats: UsageStatsStore
-    let recordingArchive: (any RecordingArchiving)?
-    @Bindable var navigation: SettingsNavigation
     let permissions: PermissionStatusModel
     let autoPaster: any AutoPasting
     let onPermissionAction: () -> Void
     /// Reads the saved key, to name the endpoint runs actually use.
     let keychainStore: KeychainStore
-    @State private var leftoverRecordings = 0
     /// The endpoint a run would use, resolved like a run resolves it. In a Debug build with no saved
     /// key, a complete development environment overrides the saved endpoint.
     @State private var resolvedEndpointHost: String?
@@ -37,9 +34,6 @@ struct PrivacySettingsPane: View {
             keptSection
         }
         .formStyle(.grouped)
-        .task(id: settings.glossaryLearningEnabled) {
-            leftoverRecordings = await recordingArchive?.storedRecordingCount() ?? 0
-        }
         .task(id: settings.baseURL + "\n" + settings.modelName) {
             resolvedEndpointHost = try? await OpenAICompatibleSettingsConfigurationResolver.configuration(
                 baseURLString: settings.baseURL, modelName: settings.modelName, keychainStore: keychainStore
@@ -148,27 +142,7 @@ struct PrivacySettingsPane: View {
                 Text(message)
                     .foregroundStyle(.red)
             }
-
-            LabeledContent {
-                Button("Show in Glossary") {
-                    navigation.selectedTab = .glossary
-                }
-            } label: {
-                Text("Recordings for glossary learning")
-                Text(Self.learningRecordingsDescription(
-                    isEnabled: settings.glossaryLearningEnabled, leftover: leftoverRecordings
-                ))
-            }
         }
-    }
-
-    /// "Nothing is kept" only when nothing is: a cleanup that failed at launch leaves files behind
-    /// until a later launch removes them.
-    static func learningRecordingsDescription(isEnabled: Bool, leftover: Int) -> String {
-        if isEnabled { return "On. Kept on this Mac until compared, at most 50 for 7 days." }
-        guard leftover > 0 else { return "Off. Nothing is kept." }
-        let count = leftover == 1 ? "1 recording" : "\(leftover) recordings"
-        return "Off, but \(count) from before could not be deleted yet. Syrup tries again at each launch, or delete them in Glossary."
     }
 
     private var persistHistoryBinding: Binding<Bool> {

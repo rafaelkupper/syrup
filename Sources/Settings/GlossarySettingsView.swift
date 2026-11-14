@@ -33,14 +33,7 @@ struct GlossaryExportDocument: FileDocument {
 struct GlossarySettingsView: View {
     @Bindable var settings: AppSettings
     @Bindable var navigation: SettingsNavigation
-    let recordingArchive: (any RecordingArchiving)?
-    @Bindable var whisperModelManager: WhisperModelManager
-    let learningCoordinator: GlossaryLearningCoordinator?
     @Environment(MishearingSuggestionModel.self) private var suggestions
-    @State private var pendingRecordingCount = 0
-    @State private var recordingDeletionFailed = false
-    @State private var leftoverRecordingCount = 0
-    @State private var isConfirmingModelRemoval = false
     @State private var selectedTermID: UUID?
     @State private var termDrafts: [UUID: String] = [:]
     @State private var mishearingDrafts: [UUID: String] = [:]
@@ -67,7 +60,6 @@ struct GlossarySettingsView: View {
                 suggestionsSection
             }
 
-            learningSection
             builtInVocabularySection
         }
         .formStyle(.grouped)
@@ -83,27 +75,6 @@ struct GlossarySettingsView: View {
         }
         .onChange(of: settings.glossaryList) { _, _ in
             synchronizeDrafts()
-        }
-        .confirmationDialog(
-            "Delete the comparison model too?",
-            isPresented: $isConfirmingModelRemoval,
-            titleVisibility: .visible
-        ) {
-            Button("Delete Model (626 MB)", role: .destructive) {
-                whisperModelManager.removeModel()
-            }
-            Button("Keep Model", role: .cancel) {}
-        } message: {
-            Text("Waiting recordings are deleted either way. The model downloads again if you turn learning back on.")
-        }
-        .task {
-            guard let recordingArchive else { return }
-            for await count in await recordingArchive.pendingEntryCounts() {
-                pendingRecordingCount = count
-            }
-        }
-        .task(id: settings.glossaryLearningEnabled) {
-            leftoverRecordingCount = await recordingArchive?.storedRecordingCount() ?? 0
         }
         .task(id: navigation.glossaryFocusRequest) {
             await Task.yield()
@@ -269,43 +240,6 @@ struct GlossarySettingsView: View {
         }
     }
 
-    private var learningSection: some View {
-        Section {
-            LabeledContent {
-                Toggle(
-                    "Suggest terms from my recordings",
-                    isOn: learningToggleBinding
-                )
-                .labelsHidden()
-            } label: {
-                Text("Suggest terms from my recordings")
-                Text("Keeps audio on this Mac until it's compared, then deletes it")
-            }
-
-            if settings.glossaryLearningEnabled {
-                recognitionModelRow
-                pendingRecordingsRow
-            } else if leftoverRecordingCount > 0 {
-                leftoverRecordingsRow
-            }
-            if settings.glossaryLearningEnabled == false, whisperModelManager.state == .ready {
-                // Learning is off but the 626 MB model is still on disk —
-                // keep the removal path reachable without re-enabling.
-                recognitionModelRow
-            }
-
-        } header: {
-            Text("Learning")
-        } footer: {
-            DisclosureGroup("What is sent, and where?") {
-                Text(glossaryLearningPrivacyDescription)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, 4)
-            }
-            .font(.caption)
-        }
-    }
-
     private var suggestionsSection: some View {
         Section("Suggested from your recordings") {
             ForEach(settings.glossaryProposals.proposals) { proposal in
@@ -329,108 +263,6 @@ struct GlossarySettingsView: View {
         }
     }
 
-    @ViewBuilder
-    private var recognitionModelRow: some View {
-        LabeledContent("Comparison model") {
-            switch whisperModelManager.state {
-            case .notDownloaded:
-                HStack(spacing: 8) {
-                    Text("Not downloaded")
-                        .foregroundStyle(.secondary)
-                    Button("Download (626 MB)") {
-                        downloadRecognitionModel()
-                    }
-                }
-            case .downloading(let progress):
-                HStack(spacing: 8) {
-                    ProgressView(value: progress)
-                        .frame(width: 180)
-                        .accessibilityLabel("Downloading comparison model")
-                        .accessibilityValue(progress.formatted(.percent.precision(.fractionLength(0))))
-                    Button("Cancel") {
-                        whisperModelManager.cancelDownload()
-                    }
-                }
-            case .ready:
-                HStack(spacing: 8) {
-                    Text("Ready (626 MB)")
-                        .foregroundStyle(.secondary)
-                    Button("Delete", role: .destructive) {
-                        whisperModelManager.removeModel()
-                    }
-                    .disabled(isAnalyzing)
-                    .help("When learning is enabled, a new pending recording can download the model again.")
-                }
-            case .failed(let message):
-                HStack(spacing: 8) {
-                    Text(message)
-                        .foregroundStyle(.red)
-                    Button("Retry") {
-                        Task { await whisperModelManager.retry() }
-                    }
-                    Button("Delete", role: .destructive) {
-                        whisperModelManager.removeModel()
-                    }
-                }
-            }
-        }
-    }
-
-    /// Learning is off, but a cleanup that failed left recordings on disk.
-    @ViewBuilder
-    private var leftoverRecordingsRow: some View {
-        LabeledContent {
-            Button("Delete Now", role: .destructive) { clearPendingRecordings() }
-        } label: {
-            Text("Recordings left from before")
-            Text(leftoverRecordingCount == 1 ? "1 recording could not be deleted yet" : "\(leftoverRecordingCount) recordings could not be deleted yet")
-        }
-        if recordingDeletionFailed {
-            Text("Some recordings could not be deleted. Syrup tries again at the next cleanup.")
-                .font(.caption)
-                .foregroundStyle(.red)
-        }
-    }
-
-    @ViewBuilder
-    private var pendingRecordingsRow: some View {
-        LabeledContent("Waiting to be compared") {
-            HStack(spacing: 8) {
-                if isAnalyzing {
-                    ProgressView()
-                        .controlSize(.small)
-                    Text("Comparing…")
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text(pendingRecordingCount == 1 ? "1 recording" : "\(pendingRecordingCount) recordings")
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                }
-
-                Button("Compare Now") {
-                    runAnalysisPass()
-                }
-                .disabled(
-                    learningCoordinator == nil
-                        || isAnalyzing
-                        || pendingRecordingCount == 0
-                        || whisperModelManager.state != .ready
-                )
-                .help("Runs the idle-time analysis immediately instead of waiting for the scheduler.")
-
-                Button("Delete All") {
-                    clearPendingRecordings()
-                }
-                .disabled(isAnalyzing || pendingRecordingCount == 0)
-            }
-        }
-        if recordingDeletionFailed {
-            Text("Some recordings could not be deleted. Syrup tries again at the next cleanup.")
-                .font(.caption)
-                .foregroundStyle(.red)
-        }
-    }
-
     // MARK: - System voice check
 
     /// Everyday words can make the AI rewrite ordinary sentences, so they ask first.
@@ -445,66 +277,12 @@ struct GlossarySettingsView: View {
         mishearingDrafts[term.id] = updated.mishearings.joined(separator: ", ")
     }
 
-    private var isAnalyzing: Bool {
-        learningCoordinator?.isRunning == true
-    }
-
-    /// Turning learning off always deletes pending recordings (`PrivacyOptIns.setGlossaryLearning`); the
-    /// model is a separate 626 MB decision, so ask.
-    private var learningToggleBinding: Binding<Bool> {
-        Binding {
-            settings.glossaryLearningEnabled
-        } set: { isEnabled in
-            settings.privacyOptIns.setGlossaryLearning(isEnabled)
-            // A download for a feature just turned off is not finished.
-            if isEnabled == false { whisperModelManager.cancelDownload() }
-            if isEnabled == false, whisperModelManager.state == .ready {
-                isConfirmingModelRemoval = true
-            }
-        }
-    }
-
-    private func downloadRecognitionModel() {
-        Task {
-            await whisperModelManager.ensureModel()
-        }
-    }
-
-    private func runAnalysisPass() {
-        Task {
-            await learningCoordinator?.runPass()
-        }
-    }
-
-    private func clearPendingRecordings() {
-        Task {
-            do {
-                try await recordingArchive?.deleteAll()
-                recordingDeletionFailed = false
-            } catch {
-                recordingDeletionFailed = true
-            }
-            leftoverRecordingCount = await recordingArchive?.storedRecordingCount() ?? 0
-        }
-    }
-
     private func addProposalToGlossary(_ proposal: GlossaryProposal) {
         settings.addGlossaryTerm(GlossaryTerm(
             term: proposal.term,
             mishearings: proposal.mishearings
         ))
         settings.removeGlossaryProposal(id: proposal.id)
-    }
-
-    private var glossaryLearningPrivacyDescription: String {
-        let retention = "When enabled, Syrup keeps each dictation's audio on this Mac (at most 50 recordings or 7 days) until it is analyzed during idle time, then deletes it."
-        let suggestions = "Suggestions appear here for your approval."
-
-        if settings.translationProvider == .appleOnDevice {
-            return "\(retention) Analysis re-transcribes the audio on-device and compares the two transcript versions using your configured AI provider (\(settings.translationProvider.displayName) — fully on-device) to spot misheard terms. Nothing leaves your Mac. \(suggestions)"
-        }
-
-        return "\(retention) Analysis re-transcribes the audio on-device and may send the two transcript versions to your configured AI provider (\(settings.translationProvider.displayName)) to spot misheard terms. Audio, your glossary, and other content stay on your Mac. \(suggestions)"
     }
 
     private var filteredTerms: [GlossaryTerm] {

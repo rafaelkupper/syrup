@@ -173,7 +173,6 @@ struct AppStateSelectionTests {
     @Test
     func selectionInputSkipsRecordingAndTranscription() async throws {
         let settings = makeTestSettings()
-        settings.privacyOptIns.setGlossaryLearning(true)
         let summarizeSelection = try #require(
             WorkflowTemplate.templates().first { $0.id == "summarize-selection" }
         )
@@ -192,7 +191,6 @@ struct AppStateSelectionTests {
         let pasteboard = SpyPasteboard()
         let history = HistoryStore()
         let metrics = SpyPipelineMetrics()
-        let archive = SpyRecordingArchive()
         let state = makeState(
             settings: settings,
             recorder: recorder,
@@ -201,8 +199,7 @@ struct AppStateSelectionTests {
             pasteboard: pasteboard,
             metrics: metrics,
             history: history,
-            selectionReader: selectionReader,
-            recordingArchive: archive
+            selectionReader: selectionReader
         )
 
         state.triggerPressed()
@@ -218,10 +215,6 @@ struct AppStateSelectionTests {
         #expect(receivedInstruction?.contains("Selected paragraph") == false)
         #expect(metrics.begunStages.contains(.selectionCapture))
         #expect(metrics.begunStages.contains(.hotkeyToRecordingStarted) == false)
-        let archiveSnapshot = await archive.snapshot()
-        #expect(archiveSnapshot.begunEntryIDs.isEmpty)
-        #expect(archiveSnapshot.commits.isEmpty)
-        #expect(archiveSnapshot.discardedEntryIDs.isEmpty)
 
         let record = try #require(history.records.first)
         #expect(record.transcript.isEmpty)

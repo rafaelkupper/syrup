@@ -12,7 +12,7 @@ Record results in a dated `docs/verification/` file. Mark each check passed, fai
 - Choose System default and a specific microphone. With AirPods connected, confirm the selected non-AirPods microphone avoids headset-input mode. Remove the selected device and confirm the missing-device UI and fallback are clear.
 - Grant microphone and Speech access independently; check denied/restricted states. Cancel while a permission prompt is pending, grant it, and verify the cancelled run does not start capture.
 - Select a supported workflow locale. Verify installed/download progress and failure while assets are not ready. Optional `script/smoke_ptbr_speech.sh` checks installed pt-BR speech with temporary synthetic audio; it does not replace live microphone QA.
-- With learning and Persist history off, complete, fail, cancel, and run empty dictations. Confirm no retained audio/transcripts and no clipboard write on cancel or empty input. Learning's opted-in recording rules are checked separately below.
+- With Persist history off, complete, fail, cancel, and run empty dictations. Confirm no retained audio/transcripts and no clipboard write on cancel or empty input.
 - Confirm recording indicator, waveform, live transcript, and success/error states. Hide the live transcript while holding recognition accuracy constant; enable fast recognition separately. Test completion-sound choice, preview, and mute.
 - Change workflow, locale, instruction, and provider during recording. The active run must keep its trigger-time snapshot; the next run must use the changes. Confirm sleep/wake and two quick successive dictations work.
 - In the Syrup window, click each toolbar tab: Home, Workflows, Dictation, Delivery, Models, Glossary, Privacy, and General. Confirm the window stays closed at launch, opens from the menu bar, with ⌘, while the menu is open, and by opening the app again, comes to the front each time, and that closing it leaves Syrup running. On Home, open every menu in the workflow sentence and confirm each choice changes the active workflow; turn paste it on without Accessibility and confirm Syrup asks for it. Confirm a new result is highlighted when Home opens and fades after a few seconds, and that Clear History… asks before deleting. Change non-secret preferences, quit/relaunch, and verify persistence. Toggle Launch at login and check Enabled, Requires approval, or Off without quitting the running app.
@@ -85,8 +85,7 @@ Record results in a dated `docs/verification/` file. Mark each check passed, fai
 - With Parakeet ready, dictate one long sentence for about 30 seconds without pausing. Confirm the delivered text has no period or capital inside the sentence. Compare `release_to_transcript` for about 5, 30, and 60 seconds of speech.
 - With Parakeet ready, hold the shortcut for about a second without speaking, once in a quiet room and once near a fan or street noise. Confirm "Nothing heard" with no clipboard write or history entry. Then say only "Sim." quietly and confirm it is delivered.
 - Quit and relaunch with a Parakeet workflow active, bound to a shortcut, or routed to an app. Confirm the model reaches Ready without opening Settings and without network access.
-- Cancel with Esc while a Parakeet workflow is recording and while it is transcribing. Confirm no clipboard write, history entry, or recording entry. Tap the shortcut for under 300 ms and confirm no notification.
-- With glossary learning enabled, complete a Parakeet dictation and confirm the pending recording count increases. Its sidecar holds Apple's transcript of the same audio, not Parakeet's.
+- Cancel with Esc while a Parakeet workflow is recording and while it is transcribing. Confirm no clipboard write or history entry. Tap the shortcut for under 300 ms and confirm no notification.
 - Remove Model, confirm the folder is gone and Parakeet workflows fall back to Apple with the notice. On an Intel Mac, confirm Parakeet is not offered and the caption says it needs Apple silicon.
 - Pending real-voice verification: compare Apple and Parakeet on consented clips through `SYRUP_EVAL_PRIVATE_MANIFEST`, as described in `script/recognition-eval/usage.md`.
 
@@ -95,8 +94,6 @@ Record results in a dated `docs/verification/` file. Mark each check passed, fai
 - In Models, download Nemotron Streaming 3.5, Parakeet Unified EN 0.6B, and Canary 180M Flash. Confirm progress, Ready, and that Delete removes only that model.
 - Last buffer at release (pass/fail, needs a real microphone): with automatic paste off and the release tail at its default, dictate a sentence whose last word is short and spoken right before releasing the key, ten times, at 48 kHz and with a Bluetooth or USB microphone. Pass when the last word appears every time. `AudioRecorder.finish()` stops the queue at once and then drains its callback queue, so a buffer the stop discards before dispatching it would lose that word; if it fails, try stopping without `immediate`.
 - Press Cancel on a model download and Download again at once: the second download waits for the first to stop (the bar stays at 0% for a moment), then completes and loads.
-- Quit Syrup during the comparison model's download for glossary learning, relaunch, and open Glossary: the model shows as not downloaded, not ready, and the next download completes it.
-- Download the comparison model on a Mac without `~/Documents/huggingface`, let one learning pass run, and confirm that folder still does not exist and that no Files and Folders prompt appeared. Press Cancel during a download: the bar goes away and nothing is left under `WhisperModels/models`.
 - Start a model download and press Cancel: network activity stops (Activity Monitor's Network tab), the row returns to Download, and Download again finishes faster for files already fetched. Start another and press Delete mid-download: confirm the `.partial-<folder>` staging folder is gone.
 - Choose Canary for an English, German, Spanish, or French workflow and dictate for more than 10 seconds with natural pauses. Confirm no words are lost or repeated where the dictation was cut.
 - Choose each for a workflow, dictate with Show words as they're heard on, and confirm the live text comes from the model every 2 seconds or so. Compare real-voice accuracy with Apple in Portuguese and English, because recorded numbers come from synthetic clips.
@@ -174,10 +171,10 @@ Record results in a dated `docs/verification/` file. Mark each check passed, fai
 - Confirm matching-wrapper removal, unmatched-leading-quote preservation, and multiple trailing-whitespace trimming match atomic output for quoted, unquoted, and quote-only responses at both the cadence and large-buffer flush boundaries.
 - Measure the 50 ms cadence, 200-character flush threshold, 20-UTF-16-unit event chunk, and frontmost-app polling overhead. If empirical tuning changes these constants, update architecture and record the measurements together.
 
-## Learned glossary
+## Retired glossary learning
 
-- Enable Suggest terms from my recordings, download the comparison model, and dictate a sentence containing a deliberately mangled English technical term. Press Compare Now (or wait for the idle scheduler), confirm the suggestion appears in the Glossary tab, choose Add, and verify the next dictation uses the corrected spelling. Repeat with Dismiss and confirm the same term is not proposed again.
-- With recordings pending, press Delete All next to "Waiting to be compared" and confirm the count drops to 0 and `Application Support/Syrup/Recordings/` is empty. Press Remove Model and confirm `Application Support/Syrup/WhisperModels/` is gone and the row offers Download again. Turn learning off with the model installed and confirm the Remove/Keep model dialog appears; Keep leaves the model and its Remove button reachable while learning stays off.
+- On a Mac where an earlier build had glossary learning on, with recordings pending and the comparison model downloaded, install this build and launch it. Confirm `Application Support/Syrup/Recordings/` and `Application Support/Syrup/WhisperModels/` are gone, `History/`, `SpeechModels/`, `Secrets/`, and `usage-stats.json` are untouched, and `defaults read org.syrup.SyrupApp glossaryLearningEnabled` reports that the key does not exist. Glossary shows no learning section; suggestions left from before still offer Add and Dismiss, and both work.
+- Dictate, revise, cancel, and fail a dictation, then confirm no audio file appeared anywhere under `Application Support/Syrup/`.
 
 ## Review fixes: manual acceptance checks
 
@@ -190,9 +187,8 @@ The following checks require the signed production app and have not been establi
 - With target pinning enabled, move between fields, browser tabs, windows, and apps during recording, transformation, and streamed typing. Verify typing stops and completion copies the full result. Repeat with pinning disabled for deliberate focus switching. Include secure fields and an editor that exposes incomplete Accessibility information.
 - Use a streaming provider with auto-paste off. Confirm output appears in the existing cue and cancel leaves the clipboard unchanged. Turn the cue off and verify ordinary atomic delivery. Compare quoted output and revisions.
 - During slow or unresponsive Accessibility selection reads, verify Esc and the menu remain responsive. Measure `selection_capture` and `hotkey_to_recording_started`; the configured deadline is 100 ms per AX message, not an end-to-end latency guarantee.
-- Run learning, then begin dictation. Measure time until Whisper work and its model working set are released. Confirm foreground recording proceeds; repeat during a model download. An empty queue must not download a removed model.
 - Compare accurate and fast recognition with the same consented Portuguese, English, mixed-language, technical-vocabulary, and quiet-final-word fixtures. Record final-word accuracy and release-to-transcript/clipboard latency. Keep preview visibility constant. Do not claim an accuracy improvement from the setting alone.
-- Compare cold/warm end-to-end latency with learning off, on, and interrupted; include the `first_visible_output` span for passive preview and direct typing. Storage microbenchmarks do not establish whole-app latency.
+- Compare cold/warm end-to-end latency; include the `first_visible_output` span for passive preview and direct typing. Storage microbenchmarks do not establish whole-app latency.
 
 ## Recovery and provider reliability checks
 
@@ -207,9 +203,6 @@ The following checks require the signed production app and have not been establi
 - Recheck revised clipboard/last-result replacement, revise-of-revise, and Accessibility trust persistence in the current signed app. An older manual checklist reported unchanged revision output and repeated trust prompts; automated behavior checks alone do not close those live reports.
 - Measure revision-only provider preparation with the final spoken adjustment, and large-glossary token pressure on Apple On-Device. Measure editor autocorrect and focus polling in native apps and Slack before changing typing constants.
 - Confirm glossary export decodes as `GlossaryList`, including all terms/mishearings. User terms take priority over built-in tech vocabulary, deduplication is case-insensitive, and the combined Speech vocabulary is capped at 100. Disable Common tech terms and compare vocabulary composition.
-- With learning off, a dictation must create no recording entry. With learning on, successful voice dictations and revisions may create one WAV and one Apple-transcript sidecar with directory/file modes 0700/0600. Cancelled, failed, empty, and selected-text runs must leave no entry. Verify the 50-recording/7-day retention limits with disposable fixtures.
-- Check visible recognition-model download progress, queued recording consumption and deletion after successful analysis, and retention/retry after failed analysis. Confirm only the opted-in transcript pair goes to the configured judge and audio stays local.
-- Make recording deletion fail with a controlled fixture, then try disabling learning. The setting must remain enabled and explain the failure. Verify ordinary opt-out deletes pending recordings.
 - The old v6-v9 checklist recorded an accepted gap for a valid SSE delta followed by a transport `URLError`, and a fallback-error warning selected from received deltas rather than posted text. Do not infer those cases are settled from broader stream-failure tests; confirm the exact observable behavior if changing that path.
 - Follow [RELEASE.md](RELEASE.md) for signing, notarization, extracted-ZIP verification, and current-artifact retention.
 
@@ -217,11 +210,10 @@ The following checks require the signed production app and have not been establi
 ## Review correction checks
 
 - Pause the hotkeys and confirm their combinations reach another app. Edit the main and workflow shortcuts while paused, then verify they remain inactive until resumed. Repeat with an active recording and confirm pause cancels it.
-- Keep the Glossary tab open, complete a learning-enabled dictation, and confirm the pending count increases. Run analysis or clear recordings and confirm the count updates without reopening Settings.
 - Start a slow connection test, edit the URL or model, and start another test. The earlier completion must not replace the current status. Repeat after changing or removing the saved key.
 - Run Codex against a disposable account home and fixture endpoint. Confirm the invocation uses `--ephemeral` and creates no session transcript. Do not inspect personal Codex session contents for this check.
 - With Codex CLI selected, run a selected-text workflow on text that asks the model to run a shell command and print a local file. Confirm the result is the transformed text, with no file contents, and that the CLI's stderr shows no tool call. A run on 2026-11-13 with codex-cli 0.167.2 translated such text as data.
-- Use `OpenAISSEParsingTests`, `AudioFailureTests`, `ProviderCredentialTests`, `HotkeyPauseTests`, and `RecordingArchiveCountTests` for synthetic CRLF, audio-overflow, credential-error, shortcut-registration, archive-count, and connection-status cases. Live speech, TCC, editor delivery, and signed-app behavior still require the manual checks above.
+- Use `OpenAISSEParsingTests`, `AudioFailureTests`, `ProviderCredentialTests`, and `HotkeyPauseTests` for synthetic CRLF, audio-overflow, credential-error, shortcut-registration, and connection-status cases. Live speech, TCC, editor delivery, and signed-app behavior still require the manual checks above.
 
 
 ## Delivery follow-up for 2026-11-01
@@ -256,7 +248,7 @@ Automated evidence is in `docs/verification/2026-11-01-workflows.md`. These manu
 - Use the primary shortcut in a routed app and an unrouted app. Verify the routed workflow cue caption, locale, and hold release or toggle stop. Dedicated shortcuts and Revise must ignore routing. Change a route and verify the next run uses it.
 - Choose + > Transcribe. Under Output > Action, verify Transcribe and the Clean up fillers and spoken formatting toggle. Verify that Source, selection context, target, tone, instruction, and provider override controls are absent. Its menu bar has no target or tone quick controls.
 - With no API key and a broken provider URL, dictate in an installed locale. Verify complete clipboard delivery, optional atomic paste, success sound, and history persistence opt-in. Streaming delivery must not stream transcription output. Revise must use the configured provider. Retry and transcript fallback must be absent.
-- Dictate English and Portuguese filler/formatting examples. Disable cleanup and verify verbatim trimmed output. Cancel while recording and finalizing. Check no clipboard change or history entry. With glossary learning enabled, check normal archive handling.
+- Dictate English and Portuguese filler/formatting examples. Disable cleanup and verify verbatim trimmed output. Cancel while recording and finalizing. Check no clipboard change or history entry.
 - Downgrade on isolated defaults. The older build sees the retained V1 list; V3 workflows remain preserved for upgrade. Old-build edits do not merge back into V3.
 
 ## In-app updater

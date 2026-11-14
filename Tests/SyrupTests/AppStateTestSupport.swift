@@ -98,7 +98,6 @@ func makeState(
     recordingClock: any RecordingClock = FastForwardClock(),
     installHotkeys: Bool = false,
     selectionReader: any SelectionReading = FakeSelectionReader(.empty),
-    recordingArchive: (any RecordingArchiving)? = nil,
     captureDeliveryTarget: @escaping @MainActor (pid_t?) async -> DeliveryTarget? = { _ in DeliveryTarget(checkCurrent: { true }) }
 ) -> AppState {
     AppState.fixture(
@@ -124,7 +123,6 @@ func makeState(
         recordingClock: recordingClock,
         installHotkeys: installHotkeys,
         selectionReader: selectionReader,
-        recordingArchive: recordingArchive,
         captureDeliveryTarget: captureDeliveryTarget
     )
 }
@@ -216,20 +214,6 @@ func expectHistoryCount(
     if await eventually(sourceLocation: sourceLocation, { history.records.count == expectedCount }) { return }
 
     #expect(history.records.count == expectedCount, sourceLocation: sourceLocation)
-}
-
-@MainActor
-func expectArchiveDiscardCount(
-    _ archive: SpyRecordingArchive,
-    _ expectedCount: Int,
-    sourceLocation: SourceLocation = #_sourceLocation
-) async {
-    if await eventually(sourceLocation: sourceLocation, { await archive.snapshot().discardedEntryIDs.count == expectedCount }) { return }
-
-    #expect(
-        await archive.snapshot().discardedEntryIDs.count == expectedCount,
-        sourceLocation: sourceLocation
-    )
 }
 
 @MainActor

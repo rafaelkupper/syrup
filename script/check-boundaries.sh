@@ -79,7 +79,6 @@ no_names_from() {
 }
 
 only_in FluidAudio 'Sources/Transcription/*'
-only_in WhisperKit 'Sources/Learning/*'
 only_in Sparkle 'Sources/App/UpdateController.swift'
 only_in FoundationModels 'Sources/Translation/AppleOnDeviceTransformer.swift'
 only_in KeyboardShortcuts 'Sources/Hotkey/*' 'Sources/Settings/*' 'Sources/Onboarding/*' 'Sources/App/MenuBarView.swift'
@@ -87,8 +86,8 @@ only_in Speech 'Sources/Transcription/*' 'Sources/Learning/SystemMishearingSpeec
     'Sources/Settings/PermissionStatusModel.swift'
 only_in AVFoundation 'Sources/Audio/*' 'Sources/Transcription/*' 'Sources/App/AppState+VoiceRun.swift' \
     'Sources/App/PauseTransformation.swift' 'Sources/RecordingCue/AudioLevelMeter.swift' \
-    'Sources/Learning/MishearingProbe.swift' 'Sources/Learning/RecordingTee.swift' \
-    'Sources/Learning/SystemMishearingSpeech.swift' 'Sources/Settings/PermissionStatusModel.swift' \
+    'Sources/Learning/MishearingProbe.swift' 'Sources/Learning/SystemMishearingSpeech.swift' \
+    'Sources/Settings/PermissionStatusModel.swift' \
     'Sources/Settings/PrivacySettingsPane.swift'
 never_in Sources/Core SwiftUI AppKit
 never_in Sources/Translation SwiftUI AppKit
@@ -119,6 +118,15 @@ for file in $(find Sources -name '*.swift' | sort); do
     case $file in Sources/Translation/RunConfigurationBuilder.swift) continue ;; esac
     if code_only "$file" | grep -qE '(^|[^A-Za-z0-9_])RunConfiguration[[:space:]]*(\.[[:space:]]*init[[:space:]]*)?\('; then
         echo "boundary: $file builds a RunConfiguration outside RunConfigurationBuilder" >&2
+        status=1
+    fi
+done
+
+# Privacy: audio is never written to disk. Checked on code only, against the APIs that write audio
+# files, so the rule fails here before a recording can reach the disk.
+for file in $(find Sources -name '*.swift' | sort); do
+    if code_only "$file" | grep -qwE 'AVAudioFile|AVAudioRecorder|AVAssetWriter|ExtAudioFileCreateWithURL|AudioFileCreateWithURL'; then
+        echo "boundary: $file uses an audio file API; audio is never written to disk" >&2
         status=1
     fi
 done

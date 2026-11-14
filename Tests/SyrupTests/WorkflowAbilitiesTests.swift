@@ -88,12 +88,10 @@ struct WorkflowAbilitiesTests {
         settings.autoPasteEnabled = true
         settings.streamingDeliveryEnabled = true
         await settings.attachedOptIns(history: enabledHistoryStore()).setPersistHistory(true)
-        settings.privacyOptIns.setGlossaryLearning(true)
         settings.addWorkflow(from: WorkflowTemplate(id: "local", name: "Local", kind: .transcribeOnly(cleanup: cleanup)))
         settings.updateWorkflow(id: settings.activeWorkflow.id) { $0.dictationLocaleID = "en-US" }
         let clipboard = SpyPasteboard(), paster = SpyAutoPaster(), typist = SpyStreamingTypist()
         paster.strategy = strategy
-        let archive = SpyRecordingArchive()
         let history = HistoryStore(persistenceEnabled: true, storageDirectory: directory)
         let feedback = SpyFeedback()
         let state = AppState.fixture(settings: settings, history: history,
@@ -102,7 +100,7 @@ struct WorkflowAbilitiesTests {
                              transformerProvider: UntouchableProvider(), pasteboard: clipboard, feedback: feedback,
                              autoPaster: paster, streamingTypistFactory: { typist },
                              maximumRecordingDurationNanoseconds: 0, autoPasteDelayNanoseconds: 0,
-                             recordingClock: FastForwardClock(), recordingArchive: archive,
+                             recordingClock: FastForwardClock(),
                              captureDeliveryTarget: { _ in DeliveryTarget(checkCurrent: { true }) })
         await dictate(state)
         let expected = cleanup ? "Hello" : "Um, hello"
@@ -124,13 +122,6 @@ struct WorkflowAbilitiesTests {
         #expect(record.provider == nil)
         #expect(record.transformation == .contextual(workflowName: "Local", instruction: ""))
         #expect(record.canRetry == false)
-        await eventually { await archive.snapshot().commits.count == 1 }
-        let archived = await archive.snapshot()
-        #expect(archived.commits.map(\.appleTranscript) == ["Um, hello"])
-        for entry in archived.begunEntryIDs {
-            let file = await archive.audioFileURL(id: entry)
-            try? FileManager.default.removeItem(at: file)
-        }
         #expect(!record.canRetry && !record.canUseTranscriptFallback)
         let failed = DictationRecord(id: UUID(), finishedAt: record.finishedAt, transcript: record.transcript,
                                      output: nil, transformation: record.transformation, outcome: .failed(message: "failure"))

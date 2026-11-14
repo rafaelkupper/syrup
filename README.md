@@ -123,11 +123,10 @@ Names and jargon are where dictation goes wrong. The glossary holds exact spelli
 </p>
 
 - **Check with a system voice:** Syrup has a system voice say each term and shows what dictation heard, so you can add the mishearings in one click.
-- **Learn from your recordings, opt-in:** Syrup can keep your recordings on the Mac, transcribe them again with WhisperKit, and have your provider compare the two transcripts to suggest terms. The audio stays on the Mac and is deleted after the comparison.
 
 ## Privacy
 
-- **Audio stays on the Mac.** It is never sent anywhere and never logged. It is saved to disk only if you turn on glossary learning, and then it is capped, protected, and deleted after analysis.
+- **Audio stays on the Mac.** It is never sent anywhere, never logged, and never saved to disk.
 - **A cloud provider receives only what the run needs:** the finished transcript or the selected text, the workflow instruction, and your glossary. A revision also sends the result being revised. No unrelated history or content is sent.
 - **Selected text is opt-in per workflow.** Syrup reads it through Accessibility, never by pressing Copy for you, and never saves it.
 - **The clipboard is written only on success.** Cancelling never touches it.
@@ -167,7 +166,7 @@ open DerivedData/Build/Products/Debug/Syrup.app
 
 [IMPLEMENTATION.md](IMPLEMENTATION.md) covers building, testing, and signing. [PRODUCT.md](PRODUCT.md) defines the behavior, [ARCHITECTURE.md](ARCHITECTURE.md) explains the pipeline and decisions, [AGENTS.md](AGENTS.md) lists the development rules, and [docs/UPDATES.md](docs/UPDATES.md) describes how a release is prepared and published.
 
-Syrup builds on [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) for global hotkeys, [FluidAudio](https://github.com/FluidInference/FluidAudio) for the downloadable speech models, [WhisperKit](https://github.com/argmaxinc/WhisperKit) for glossary learning, and [Sparkle](https://github.com/sparkle-project/Sparkle) for updates.
+Syrup builds on [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) for global hotkeys, [FluidAudio](https://github.com/FluidInference/FluidAudio) for the downloadable speech models, and [Sparkle](https://github.com/sparkle-project/Sparkle) for updates.
 
 ## License
 

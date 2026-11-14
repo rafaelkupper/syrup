@@ -120,10 +120,9 @@ struct OpenAISSEParser: Sendable {
             let fields = try decoder.singleValueContainer().decode([String: JSONFieldValue].self)
             content = fields["content"]?.text
             // `role` names the speaker in the first chunk; it is not the model working. `content`
-            // counts only by its text, so a part list whose text is empty is not progress either.
-            carriesSomething = content?.isEmpty == false || fields.contains { key, value in
-                key != "role" && key != "content" && value.carriesSomething
-            }
+            // counts like any field, so a reasoning part inside it, such as Mistral's thinking chunk,
+            // is progress, while a part whose text is empty is not.
+            carriesSomething = fields.contains { key, value in key != "role" && value.carriesSomething }
         }
     }
 }

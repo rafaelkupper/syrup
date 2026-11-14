@@ -272,14 +272,3 @@ struct MishearingCheckCopyTests {
         #expect(copy.detail.contains("ordinary sentences"))
     }
 }
-
-@MainActor
-struct PrivacyCopyTests {
-    @Test func learningOffSaysNothingIsKeptOnlyWhenNothingIs() {
-        #expect(PrivacySettingsPane.learningRecordingsDescription(isEnabled: false, leftover: 0) == "Off. Nothing is kept.")
-        let leftover = PrivacySettingsPane.learningRecordingsDescription(isEnabled: false, leftover: 3)
-        #expect(leftover.hasPrefix("Off, but 3 recordings from before could not be deleted yet."))
-        #expect(PrivacySettingsPane.learningRecordingsDescription(isEnabled: false, leftover: 1).contains("1 recording from before"))
-        #expect(PrivacySettingsPane.learningRecordingsDescription(isEnabled: true, leftover: 3).hasPrefix("On."))
-    }
-}

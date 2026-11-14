@@ -108,8 +108,6 @@ final class AppState {
     @ObservationIgnored let processActivity: any ProcessActivityControlling
     @ObservationIgnored let outputDucker: OutputDucker?
     @ObservationIgnored var outputVolumeWork: Task<Void, Never>?
-    /// Recordings still being filed or discarded after their run ended, keyed by recording ID.
-    @ObservationIgnored var recordingWork: [UUID: Task<Void, Never>] = [:]
     /// Run tasks that have not returned yet, keyed by run ID. See `launch`.
     @ObservationIgnored private var runTasks: [UUID: Task<Void, Never>] = [:]
     @ObservationIgnored let streamingTypistFactory: () -> any StreamingTyping
@@ -122,7 +120,6 @@ final class AppState {
     @ObservationIgnored private var feedbackFlashTask: Task<Void, Never>?
     @ObservationIgnored private var hotkeyController: HotkeyController?
     @ObservationIgnored let recordingCue: (any RecordingCuePresenting)?
-    @ObservationIgnored let recordingArchive: (any RecordingArchiving)?
     @ObservationIgnored private var didNotifyEmptySelectionContext = false
     @ObservationIgnored var didNotifySpeechEngineFallback = false
     @ObservationIgnored private var didNotifyUntrustedSelectionContext = false
@@ -148,7 +145,6 @@ final class AppState {
         selectionReader: any SelectionReading,
         processActivity: any ProcessActivityControlling,
         recordingCue: (any RecordingCuePresenting)?,
-        recordingArchive: (any RecordingArchiving)?,
         outputDucker: OutputDucker?,
         frontmostApplication: @escaping @MainActor (Bool) -> (bundleID: String?, processID: pid_t?),
         captureDeliveryTarget: @escaping @MainActor (pid_t?) async -> DeliveryTarget?,
@@ -207,8 +203,7 @@ final class AppState {
         self.recordingClock = recordingClock
         self.processActivity = processActivity
         self.recordingCue = recordingCue
-        self.recordingArchive = recordingArchive
-        settings.privacyOptIns.attach(history: history, recordingArchive: recordingArchive)
+        settings.privacyOptIns.attach(history: history)
         self.outputDucker = outputDucker
 
         if let appFeedback = feedback as? AppFeedback {
@@ -394,9 +389,8 @@ final class AppState {
         if activeRun != nil || pipelineState != .idle {
             cancelActiveRun()
         }
-        // A cancelled run discards its recording on the way out; a finished one may still be filing
-        // its recording for learning. Both get a bounded wait so quitting never hangs.
-        let pending = Array(runTasks.values) + Array(recordingWork.values) + [outputVolumeWork].compactMap { $0 }
+        // Runs still unwinding get a bounded wait so quitting never hangs.
+        let pending = Array(runTasks.values) + [outputVolumeWork].compactMap { $0 }
         if pending.isEmpty == false {
             _ = try? await withOperationTimeout(.seconds(2), error: CancellationError()) {
                 for task in pending { await task.value }
@@ -730,14 +724,14 @@ final class AppState {
         runTasks[id] = task
     }
 
-    /// Waits for every run task, recording filing, and output-volume change started so far, including
-    /// those of runs that were cancelled or superseded.
-    /// Finishing work can start more (a delivered run files its recording), so this repeats until
+    /// Waits for every run task and output-volume change started so far, including those of runs
+    /// that were cancelled or superseded.
+    /// Finishing work can start more (an ending run restores the output volume), so this repeats until
     /// nothing new has appeared.
     func waitForPendingWork() async {
         var finished: Set<Task<Void, Never>> = []
         while true {
-            let pending = (Array(runTasks.values) + Array(recordingWork.values) + [outputVolumeWork].compactMap { $0 })
+            let pending = (Array(runTasks.values) + [outputVolumeWork].compactMap { $0 })
                 .filter { finished.contains($0) == false }
             guard pending.isEmpty == false else { return }
             for task in pending {

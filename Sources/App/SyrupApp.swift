@@ -80,45 +80,22 @@ struct SyrupApp: App {
     @NSApplicationDelegateAdaptor(SyrupAppDelegate.self) private var appDelegate
     @State private var appState: AppState
     @State private var settingsNavigation = SettingsNavigation()
-    @State private var whisperModelManager: WhisperModelManager
     private let speechModels: SpeechModelCatalog
     private let updates: UpdateController
-    private let learningCoordinator: GlossaryLearningCoordinator
     private let mishearingSuggestions: MishearingSuggestionModel
     private let showsOnboardingAtLaunch: Bool
 
     init() {
         showsOnboardingAtLaunch = OnboardingGate.resolve()
-        let recordingArchive = RecordingArchive()
-        let whisperModelManager = WhisperModelManager()
         let speechModels = SpeechModelCatalog.live()
         speechModels.replaceRetiredParakeetV3()
         let appState = AppState.production(
             settings: AppSettings(defaultMicrophoneIDProvider: AudioInputDevice.defaultSelectionID),
-            speechModels: speechModels.installed,
-            recordingArchive: recordingArchive
+            speechModels: speechModels.installed
         )
         appState.restoreOutputVolumeAfterCrash()
         _appState = State(initialValue: appState)
-        _whisperModelManager = State(initialValue: whisperModelManager)
         self.speechModels = speechModels
-        let judge = LLMMishearingJudge(
-            transformerProvider: AppSettingsTransformerProvider(
-                settings: appState.settings,
-                keychainStore: appState.keychainStore
-            ),
-            providerReader: { appState.settings.translationProvider }
-        )
-        learningCoordinator = GlossaryLearningCoordinator(
-            settings: appState.settings,
-            archive: recordingArchive,
-            modelManager: whisperModelManager,
-            transcriber: WhisperKitBatchTranscriber(
-                modelDirectory: whisperModelManager.modelDirectory,
-                tokenizerBase: whisperModelManager.tokenizerBase
-            ),
-            sink: JudgingCrossCheckSink(settings: appState.settings, judge: judge)
-        )
         mishearingSuggestions = MishearingSuggestionModel(
             settings: appState.settings,
             engine: MishearingProbeEngine(
@@ -129,20 +106,17 @@ struct SyrupApp: App {
         )
         let updates = UpdateController(isRunActive: { appState.pipelineState.allowsCancelShortcut })
         self.updates = updates
-        appState.foregroundActivityChanged = { [learningCoordinator, mishearingSuggestions, updates] active in
+        appState.foregroundActivityChanged = { [mishearingSuggestions, updates] active in
             if !active {
                 Task { @MainActor in updates.resumeDeferredInstallation() }
             }
-            learningCoordinator.setForegroundActive(active)
             mishearingSuggestions.setForegroundActive(active)
         }
         Task { @MainActor in
             await appState.history.deleteLeftoverFileIfPersistenceIsOff()
-            let learningEnabled = appState.settings.glossaryLearningEnabled
-            await deleteLeftoverRecordingsIfLearningIsOff(settings: appState.settings, recordingArchive: recordingArchive)
-            if learningEnabled {
-                _ = await recordingArchive.pendingEntries()
-            }
+        }
+        Task.detached(priority: .utility) {
+            RetiredGlossaryLearning.removeLeftovers()
         }
         Task { @MainActor in
             await appState.refreshDictationLocales()
@@ -171,9 +145,6 @@ struct SyrupApp: App {
                 navigation: settingsNavigation,
                 keychainStore: appState.keychainStore,
                 autoPaster: appState.autoPaster,
-                recordingArchive: appState.recordingArchive,
-                whisperModelManager: whisperModelManager,
-                learningCoordinator: learningCoordinator,
                 workflowChangeHandler: {
                     appState.refreshWorkflowHotkeys()
                 }
@@ -203,8 +174,7 @@ extension AppState {
     /// The production services. Only the app entry point builds them; tests inject their own.
     static func production(
         settings: AppSettings,
-        speechModels: [SpeechEngine: InstalledSpeechModel],
-        recordingArchive: any RecordingArchiving
+        speechModels: [SpeechEngine: InstalledSpeechModel]
     ) -> AppState {
         let transcriberAssetManager = TranscriberAssetManager()
         let keychainStore = KeychainStore()
@@ -226,7 +196,6 @@ extension AppState {
             selectionReader: SelectionReader(),
             processActivity: ProcessInfo.processInfo,
             recordingCue: RecordingCueController(),
-            recordingArchive: recordingArchive,
             outputDucker: OutputDucker(),
             frontmostApplication: { includeBundleID in
                 let app = NSWorkspace.shared.frontmostApplication

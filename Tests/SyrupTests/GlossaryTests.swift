@@ -301,4 +301,20 @@ struct GlossaryTests {
         #expect(inserted == false)
         #expect(glossary == originalGlossary)
     }
+
+    @Test
+    func storedProposalsAndDismissalsAreCapped() {
+        var list = GlossaryProposalList()
+        for index in 0...GlossaryProposalList.maximumProposals {
+            list.addIfNew(GlossaryProposal(id: UUID(), term: "Term\(index)", mishearings: ["t"], confidence: 0.9, createdAt: .now),
+                          existingGlossary: GlossaryList())
+        }
+        #expect(list.proposals.count == GlossaryProposalList.maximumProposals)
+        for _ in 0...GlossaryProposalList.maximumDismissedKeys {
+            let proposal = GlossaryProposal(id: UUID(), term: UUID().uuidString, mishearings: ["t"], confidence: 0.9, createdAt: .now)
+            list.proposals = [proposal]
+            list.dismiss(id: proposal.id)
+        }
+        #expect(list.dismissedKeys.count == GlossaryProposalList.maximumDismissedKeys)
+    }
 }

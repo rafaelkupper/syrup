@@ -60,28 +60,4 @@ struct HardRuleTests {
         #expect(defaults.dictionaryRepresentation().keys.filter { $0.hasPrefix("glossaryV1.unreadable.") } == [backupKey])
         #expect(defaults.data(forKey: backupKey) == unreadable)
     }
-
-    /// Privacy: "Turning learning off deletes all pending recordings; if deletion fails, the setting
-    /// must remain enabled rather than falsely claiming opt-out." With nothing attached to delete
-    /// from, it stays on too.
-    @Test func privacyTurningLearningOffDeletesTheRecordingsOrStaysOn() async throws {
-        for (archive, attached, staysOn) in [
-            (SpyRecordingArchive(), true, false),
-            (SpyRecordingArchive(deleteAllError: .deleteAllFailed(code: 513)), true, true),
-            (SpyRecordingArchive(), false, true),
-        ] {
-            let suite = testDomainName("HardRules")
-            let defaults = try #require(TestDefaults(suiteName: suite))
-            defer { defaults.removePersistentDomain(forName: suite) }
-            let settings = settings(defaults)
-            settings.privacyOptIns.setGlossaryLearning(true)
-            let history = HistoryStore(storageDirectory: FileManager.default.temporaryDirectory.appending(path: testDomainName("HardRulesHistory")))
-            if attached { settings.privacyOptIns.attach(history: history, recordingArchive: archive) }
-
-            await settings.privacyOptIns.setGlossaryLearning(false).value
-
-            #expect(settings.glossaryLearningEnabled == staysOn)
-            #expect(await archive.snapshot().deleteAllCount == (attached ? 1 : 0))
-        }
-    }
 }

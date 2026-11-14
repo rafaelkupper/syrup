@@ -13,9 +13,6 @@ packages:
   KeyboardShortcuts:
     url: https://github.com/sindresorhus/KeyboardShortcuts
     exactVersion: 2.4.0
-  WhisperKit:
-    url: https://github.com/argmaxinc/WhisperKit
-    exactVersion: 1.1.0
 targets:
   Syrup:
     type: application
@@ -34,7 +31,6 @@ targets:
       - package: Sparkle
       - package: FluidAudio
       - package: KeyboardShortcuts
-      - package: WhisperKit
     settings:
       base:
         SWIFT_VERSION: "6.0"

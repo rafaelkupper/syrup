@@ -227,12 +227,10 @@ struct ShortTapTests {
     func holdReleasedBefore300MillisecondsIsDiscardedSilently() async {
         let settings = makeRecordingSettings()
         settings.playSounds = true
-        settings.privacyOptIns.setGlossaryLearning(true)
-        let archive = SpyRecordingArchive()
         let cue = CueStateSpy()
-        let fixture = RecordingFixture(settings: settings, recordingArchive: archive, recordingCue: cue)
+        let fixture = RecordingFixture(settings: settings, recordingCue: cue)
         fixture.state.triggerPressed()
-        await waitUntil { await archive.snapshot().begunEntryIDs.count == 1 }
+        await waitUntil { fixture.recorder.startCount == 1 }
         fixture.clock.advance(by: .milliseconds(299))
 
         fixture.state.triggerReleased()
@@ -240,10 +238,8 @@ struct ShortTapTests {
         #expect(fixture.state.pipelineState == .idle)
         #expect(fixture.state.menuBarSymbol == "waveform")
         #expect(cue.states.last == .hidden)
-        await waitUntil { await archive.snapshot().discardedEntryIDs.count == 1 }
         await fixture.state.waitForPendingWork()
         #expect(fixture.recorder.finishCount == 0)
-        #expect(await archive.snapshot().commits.isEmpty)
         #expect(fixture.feedback.successSoundCount == 0)
         #expect(fixture.feedback.errorMessages.isEmpty)
         #expect(fixture.feedback.transformationFailures.isEmpty)
@@ -875,7 +871,6 @@ private final class RecordingFixture {
         maximumRecordingDurationNanoseconds: UInt64 = 0,
         recordingDurationSleeper: @escaping RecordingDurationSleeper = { _ in },
         processActivity: any ProcessActivityControlling = ProcessInfo.processInfo,
-        recordingArchive: (any RecordingArchiving)? = nil,
         recordingCue: (any RecordingCuePresenting)? = nil,
         outputDucker: OutputDucker? = nil
     ) {
@@ -898,7 +893,6 @@ private final class RecordingFixture {
             processActivity: processActivity,
             selectionReader: FakeSelectionReader(.empty),
             recordingCue: recordingCue,
-            recordingArchive: recordingArchive,
             outputDucker: outputDucker,
             captureDeliveryTarget: { _ in DeliveryTarget(checkCurrent: { true }) }
         )
