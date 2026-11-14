@@ -183,6 +183,7 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
             continuation.yield(text)
         }
         var sendsTemperature = sendsTemperatureFirst
+        var rejectionNamedTemperature = false
         while true {
             let request = try makeRequest(
                 text: text,
@@ -199,14 +200,20 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
                 let data = try await readResponseBodyWithTimeout(bytes)
                 if Self.rejectsStreaming(data) { throw StreamingTransformError.requiresAtomicFallback }
                 if sendsTemperature, Self.rejectsTemperature(data) {
+                    rejectionNamedTemperature = Self.namesTemperatureAsRejected(data)
                     sendsTemperature = false
                     continue
                 }
             }
             try Self.validate(httpResponse)
-            // Remembered only once the request without it went through, so an unrelated error that
-            // happens to mention it changes nothing for later runs.
-            if sendsTemperature == false { rememberTemperatureRejection() }
+            // A rejection that named the parameter is remembered once the retry's answer starts, so a
+            // mention for another reason, or a retry that fails, changes nothing for later runs.
+            let remembers = sendsTemperature == false && rejectionNamedTemperature
+            let temperatureKey = temperatureKey
+            let answer: @Sendable (String) -> Void = { text in
+                if remembers { Self.rememberTemperatureRejection(for: temperatureKey) }
+                yield(text)
+            }
 
             // A JSON answer passes on its content as a streamed one does, so the consumer normalizes
             // either once, the same way.
@@ -214,7 +221,7 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
                 let data = try await readResponseBodyWithTimeout(bytes)
                 let content = try Self.decodeCompletionContent(data).content
                 try Task.checkCancellation()
-                yield(content)
+                answer(content)
                 return
             }
 
@@ -225,14 +232,14 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
                     inactivityTimeout: timeout,
                     inactivitySleeper: inactivitySleeper
                 ) { delta in
-                    yield(delta)
+                    answer(delta)
                 }
             } catch let reply as NotAnEventStream {
                 // A 200 without a single event: a JSON answer sent as `text/plain`, or not an answer,
                 // such as a proxy's HTML page, which fails to decode as an invalid response.
                 let content = try Self.decodeCompletionContent(reply.body).content
                 try Task.checkCancellation()
-                yield(content)
+                answer(content)
             }
             return
         }
@@ -254,8 +261,10 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
             // held in memory whole. Runs reach this only through the streaming fallback (see `transform`).
             // A model that rejects `temperature` is asked once more without it.
             let sendsTemperatureFirst = sendsTemperatureFirst
-            return try await withOperationTimeout(timeout, error: TranslationError.timedOut) { [session, self] in
+            let temperatureKey = temperatureKey
+            return try await withOperationTimeout(timeout, error: TranslationError.timedOut) { [session] in
                 var sendsTemperature = sendsTemperatureFirst
+                var rejectionNamedTemperature = false
                 while true {
                     let (bytes, response) = try await session.bytes(for: sendsTemperature ? withTemperature : withoutTemperature)
                     guard let httpResponse = response as? HTTPURLResponse else {
@@ -264,12 +273,16 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
                     let data = try await Self.readResponseBody(bytes)
                     if sendsTemperature, Self.rejectionStatuses.contains(httpResponse.statusCode),
                        Self.rejectsTemperature(data) {
+                        rejectionNamedTemperature = Self.namesTemperatureAsRejected(data)
                         sendsTemperature = false
                         continue
                     }
                     try Self.validate(httpResponse)
-                    if sendsTemperature == false { rememberTemperatureRejection() }
-                    return try Self.decodeCompletion(data, keepsWrapperQuotes: keepsWrapperQuotes)
+                    let completion = try Self.decodeCompletion(data, keepsWrapperQuotes: keepsWrapperQuotes)
+                    if sendsTemperature == false, rejectionNamedTemperature {
+                        Self.rememberTemperatureRejection(for: temperatureKey)
+                    }
+                    return completion
                 }
             }
         } catch let error as TranslationError {
@@ -355,18 +368,34 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
     private static let rejectionStatuses: Set<Int> = [400, 422, 501]
 
     /// The reply names `stream` as unsupported, with one of the codes servers use for that.
-    private static func rejectsStreaming(_ data: Data) -> Bool {
+    static func rejectsStreaming(_ data: Data) -> Bool {
         guard let rejection = try? JSONDecoder().decode(ParameterRejection.self, from: data) else { return false }
         return rejection.error.param == "stream"
             && ["unsupported_parameter", "unsupported_value", "not_supported"].contains(rejection.error.code ?? "")
     }
 
-    /// The reply rejects `temperature`, as a model that accepts only its default does. Servers phrase
+    /// The reply may reject `temperature`, as a model that accepts only its default does. Servers phrase
     /// that in many shapes (`error.param`, `error.message`, a bare `error` string, `detail`), so any
-    /// rejection body that names the parameter counts. Asked only of a request that sent one, and
-    /// retried once without it, so a wrong guess costs one request.
-    private static func rejectsTemperature(_ data: Data) -> Bool {
+    /// rejection body that mentions the parameter earns one retry without it; a wrong guess costs one
+    /// request.
+    static func rejectsTemperature(_ data: Data) -> Bool {
         String(decoding: data, as: UTF8.self).localizedCaseInsensitiveContains("temperature")
+    }
+
+    /// The reply names `temperature` as the rejected parameter: `param` is `temperature`, or an error
+    /// message says temperature is unsupported. Only such a rejection is remembered for the session, so
+    /// an error that mentions the word for another reason never changes later requests.
+    static func namesTemperatureAsRejected(_ data: Data) -> Bool {
+        guard let body = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return false }
+        let error = body["error"] as? [String: Any]
+        let params = [error?["param"], body["param"]].compactMap { $0 as? String }
+        if params.contains(where: { $0.caseInsensitiveCompare("temperature") == .orderedSame }) { return true }
+        let messages = [error?["message"], body["error"], body["detail"], body["message"]].compactMap { $0 as? String }
+        return messages.contains { message in
+            let message = message.lowercased()
+            return message.contains("temperature")
+                && ["unsupported", "not supported", "does not support", "only the default"].contains { message.contains($0) }
+        }
     }
 
     /// Endpoints and models that rejected `temperature` during this session: their requests leave it
@@ -379,9 +408,8 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
         Self.modelsWithoutTemperature.withLock { $0.contains(temperatureKey) } == false
     }
 
-    private func rememberTemperatureRejection() {
-        let key = temperatureKey
-        _ = Self.modelsWithoutTemperature.withLock { $0.insert(key) }
+    private static func rememberTemperatureRejection(for key: String) {
+        _ = modelsWithoutTemperature.withLock { $0.insert(key) }
     }
 
     private func makeRequest(

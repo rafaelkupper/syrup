@@ -144,6 +144,9 @@ struct OpenAISSEParsingTests {
         #"data: {"choices":[{"delta":{"content":[{"type":"thinking","thinking":[]}]}}]}"#,
         #"data: {"choices":[{"delta":{"content":[{"type":"thinking","thinking":[{"type":"text","text":""}]}]}}]}"#,
         #"data: {"choices":[{"delta":{}}]}"#,
+        // Hand-built: a number or a flag is not generated text.
+        #"data: {"choices":[{"delta":{"x_partial":true}}]}"#,
+        #"data: {"choices":[{"delta":{"x_tokens":3}}]}"#,
     ])
     func chunksCarryingNothingAreNotProgress(chunk: String) throws {
         var parser = OpenAISSEParser()

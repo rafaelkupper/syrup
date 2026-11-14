@@ -157,14 +157,14 @@ enum JSONFieldValue: Decodable, Sendable {
         }
     }
 
-    /// Whether the value holds anything generated: a non-empty string, a number or a flag, or a list or
-    /// object holding one. An object's `type` and `index` only label it, so `{"type":"text","text":""}`
-    /// carries nothing.
+    /// Whether the value holds anything generated: a non-empty string, or a list or object holding
+    /// one. Numbers and flags are counts and switches, not generated text, and an object's `type` and
+    /// `index` only label it, so `{"type":"text","text":""}` carries nothing.
     var carriesSomething: Bool {
         switch self {
         case .string(let string): string.isEmpty == false
         case .null: false
-        case .number, .bool: true
+        case .number, .bool: false
         case .array(let array): array.contains { $0.carriesSomething }
         case .object(let object): object.contains { key, value in key != "type" && key != "index" && value.carriesSomething }
         }

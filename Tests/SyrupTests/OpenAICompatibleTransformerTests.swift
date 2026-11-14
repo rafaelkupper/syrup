@@ -131,7 +131,9 @@ struct OpenAICompatibleTransformerTests {
     }
 
     /// Some models accept only their default temperature. The request is sent once more without it,
-    /// streamed or not, and nothing else is retried.
+    /// streamed or not, and nothing else is retried. Hand-built shapes: no provider publishes a
+    /// temperature rejection body (OpenAI, OpenRouter, Mistral, Groq, DeepSeek, vLLM, LM Studio, and
+    /// Ollama documentation checked 2026-11-14; see `ProviderCorpus`).
     @Test(arguments: [true, false], [
         #"{"error":{"message":"Only the default (1) value is supported.","type":"invalid_request_error","param":"temperature","code":"unsupported_value"}}"#,
         #"{"error":{"message":"Unsupported parameter: 'temperature' is not supported with this model.","code":400}}"#,
@@ -210,6 +212,80 @@ struct OpenAICompatibleTransformerTests {
         let transformer = OpenAICompatibleTransformer(configuration: configuration, session: session)
         #expect(try await transformer.transform("hello", instruction: "Polish it.") == "Hello")
         #expect(sent.withLock { $0 } == [0.3, nil])
+    }
+
+    /// Hand-built shapes, not documented ones. A rejection that mentions temperature for another
+    /// reason still earns the one retry without it, but is not remembered: the next run sends it again.
+    @Test(arguments: [true, false])
+    func aMentionOfTemperatureForAnotherReasonIsNotRemembered(streamed: Bool) async throws {
+        let sent = Mutex<[Double?]>([])
+        let session = Self.stubbedSession { request in
+            let temperature = try Self.jsonBody(from: request)["temperature"] as? Double
+            sent.withLock { $0.append(temperature) }
+            if temperature != nil {
+                return Self.response(statusCode: 400, body: #"{"error":{"message":"The text about temperature is longer than the context window.","param":"messages","code":"context_length_exceeded"}}"#)
+            }
+            return Self.jsonAnswer("Hello")
+        }
+        defer { StubURLProtocol.reset() }
+        let configuration = OpenAICompatibleConfiguration(
+            baseURL: try #require(URL(string: "https://example.com/v1")), apiKey: "test-key", model: "mention-\(UUID())"
+        )
+        for _ in 0..<2 {
+            let transformer = OpenAICompatibleTransformer(configuration: configuration, session: session)
+            let output = streamed
+                ? try await transformer.transform("hello", instruction: "Polish it.")
+                : try await transformer.transformWithUsage("hello", instruction: "Polish it.").text
+            #expect(output == "Hello")
+        }
+        #expect(sent.withLock { $0 } == [0.3, nil, 0.3, nil])
+    }
+
+    /// Hand-built shapes. A mention of temperature whose retry fails too changes nothing for later runs.
+    @Test
+    func aMentionOfTemperatureWhoseRetryFailsIsNotRemembered() async throws {
+        let sent = Mutex<[Double?]>([])
+        let session = Self.stubbedSession { request in
+            let temperature = try Self.jsonBody(from: request)["temperature"] as? Double
+            sent.withLock { $0.append(temperature) }
+            return Self.response(statusCode: 400, body: #"{"error":{"message":"The text about temperature is longer than the context window.","param":"messages"}}"#)
+        }
+        defer { StubURLProtocol.reset() }
+        let configuration = OpenAICompatibleConfiguration(
+            baseURL: try #require(URL(string: "https://example.com/v1")), apiKey: "test-key", model: "failing-\(UUID())"
+        )
+        for _ in 0..<2 {
+            let transformer = OpenAICompatibleTransformer(configuration: configuration, session: session)
+            _ = try? await transformer.transform("hello", instruction: "Polish it.")
+        }
+        #expect(sent.withLock { $0 } == [0.3, nil, 0.3, nil])
+    }
+
+    /// Hand-built shapes. In a stream, a temperature rejection is remembered only once the retry's
+    /// answer starts: a retry whose stream fails before any answer leaves the next run sending it.
+    @Test(arguments: [false, true])
+    func aStreamedRetryRemembersTheRejectionOnlyOnceItsAnswerStarts(answers: Bool) async throws {
+        let sent = Mutex<[Double?]>([])
+        let session = Self.stubbedSession { request in
+            let temperature = try Self.jsonBody(from: request)["temperature"] as? Double
+            sent.withLock { $0.append(temperature) }
+            if temperature != nil {
+                return Self.response(statusCode: 400, body: #"{"error":{"param":"temperature","code":"unsupported_value"}}"#)
+            }
+            let events = answers
+                ? #"data: {"choices":[{"delta":{"content":"Hello"}}]}"# + "\n\ndata: [DONE]\n\n"
+                : #"data: {"error":{"message":"The server is overloaded."}}"# + "\n\n"
+            return Self.eventStream(events)
+        }
+        defer { StubURLProtocol.reset() }
+        let configuration = OpenAICompatibleConfiguration(
+            baseURL: try #require(URL(string: "https://example.com/v1")), apiKey: "test-key", model: "stream-\(UUID())"
+        )
+        for _ in 0..<2 {
+            let transformer = OpenAICompatibleTransformer(configuration: configuration, session: session)
+            _ = try? await transformer.transform("hello", instruction: "Polish it.")
+        }
+        #expect(sent.withLock { $0 } == (answers ? [0.3, nil, nil] : [0.3, nil, 0.3, nil]))
     }
 
     @Test
@@ -968,6 +1044,22 @@ struct OpenAICompatibleTransformerTests {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [StubURLProtocol.self]
         return URLSession(configuration: configuration)
+    }
+
+    private static func jsonAnswer(_ text: String) -> (HTTPURLResponse, Data) {
+        let url = URL(string: "https://example.com/v1/chat/completions")!
+        return (
+            HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!,
+            Data(#"{"choices":[{"message":{"role":"assistant","content":"\#(text)"}}]}"#.utf8)
+        )
+    }
+
+    private static func eventStream(_ events: String) -> (HTTPURLResponse, Data) {
+        let url = URL(string: "https://example.com/v1/chat/completions")!
+        return (
+            HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "text/event-stream"])!,
+            Data(events.utf8)
+        )
     }
 
     private static func response(statusCode: Int, body: String) -> (HTTPURLResponse, Data) {
