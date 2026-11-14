@@ -318,12 +318,18 @@ struct WorkflowTemplate: Identifiable, Equatable, Sendable {
 
 enum RunPurpose: Equatable, Sendable {
     case dictation
-    case revision
+    /// Revises a captured earlier result; the spoken adjustment becomes the instruction.
+    case revision(base: String)
     case transcribeOnly(cleanup: Bool, spokenSymbols: Bool = false)
 
     var isTransformation: Bool {
         if case .transcribeOnly = self { return false }
         return true
+    }
+
+    var isRevision: Bool {
+        if case .revision = self { return true }
+        return false
     }
 }
 

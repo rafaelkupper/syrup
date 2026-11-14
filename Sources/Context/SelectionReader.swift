@@ -133,7 +133,7 @@ final class SelectionReader: SelectionReading {
             return nil
         }
 
-        return unsafeBitCast(focusedValue, to: AXUIElement.self)
+        return unsafeDowncast(focusedValue, to: AXUIElement.self)
     }
 
     nonisolated private static func selectedText(

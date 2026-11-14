@@ -106,6 +106,27 @@ struct GlossaryTests {
 
         #expect(settings.glossaryList.terms.isEmpty)
         #expect(userDefaults.data(forKey: "glossaryV1") == futureBlob)
+
+        settings.addGlossaryTerm(GlossaryTerm(term: "Added in an older build"))
+        #expect(userDefaults.data(forKey: "glossaryV1") == futureBlob)
+    }
+
+    @Test
+    func unknownProposalVersionSurvivesNewProposals() throws {
+        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        defer {
+            userDefaults.removePersistentDomain(forName: suiteName)
+        }
+        let futureBlob = Data(#"{"version":99,"proposals":[],"dismissedKeys":[]}"#.utf8)
+        userDefaults.set(futureBlob, forKey: "glossaryProposalsV1")
+        let settings = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
+
+        settings.addGlossaryProposal(GlossaryProposal(
+            id: UUID(), term: "Syrup", mishearings: ["sirup"], confidence: 0.9, createdAt: .now
+        ))
+
+        #expect(userDefaults.data(forKey: "glossaryProposalsV1") == futureBlob)
     }
 
     @Test

@@ -1,27 +1,19 @@
 import AVFoundation
 import Foundation
 
-protocol Transcriber: Sendable {
-    /// Transcribes the audio stream, reporting the running "heard so far" text
-    /// (finalized + latest volatile segment) through `onPartialTranscript` as
-    /// recognition progresses. Callers that don't need live feedback pass nil.
-    func transcribe(
-        _ audio: AudioBufferSequence,
-        locale: Locale,
-        vocabulary: [String],
-        onPartialTranscript: (@Sendable (String) -> Void)?
-    ) async throws -> String
-    func transcribe(
-        _ audio: AudioBufferSequence, locale: Locale, vocabulary: [String],
-        onPartialTranscript: (@Sendable (String) -> Void)?, preferFastResults: Bool
-    ) async throws -> String
+/// Everything a transcriber needs besides the audio. New options belong here, not in new
+/// `transcribe` overloads.
+struct TranscriptionRequest: Sendable {
+    var locale: Locale
+    var vocabulary: [String] = []
+    /// Receives the running "heard so far" text (finalized plus the latest volatile segment) as
+    /// recognition progresses. Callers that don't need live feedback leave it nil.
+    var onPartialTranscript: (@Sendable (String) -> Void)? = nil
+    /// Lets an engine trade some accuracy for latency. Apple's SpeechTranscriber honors it; engines
+    /// without such a mode ignore it.
+    var preferFastResults = false
 }
 
-extension Transcriber {
-    func transcribe(
-        _ audio: AudioBufferSequence, locale: Locale, vocabulary: [String],
-        onPartialTranscript: (@Sendable (String) -> Void)?, preferFastResults: Bool
-    ) async throws -> String {
-        try await transcribe(audio, locale: locale, vocabulary: vocabulary, onPartialTranscript: onPartialTranscript)
-    }
+protocol Transcriber: Sendable {
+    func transcribe(_ audio: AudioBufferSequence, request: TranscriptionRequest) async throws -> String
 }

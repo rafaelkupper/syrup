@@ -27,18 +27,51 @@ extension StreamingTextTransformer {
     }
 }
 
-protocol TransformerProviding: Sendable {
-    var permitsUnfinalizedInput: Bool { get }
-    @MainActor func snapshot(for provider: TranslationProvider) -> any TransformerProviding
-    func transformer(
-        for provider: TranslationProvider,
-        instruction: String
-    ) async -> any TextTransformer
+/// Freezes a provider's configuration for one run. Settings edits after the trigger never reach
+/// a run that already took its snapshot.
+protocol TransformerSnapshotting: Sendable {
+    @MainActor func snapshot(for provider: TranslationProvider) -> TransformerSnapshot
 }
 
-extension TransformerProviding {
-    var permitsUnfinalizedInput: Bool { false }
-    @MainActor func snapshot(for provider: TranslationProvider) -> any TransformerProviding { self }
+/// One run's provider configuration. It builds transformers for that run's instructions only.
+struct TransformerSnapshot: Sendable {
+    /// Pause transformation may send not-yet-final input only to providers that stay on this Mac.
+    let permitsUnfinalizedInput: Bool
+    private let make: @Sendable (String) async -> any TextTransformer
+
+    init(
+        permitsUnfinalizedInput: Bool = false,
+        make: @escaping @Sendable (_ instruction: String) async -> any TextTransformer
+    ) {
+        self.permitsUnfinalizedInput = permitsUnfinalizedInput
+        self.make = make
+    }
+
+    static func fixed(_ transformer: any TextTransformer) -> TransformerSnapshot {
+        TransformerSnapshot { _ in transformer }
+    }
+
+    static func failed(_ error: any Error) -> TransformerSnapshot {
+        fixed(FailedTextTransformer(error: error))
+    }
+
+    func transformer(instruction: String) async -> any TextTransformer {
+        await make(instruction)
+    }
+}
+
+/// A transformer source with no configuration to freeze, such as a fixed transformer or a test fake.
+/// Its snapshot asks the source again for each transformer.
+protocol TransformerSource: TransformerSnapshotting {
+    func transformer(for provider: TranslationProvider, instruction: String) async -> any TextTransformer
+}
+
+extension TransformerSource {
+    @MainActor func snapshot(for provider: TranslationProvider) -> TransformerSnapshot {
+        TransformerSnapshot { [self] instruction in
+            await transformer(for: provider, instruction: instruction)
+        }
+    }
 }
 
 struct FailedTextTransformer: TextTransformer {
@@ -46,7 +79,7 @@ struct FailedTextTransformer: TextTransformer {
     func transform(_ text: String, instruction: String) async throws -> String { throw error }
 }
 
-struct StaticTransformerProvider: TransformerProviding {
+struct StaticTransformerProvider: TransformerSource {
     let transformer: any TextTransformer
 
     func transformer(
@@ -57,15 +90,13 @@ struct StaticTransformerProvider: TransformerProviding {
     }
 }
 
-final class AppSettingsTransformerProvider: TransformerProviding, @unchecked Sendable {
+final class AppSettingsTransformerProvider: TransformerSnapshotting {
     private let session: URLSession
     private let environment: [String: String]
     private let settings: AppSettings
     private let keychainStore: KeychainStore
-    private let hasInjectedOpenAI: Bool
-    private let hasInjectedCodex: Bool
-    private let openAICompatibleTransformer: any TextTransformer
-    private let codexCLITransformer: any TextTransformer
+    private let injectedOpenAI: (any TextTransformer)?
+    private let injectedCodex: (any TextTransformer)?
     private let appleOnDeviceFactory: @Sendable (String) -> any TextTransformer
 
     init(
@@ -83,82 +114,47 @@ final class AppSettingsTransformerProvider: TransformerProviding, @unchecked Sen
         self.environment = environment
         self.settings = settings
         self.keychainStore = keychainStore
-        hasInjectedOpenAI = openAICompatibleTransformer != nil
-        hasInjectedCodex = codexCLITransformer != nil
-        self.openAICompatibleTransformer = openAICompatibleTransformer ?? OpenAICompatibleTransformer(
-            configurationProvider: AppSettingsOpenAICompatibleConfigurationProvider(
-                settings: settings,
-                keychainStore: keychainStore
-            )
-        )
-        self.codexCLITransformer = codexCLITransformer ?? CodexCLITransformer(
-            configurationProvider: AppSettingsCodexCLIConfigurationProvider(settings: settings)
-        )
+        injectedOpenAI = openAICompatibleTransformer
+        injectedCodex = codexCLITransformer
         self.appleOnDeviceFactory = appleOnDeviceFactory
     }
 
     @MainActor
-    func snapshot(for provider: TranslationProvider) -> any TransformerProviding {
+    func snapshot(for provider: TranslationProvider) -> TransformerSnapshot {
         do {
-            let transformer: any TextTransformer
             switch provider {
             case .appleOnDevice:
-                return OnDeviceTransformerProvider(factory: appleOnDeviceFactory)
+                return TransformerSnapshot(permitsUnfinalizedInput: true, make: appleOnDeviceFactory)
             case .openAICompatible:
-                if hasInjectedOpenAI { return StaticTransformerProvider(transformer: openAICompatibleTransformer) }
-                let savedKey = try keychainStore.load() ?? ""
-                let configuration: OpenAICompatibleConfiguration
-                if savedKey.isEmpty, let environment = try? OpenAICompatibleConfiguration.environment(environment) {
-                    configuration = environment
-                } else {
-                    configuration = try .userSettings(
-                        baseURLString: settings.baseURL, apiKey: savedKey, modelName: settings.modelName
-                    )
+                if let injectedOpenAI { return .fixed(injectedOpenAI) }
+                let configuration = try openAICompatibleConfiguration()
+                let session = session
+                return TransformerSnapshot(
+                    permitsUnfinalizedInput: PauseTransformation.isLoopback(configuration.baseURL)
+                ) { _ in
+                    OpenAICompatibleTransformer(configuration: configuration, session: session)
                 }
-                return ConfiguredOpenAITransformerProvider(configuration: configuration, session: session)
             case .codexCLI:
-                if hasInjectedCodex { return StaticTransformerProvider(transformer: codexCLITransformer) }
+                if let injectedCodex { return .fixed(injectedCodex) }
                 let configuration = try CodexCLIConfigurationResolver.configuration(
-                    configuredPath: settings.codexPath, modelName: settings.codexModel
+                    configuredPath: settings.codexPath, modelName: settings.codexModel, environment: environment
                 )
-                transformer = CodexCLITransformer(configuration: configuration)
+                return .fixed(CodexCLITransformer(configuration: configuration))
             }
-            return StaticTransformerProvider(transformer: transformer)
         } catch {
-            return StaticTransformerProvider(transformer: FailedTextTransformer(error: error))
+            return .failed(error)
         }
     }
 
-    func transformer(
-        for provider: TranslationProvider,
-        instruction: String
-    ) async -> any TextTransformer {
-        switch provider {
-        case .openAICompatible:
-            return openAICompatibleTransformer
-        case .codexCLI:
-            return codexCLITransformer
-        case .appleOnDevice:
-            return appleOnDeviceFactory(instruction)
-        }
-    }
-}
-
-private struct OnDeviceTransformerProvider: TransformerProviding {
-    let factory: @Sendable (String) -> any TextTransformer
-    var permitsUnfinalizedInput: Bool { true }
-
-    func transformer(for provider: TranslationProvider, instruction: String) async -> any TextTransformer {
-        factory(instruction)
-    }
-}
-
-private struct ConfiguredOpenAITransformerProvider: TransformerProviding {
-    let configuration: OpenAICompatibleConfiguration
-    let session: URLSession
-    var permitsUnfinalizedInput: Bool { PauseTransformation.isLoopback(configuration.baseURL) }
-
-    func transformer(for provider: TranslationProvider, instruction: String) async -> any TextTransformer {
-        OpenAICompatibleTransformer(configuration: configuration, session: session)
+    /// The configuration a run uses, through the same resolver as Settings' connection test.
+    /// It reads the small key file synchronously at trigger time (measured in microseconds).
+    @MainActor
+    func openAICompatibleConfiguration() throws -> OpenAICompatibleConfiguration {
+        try OpenAICompatibleSettingsConfigurationResolver.configuration(
+            baseURLString: settings.baseURL,
+            modelName: settings.modelName,
+            savedAPIKey: keychainStore.load() ?? "",
+            environment: environment
+        )
     }
 }

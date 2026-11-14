@@ -110,9 +110,7 @@ struct SpeechModelManagerTests {
     }
 
     private func waitFor(_ expected: SpeechModelState, in manager: SpeechModelManager) async {
-        for _ in 0..<1000 where manager.state != expected {
-            await Task.yield()
-        }
+        await eventually { manager.state == expected }
         #expect(manager.state == expected)
     }
 }

@@ -26,6 +26,10 @@ struct GlossaryTerm: Identifiable, Equatable, Sendable, Codable {
 }
 
 struct GlossaryList: Equatable, Codable {
+    /// How many terms reach a prompt or a recognizer's vocabulary. Longer lists are cut, and
+    /// Settings says so.
+    static let maximumUsedTerms = 100
+
     enum Validation: Equatable {
         case valid
         case empty

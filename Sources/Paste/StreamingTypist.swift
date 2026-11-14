@@ -223,13 +223,15 @@ final class StreamingTypist: StreamingTyping {
 
     private func flush(force: Bool) {
         guard isActive, validateTarget() else { return }
+        // The focused-field check is an Accessibility round trip on the main actor, so it runs once
+        // per flush. Steps within the flush recheck only the frontmost app and secure input.
 
         if force, hasStartedTyping == false {
             let normalized = ModelOutputNormalizer.normalize(pendingText, keepsWrapperQuotes: keepsWrapperQuotes)
             let textToPost = sentenceContext.map { SentenceFit.apply(normalized, context: $0, protectedTerms: protectedTerms) } ?? normalized
             pendingText = ""
             hasStartedTyping = true
-            post(textToPost)
+            post(textToPost, targetValidated: true)
             return
         }
 
@@ -251,15 +253,16 @@ final class StreamingTypist: StreamingTyping {
             pendingText = String(pendingText[heldStart...])
         }
 
-        post(textToPost)
+        post(textToPost, targetValidated: true)
     }
 
     func setTargetValidator(_ validator: @escaping @MainActor () -> Bool) {
         targetValidator = validator
     }
 
-    private func validateTarget() -> Bool {
-        guard frontmostApplicationID() == pinnedApplicationID, targetValidator() else {
+    private func validateTarget(checksFocusedField: Bool = true) -> Bool {
+        guard frontmostApplicationID() == pinnedApplicationID,
+              checksFocusedField == false || targetValidator() else {
             stop(reason: .focusChanged)
             return false
         }
@@ -296,12 +299,13 @@ final class StreamingTypist: StreamingTyping {
         return sentenceContext?.textFollows == true ? SentenceFit.removingFinalPeriod(finalText) : finalText
     }
 
-    private func post(_ text: String) {
+    private func post(_ text: String, targetValidated: Bool = false) {
         guard !text.isEmpty else { return }
         let prefix = pendingLeadingSpace && text.first?.isWhitespace == false ? " " : ""
         pendingLeadingSpace = false
-        for step in TypingStep.plan(prefix + text) {
-            guard validateTarget() else { return }
+        for (index, step) in TypingStep.plan(prefix + text).enumerated() {
+            let checksFocusedField = index == 0 && targetValidated == false
+            guard validateTarget(checksFocusedField: checksFocusedField) else { return }
             guard eventPoster(step) else {
                 stop(reason: .eventCreationFailed)
                 return

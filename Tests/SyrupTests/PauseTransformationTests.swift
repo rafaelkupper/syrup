@@ -28,6 +28,15 @@ struct PauseTransformationPolicyTests {
         #expect(PauseTransformation.input(" fixture ", corrections: [Correction(heard: "fixture", replacement: " ")]).isEmpty)
     }
 
+    @Test(arguments: [
+        ("http://192.168.1.20:11434/v1", true), ("http://ollama.local/v1", true),
+        ("http://localhost:11434/v1", false), ("http://127.0.0.1:1234/v1", false), ("http://[::1]:8080/v1", false),
+        ("https://api.openai.com/v1", false), ("not a url", false), ("", false),
+    ])
+    func onlyPlainHTTPToAnotherMachineIsUnencrypted(value: String, unencrypted: Bool) {
+        #expect(EndpointPolicy.isUnencryptedRemote(value) == unencrypted)
+    }
+
     @MainActor @Test func resolvedEndpointControlsEligibilityAndIsFrozen() {
         let name = "SyrupPauseEndpoint.\(UUID())"
         let defaults = UserDefaults(suiteName: name)!
@@ -101,7 +110,7 @@ struct PauseAudioCaptureTests {
         defer { f.cleanUp() }
         let run = PipelineRun(configuration: f.settings.runConfiguration(workflowID: nil),
             triggerWorkflowID: nil, triggeredAt: f.clock.now, settings: f.settings,
-            activities: SpyProcessActivity(), providerSnapshot: f.provider)
+            activities: SpyProcessActivity(), providerSnapshot: f.provider.snapshot(for: .openAICompatible))
         run.pauseAudio?.append(LevelRecorder.buffer(dBFS: -20))
         #expect(run.pauseAudio?.frameCount == 4096)
         run.cancel()
@@ -395,14 +404,14 @@ struct PauseTransformationTests {
         let f = PauseFixture()
         defer { f.cleanUp() }
         let configuration = f.settings.runConfiguration(workflowID: nil)
-        for (purpose, voice, model) in [(RunPurpose.revision, true, false),
+        for (purpose, voice, model) in [(RunPurpose.revision(base: "fixture"), true, false),
                                        (.transcribeOnly(cleanup: false), true, false),
                                        (.dictation, false, false), (.dictation, true, true)] {
             var config = configuration
             config.purpose = purpose
             let run = PipelineRun(configuration: config, triggerWorkflowID: nil, triggeredAt: f.clock.now,
                 settings: f.settings, activities: SpyProcessActivity(), isVoiceInput: voice,
-                providerSnapshot: f.provider, speechModel: (model ? f.transcriber : nil, nil))
+                providerSnapshot: f.provider.snapshot(for: .openAICompatible), speechModel: (model ? f.transcriber : nil, nil))
             #expect(!run.pauseTransformationEligible)
             #expect(run.pauseAudio == nil)
             run.endActivity()
@@ -435,13 +444,10 @@ private actor PartialPauseTranscriber: Transcriber {
     private var waiters: [Int: CheckedContinuation<String, any Error>] = [:]
 
     init(final: String) { self.final = final }
-    func transcribe(_ audio: AudioBufferSequence, locale: Locale, vocabulary: [String],
-                    onPartialTranscript: (@Sendable (String) -> Void)?) async throws -> String {
-        try await transcribe(audio, locale: locale, vocabulary: vocabulary,
-                             onPartialTranscript: onPartialTranscript, preferFastResults: false)
-    }
-    func transcribe(_ audio: AudioBufferSequence, locale: Locale, vocabulary: [String],
-                    onPartialTranscript: (@Sendable (String) -> Void)?, preferFastResults: Bool) async throws -> String {
+    func transcribe(_ audio: AudioBufferSequence, request: TranscriptionRequest) async throws -> String {
+        let locale = request.locale
+        let vocabulary = request.vocabulary
+        let preferFastResults = request.preferFastResults
         if ready {
             offlineCount += 1
             let id = offlineCount
@@ -487,7 +493,7 @@ private actor PartialPauseTranscriber: Transcriber {
     }
 }
 
-private actor PauseProvider: TransformerProviding {
+private actor PauseProvider: TransformerSource {
     nonisolated let permitsUnfinalizedInput: Bool
     let prepared: FakeTextTransformer
     let attempt: FakeTextTransformer
@@ -500,6 +506,11 @@ private actor PauseProvider: TransformerProviding {
     func transformer(for provider: TranslationProvider, instruction: String) async -> any TextTransformer {
         creationCount += 1
         return creationCount == 1 ? prepared : attempt
+    }
+    @MainActor func snapshot(for provider: TranslationProvider) -> TransformerSnapshot {
+        TransformerSnapshot(permitsUnfinalizedInput: permitsUnfinalizedInput) { [self] instruction in
+            await transformer(for: provider, instruction: instruction)
+        }
     }
 }
 

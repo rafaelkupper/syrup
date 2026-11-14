@@ -14,7 +14,7 @@ protocol HistoryRecording: AnyObject {
 final class HistoryStore: HistoryRecording {
     static let defaultCapacity = 20
 
-    var records: [DictationRecord] = []
+    private(set) var records: [DictationRecord] = []
     private(set) var persistenceError: String?
     private(set) var isChangingPersistence = false
 

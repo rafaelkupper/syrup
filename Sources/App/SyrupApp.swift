@@ -1,13 +1,52 @@
 import AppKit
 import SwiftUI
 
+/// Chooses the app before any production service starts. A unit-test host gets an inert app,
+/// so `xcodebuild test` never registers hotkeys, starts downloads, or runs retention cleanup.
+@main
+enum SyrupMain {
+    @MainActor static func main() {
+        if TestHost.isActive {
+            TestHostApp.main()
+        } else {
+            SyrupApp.main()
+        }
+    }
+}
+
+enum TestHost {
+    static var isActive: Bool {
+        let environment = ProcessInfo.processInfo.environment
+        return environment["XCTestConfigurationFilePath"] != nil
+            || environment["XCTestBundlePath"] != nil
+            || NSClassFromString("XCTestCase") != nil
+    }
+}
+
+private struct TestHostApp: App {
+    var body: some Scene { Settings { EmptyView() } }
+}
+
 final class SyrupAppDelegate: NSObject, NSApplicationDelegate {
     var openMainWindow: (() -> Void)?
+    var prepareForTermination: (@MainActor () async -> Void)?
 
     /// Opening Syrup while it is already running shows its window.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         openMainWindow?()
         return true
+    }
+
+    /// Every quit path (menu, Command-Q, logout, an update relaunch) ends the run, restores the
+    /// output volume, and writes pending history before the process exits.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let prepareForTermination else { return .terminateNow }
+        self.prepareForTermination = nil
+        Task { @MainActor in
+            await prepareForTermination()
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
     }
 }
 
@@ -30,11 +69,13 @@ private struct MenuBarLabel: View {
                     NSApp.activate()
                     openSettings()
                 }
+                delegate.prepareForTermination = { [state] in
+                    await state.prepareForTermination()
+                }
             }
     }
 }
 
-@main
 struct SyrupApp: App {
     @NSApplicationDelegateAdaptor(SyrupAppDelegate.self) private var appDelegate
     @State private var appState: AppState
@@ -53,6 +94,7 @@ struct SyrupApp: App {
         let speechModels = SpeechModelCatalog.live()
         speechModels.replaceRetiredParakeetV3()
         let appState = AppState(
+            settings: AppSettings(defaultMicrophoneIDProvider: AudioInputDevice.defaultSelectionID),
             speechModels: speechModels.installed,
             usageStats: UsageStatsStore(fileURL: UsageStatsStore.defaultFileURL()),
             installHotkeys: true,

@@ -21,12 +21,8 @@ struct ParakeetTranscriber: Transcriber {
         self.decoder = decoder
     }
 
-    func transcribe(
-        _ audio: AudioBufferSequence,
-        locale: Locale,
-        vocabulary: [String],
-        onPartialTranscript: (@Sendable (String) -> Void)?
-    ) async throws -> String {
+    func transcribe(_ audio: AudioBufferSequence, request: TranscriptionRequest) async throws -> String {
+        let locale = request.locale
         let languageCode = SpeechEngine.languageCode(for: locale.identifier)
         var converter = AnalyzerAudioConverter(targetFormat: Self.format)
         var pending: [Float] = []

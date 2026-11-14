@@ -851,12 +851,7 @@ actor CountingTranscriber: Transcriber {
         self.failsOnFullScaleBuffer = failsOnFullScaleBuffer
     }
 
-    func transcribe(
-        _ audio: AudioBufferSequence,
-        locale: Locale,
-        vocabulary: [String],
-        onPartialTranscript: (@Sendable (String) -> Void)?
-    ) async throws -> String {
+    func transcribe(_ audio: AudioBufferSequence, request: TranscriptionRequest) async throws -> String {
         for try await buffer in audio {
             bufferCount += 1
             if failsOnFullScaleBuffer, buffer.rmsLevel == 1 {

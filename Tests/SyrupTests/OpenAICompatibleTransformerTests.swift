@@ -552,7 +552,7 @@ struct OpenAICompatibleTransformerTests {
         settings.baseURL = "https://settings.example/v1"
         settings.modelName = "settings-model"
 
-        let provider = AppSettingsOpenAICompatibleConfigurationProvider(
+        let provider = AppSettingsTransformerProvider(
             settings: settings,
             keychainStore: keychainStore,
             environment: [
@@ -562,7 +562,7 @@ struct OpenAICompatibleTransformerTests {
             ]
         )
 
-        let configuration = try await provider.configuration()
+        let configuration = try provider.openAICompatibleConfiguration()
 
         #expect(configuration.baseURL.absoluteString == "https://env.example/v1")
         #expect(configuration.apiKey == "env-key")
@@ -589,7 +589,7 @@ struct OpenAICompatibleTransformerTests {
         settings.baseURL = "http://localhost:11434/v1"
         settings.modelName = "settings-model"
 
-        let provider = AppSettingsOpenAICompatibleConfigurationProvider(
+        let provider = AppSettingsTransformerProvider(
             settings: settings,
             keychainStore: keychainStore,
             environment: [
@@ -598,7 +598,7 @@ struct OpenAICompatibleTransformerTests {
             ]
         )
 
-        let configuration = try await provider.configuration()
+        let configuration = try provider.openAICompatibleConfiguration()
 
         #expect(configuration.baseURL.absoluteString == "http://localhost:11434/v1")
         #expect(configuration.apiKey == "")
@@ -626,7 +626,7 @@ struct OpenAICompatibleTransformerTests {
         settings.modelName = "settings-model"
         try keychainStore.save("saved-key")
 
-        let provider = AppSettingsOpenAICompatibleConfigurationProvider(
+        let provider = AppSettingsTransformerProvider(
             settings: settings,
             keychainStore: keychainStore,
             environment: [
@@ -636,11 +636,44 @@ struct OpenAICompatibleTransformerTests {
             ]
         )
 
-        let configuration = try await provider.configuration()
+        let configuration = try provider.openAICompatibleConfiguration()
 
         #expect(configuration.baseURL.absoluteString == "https://settings.example/v1")
         #expect(configuration.apiKey == "saved-key")
         #expect(configuration.model == "settings-model")
+    }
+
+    @Test
+    @MainActor
+    func runsAndConnectionTestTreatAWhitespaceSavedKeyTheSame() async throws {
+        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        let (keychainStore, storageDirectory) = Self.temporaryKeychainStore()
+        defer {
+            userDefaults.removePersistentDomain(forName: suiteName)
+            try? keychainStore.delete()
+            try? FileManager.default.removeItem(at: storageDirectory)
+        }
+        let settings = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
+        settings.baseURL = "https://settings.example/v1"
+        settings.modelName = "settings-model"
+        try keychainStore.save("  \n")
+        let environment = [
+            "OPENAI_COMPATIBLE_URL": "https://env.example/v1",
+            "OPENAI_COMPATIBLE_API_KEY": "env-key",
+            "OPENAI_COMPATIBLE_MODEL": "env-model"
+        ]
+
+        let run = try AppSettingsTransformerProvider(
+            settings: settings, keychainStore: keychainStore, environment: environment
+        ).openAICompatibleConfiguration()
+        let connectionTest = try await OpenAICompatibleSettingsConfigurationResolver.configuration(
+            baseURLString: settings.baseURL, modelName: settings.modelName,
+            keychainStore: keychainStore, environment: environment
+        )
+
+        #expect(run == connectionTest)
+        #expect(run.baseURL.absoluteString == "https://env.example/v1")
     }
 
     private static func configuration(apiKey: String = "test-key") throws -> OpenAICompatibleConfiguration {

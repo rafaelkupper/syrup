@@ -62,12 +62,9 @@ actor StreamingSpeechEngine {
 struct StreamingTranscriber: Transcriber {
     let engine: StreamingSpeechEngine
 
-    func transcribe(
-        _ audio: AudioBufferSequence,
-        locale: Locale,
-        vocabulary: [String],
-        onPartialTranscript: (@Sendable (String) -> Void)?
-    ) async throws -> String {
+    func transcribe(_ audio: AudioBufferSequence, request: TranscriptionRequest) async throws -> String {
+        let locale = request.locale
+        let onPartialTranscript = request.onPartialTranscript
         var converter = AnalyzerAudioConverter(targetFormat: ParakeetTranscriber.format)
         try await engine.begin(localeID: locale.identifier, onPartialTranscript: onPartialTranscript)
         for try await buffer in audio {
@@ -125,7 +122,7 @@ actor NemotronBackend: StreamingSpeechBackend {
 
     func begin(localeID: String, onPartialTranscript: (@Sendable (String) -> Void)?) async throws {
         guard let manager else { throw ParakeetError.notLoaded }
-        try await manager.reset()
+        await manager.reset()
         await manager.setPartialCallback(onPartialTranscript ?? { _ in })
         await manager.setLanguage(localeID.replacingOccurrences(of: "_", with: "-"))
         await manager.tidiesFinalTranscript()

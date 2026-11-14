@@ -130,7 +130,7 @@ final class AppSettings {
         }
     }
     var avoidBluetoothMicrophone: Bool {
-        didSet { userDefaults.set(avoidBluetoothMicrophone, forKey: "avoidBluetoothMicrophone") }
+        didSet { userDefaults.set(avoidBluetoothMicrophone, forKey: Self.avoidBluetoothMicrophoneKey) }
     }
     var selectedMicrophoneID: String {
         didSet {
@@ -138,22 +138,22 @@ final class AppSettings {
         }
     }
     var dictateWithFnKey: Bool {
-        didSet { userDefaults.set(dictateWithFnKey, forKey: "dictateWithFnKey") }
+        didSet { userDefaults.set(dictateWithFnKey, forKey: Self.dictateWithFnKeyKey) }
     }
     var keepsUsageStats: Bool {
-        didSet { userDefaults.set(keepsUsageStats, forKey: "keepsUsageStats") }
+        didSet { userDefaults.set(keepsUsageStats, forKey: Self.keepsUsageStatsKey) }
     }
 
     var handlesSelfCorrections: Bool {
-        didSet { userDefaults.set(handlesSelfCorrections, forKey: "handlesSelfCorrections") }
+        didSet { userDefaults.set(handlesSelfCorrections, forKey: Self.handlesSelfCorrectionsKey) }
     }
 
     var handlesSpokenFormatting: Bool {
-        didSet { userDefaults.set(handlesSpokenFormatting, forKey: "handlesSpokenFormatting") }
+        didSet { userDefaults.set(handlesSpokenFormatting, forKey: Self.handlesSpokenFormattingKey) }
     }
 
     var lowerOtherAudioWhileRecording: Bool {
-        didSet { userDefaults.set(lowerOtherAudioWhileRecording, forKey: "lowerOtherAudioWhileRecording") }
+        didSet { userDefaults.set(lowerOtherAudioWhileRecording, forKey: Self.lowerOtherAudioWhileRecordingKey) }
     }
     var autoPasteEnabled: Bool {
         didSet {
@@ -166,19 +166,19 @@ final class AppSettings {
         }
     }
     var smartSpacingEnabled: Bool {
-        didSet { userDefaults.set(smartSpacingEnabled, forKey: "smartSpacingEnabled") }
+        didSet { userDefaults.set(smartSpacingEnabled, forKey: Self.smartSpacingEnabledKey) }
     }
     var matchesSentenceAtCaret: Bool {
-        didSet { userDefaults.set(matchesSentenceAtCaret, forKey: "matchesSentenceAtCaret") }
+        didSet { userDefaults.set(matchesSentenceAtCaret, forKey: Self.matchesSentenceAtCaretKey) }
     }
     var pinDeliveryTarget: Bool {
-        didSet { userDefaults.set(pinDeliveryTarget, forKey: "pinDeliveryTarget") }
+        didSet { userDefaults.set(pinDeliveryTarget, forKey: Self.pinDeliveryTargetKey) }
     }
     var preferFastTranscription: Bool {
-        didSet { userDefaults.set(preferFastTranscription, forKey: "preferFastTranscription") }
+        didSet { userDefaults.set(preferFastTranscription, forKey: Self.preferFastTranscriptionKey) }
     }
     var transformsOnPause: Bool {
-        didSet { userDefaults.set(transformsOnPause, forKey: "transformsOnPause") }
+        didSet { userDefaults.set(transformsOnPause, forKey: Self.transformsOnPauseKey) }
     }
     var persistHistory: Bool {
         didSet {
@@ -252,25 +252,26 @@ final class AppSettings {
         if storedMaximumRecordingDuration != normalizedMaximumRecordingDuration {
             userDefaults.set(normalizedMaximumRecordingDuration, forKey: Self.maximumRecordingDurationSecondsKey)
         }
-        self.avoidBluetoothMicrophone = userDefaults.object(forKey: "avoidBluetoothMicrophone") as? Bool ?? true
+        self.avoidBluetoothMicrophone = userDefaults.object(forKey: Self.avoidBluetoothMicrophoneKey) as? Bool ?? true
+        // The app passes the audio catalog's default; Settings itself never queries Core Audio.
         self.selectedMicrophoneID = userDefaults.string(forKey: Self.selectedMicrophoneIDKey)
             ?? defaultMicrophoneIDProvider?()
-            ?? AppSettings.defaultSelectedMicrophoneID()
-        self.dictateWithFnKey = userDefaults.bool(forKey: "dictateWithFnKey")
-        self.keepsUsageStats = userDefaults.object(forKey: "keepsUsageStats") as? Bool ?? true
+            ?? ""
+        self.dictateWithFnKey = userDefaults.bool(forKey: Self.dictateWithFnKeyKey)
+        self.keepsUsageStats = userDefaults.object(forKey: Self.keepsUsageStatsKey) as? Bool ?? true
         // Opt-in: they need a capable model (see TranslationProvider.supportsSpokenEdits).
-        self.handlesSelfCorrections = userDefaults.object(forKey: "handlesSelfCorrections") as? Bool ?? false
-        self.handlesSpokenFormatting = userDefaults.object(forKey: "handlesSpokenFormatting") as? Bool ?? false
-        self.lowerOtherAudioWhileRecording = userDefaults.bool(forKey: "lowerOtherAudioWhileRecording")
+        self.handlesSelfCorrections = userDefaults.object(forKey: Self.handlesSelfCorrectionsKey) as? Bool ?? false
+        self.handlesSpokenFormatting = userDefaults.object(forKey: Self.handlesSpokenFormattingKey) as? Bool ?? false
+        self.lowerOtherAudioWhileRecording = userDefaults.bool(forKey: Self.lowerOtherAudioWhileRecordingKey)
         self.autoPasteEnabled = userDefaults.object(forKey: Self.autoPasteEnabledKey) as? Bool ?? false
         self.streamingDeliveryEnabled = userDefaults.object(
             forKey: Self.streamingDeliveryEnabledKey
         ) as? Bool ?? false
-        self.smartSpacingEnabled = userDefaults.bool(forKey: "smartSpacingEnabled")
-        self.matchesSentenceAtCaret = userDefaults.bool(forKey: "matchesSentenceAtCaret")
-        self.pinDeliveryTarget = userDefaults.object(forKey: "pinDeliveryTarget") as? Bool ?? true
-        self.preferFastTranscription = userDefaults.object(forKey: "preferFastTranscription") as? Bool ?? false
-        self.transformsOnPause = userDefaults.object(forKey: "transformsOnPause") as? Bool ?? false
+        self.smartSpacingEnabled = userDefaults.bool(forKey: Self.smartSpacingEnabledKey)
+        self.matchesSentenceAtCaret = userDefaults.bool(forKey: Self.matchesSentenceAtCaretKey)
+        self.pinDeliveryTarget = userDefaults.object(forKey: Self.pinDeliveryTargetKey) as? Bool ?? true
+        self.preferFastTranscription = userDefaults.object(forKey: Self.preferFastTranscriptionKey) as? Bool ?? false
+        self.transformsOnPause = userDefaults.object(forKey: Self.transformsOnPauseKey) as? Bool ?? false
         self.persistHistory = userDefaults.object(forKey: Self.persistHistoryKey) as? Bool ?? false
         self.showRecordingCue = userDefaults.object(forKey: Self.showRecordingCueKey) as? Bool ?? true
         self.includeCommonTechTerms = userDefaults.object(forKey: Self.includeCommonTechTermsKey) as? Bool ?? true
@@ -337,6 +338,17 @@ final class AppSettings {
     private static let includeCommonTechTermsKey = "includeCommonTechTerms"
     private static let glossaryLearningEnabledKey = "glossaryLearningEnabled"
     private static let showLiveTranscriptKey = "showLiveTranscript"
+    private static let avoidBluetoothMicrophoneKey = "avoidBluetoothMicrophone"
+    private static let dictateWithFnKeyKey = "dictateWithFnKey"
+    private static let handlesSelfCorrectionsKey = "handlesSelfCorrections"
+    private static let handlesSpokenFormattingKey = "handlesSpokenFormatting"
+    private static let keepsUsageStatsKey = "keepsUsageStats"
+    private static let lowerOtherAudioWhileRecordingKey = "lowerOtherAudioWhileRecording"
+    private static let matchesSentenceAtCaretKey = "matchesSentenceAtCaret"
+    private static let pinDeliveryTargetKey = "pinDeliveryTarget"
+    private static let preferFastTranscriptionKey = "preferFastTranscription"
+    private static let smartSpacingEnabledKey = "smartSpacingEnabled"
+    private static let transformsOnPauseKey = "transformsOnPause"
     private static let workflowListKey = "workflowListV3"
     private static let legacyWorkflowListKey = "workflowListV1"
     private static let glossaryListKey = "glossaryV1"
@@ -350,10 +362,6 @@ final class AppSettings {
         "en-US",
         "en_US",
     ]
-
-    private static func defaultSelectedMicrophoneID() -> String {
-        CoreAudioInputDeviceCatalog().inputDevice(for: AudioInputDevice.builtInMicrophoneID)?.id ?? ""
-    }
 
     private static func normalizedRecordingDuration(_ duration: Int?) -> Int {
         min(
@@ -468,7 +476,7 @@ final class AppSettings {
     static func composedSpeechVocabulary(
         glossary: GlossaryList,
         includeCommonTechTerms: Bool,
-        limit: Int = PromptBuilder.maximumGlossaryTerms
+        limit: Int = GlossaryList.maximumUsedTerms
     ) -> [String] {
         let candidates = glossary.terms.map(\.term)
             + (includeCommonTechTerms ? CommonTechTerms.terms : [])
@@ -548,22 +556,43 @@ final class AppSettings {
     }
 
     private func persistWorkflowList() {
-        if let data = userDefaults.data(forKey: Self.workflowListKey),
-           let header = try? JSONDecoder().decode(WorkflowVersion.self, from: data),
-           header.version > WorkflowList.currentVersion { return }
-        guard let data = try? JSONEncoder().encode(workflowList) else { return }
-        userDefaults.set(data, forKey: Self.workflowListKey)
-        userDefaults.set(true, forKey: Self.workflowMigrationMarkerKey)
+        if persistVersioned(workflowList, version: WorkflowList.currentVersion, forKey: Self.workflowListKey, name: "workflow_list") {
+            userDefaults.set(true, forKey: Self.workflowMigrationMarkerKey)
+        }
     }
 
     private func persistGlossaryList() {
-        guard let data = try? JSONEncoder().encode(glossaryList) else { return }
-        userDefaults.set(data, forKey: Self.glossaryListKey)
+        persistVersioned(glossaryList, version: GlossaryList.currentVersion, forKey: Self.glossaryListKey, name: "glossary")
     }
 
     private func persistGlossaryProposals() {
-        guard let data = try? JSONEncoder().encode(glossaryProposals) else { return }
-        userDefaults.set(data, forKey: Self.glossaryProposalsKey)
+        persistVersioned(
+            glossaryProposals, version: GlossaryProposalList.currentVersion,
+            forKey: Self.glossaryProposalsKey, name: "glossary_proposals"
+        )
+    }
+
+    /// Writes a versioned JSON blob. A blob saved by a newer build loads empty here and must
+    /// survive edits made in this build, so it is never overwritten.
+    @discardableResult
+    private func persistVersioned<Value: Encodable>(
+        _ value: Value, version: Int, forKey key: String, name: String
+    ) -> Bool {
+        if let stored = userDefaults.data(forKey: key),
+           let header = try? JSONDecoder().decode(BlobVersion.self, from: stored),
+           header.version > version {
+            Self.logger.notice("settings_persist_skipped blob=\(name, privacy: .public) reason=newer_version")
+            return false
+        }
+        do {
+            userDefaults.set(try JSONEncoder().encode(value), forKey: key)
+            return true
+        } catch {
+            Self.logger.error(
+                "settings_persist_failed blob=\(name, privacy: .public) code=\((error as NSError).code, privacy: .public)"
+            )
+            return false
+        }
     }
 
     private static func resolvedGlossaryList(in userDefaults: UserDefaults) -> GlossaryList {
@@ -602,7 +631,7 @@ final class AppSettings {
         }
     }
 
-    private struct WorkflowVersion: Decodable {
+    private struct BlobVersion: Decodable {
         let version: Int
     }
 

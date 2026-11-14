@@ -170,7 +170,7 @@ Record results in a dated `docs/verification/` file. Mark each check passed, fai
 ## Learned glossary
 
 - Enable Suggest terms from my recordings, download the comparison model, and dictate a sentence containing a deliberately mangled English technical term. Press Compare Now (or wait for the idle scheduler), confirm the suggestion appears in the Glossary tab, choose Add, and verify the next dictation uses the corrected spelling. Repeat with Dismiss and confirm the same term is not proposed again.
-- With recordings pending, press Clear Recordings and confirm the count drops to 0 and `Application Support/Syrup/Recordings/` is empty. Press Remove Model and confirm `Application Support/Syrup/WhisperModels/` is gone and the row offers Download again. Turn learning off with the model installed and confirm the Remove/Keep model dialog appears; Keep leaves the model and its Remove button reachable while learning stays off.
+- With recordings pending, press Delete All next to "Waiting to be compared" and confirm the count drops to 0 and `Application Support/Syrup/Recordings/` is empty. Press Remove Model and confirm `Application Support/Syrup/WhisperModels/` is gone and the row offers Download again. Turn learning off with the model installed and confirm the Remove/Keep model dialog appears; Keep leaves the model and its Remove button reachable while learning stays off.
 
 ## Review fixes: manual acceptance checks
 
@@ -213,7 +213,7 @@ The following checks require the signed production app and have not been establi
 - Keep the Glossary tab open, complete a learning-enabled dictation, and confirm the pending count increases. Run analysis or clear recordings and confirm the count updates without reopening Settings.
 - Start a slow connection test, edit the URL or model, and start another test. The earlier completion must not replace the current status. Repeat after changing or removing the saved key.
 - Run Codex against a disposable account home and fixture endpoint. Confirm the invocation uses `--ephemeral` and creates no session transcript. Do not inspect personal Codex session contents for this check.
-- Use `ReviewCorrectionsTests` for synthetic CRLF, audio-overflow, credential-error, shortcut-registration, archive-count, and connection-status cases. Live speech, TCC, editor delivery, and signed-app behavior still require the manual checks above.
+- Use `StaleAndFailedStateTests` for synthetic CRLF, audio-overflow, credential-error, shortcut-registration, archive-count, and connection-status cases. Live speech, TCC, editor delivery, and signed-app behavior still require the manual checks above.
 
 
 ## Delivery follow-up for 2026-11-01

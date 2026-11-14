@@ -3,7 +3,7 @@ import Testing
 @testable import Syrup
 
 @MainActor
-struct FollowUpRegressionTests {
+struct TypedDeliveryTests {
     @Test(arguments: [["result", " more"], ["x"], [String(repeating: "word ", count: 50), "end"]])
     func streamingSmartSpacingSurvivesTheRealTypist(deltas: [String]) async {
         let suite = "FollowUpReview.\(UUID())"
@@ -88,12 +88,6 @@ struct FollowUpRegressionTests {
     }
 
     private func settle(_ state: AppState) async {
-        let deadline = ContinuousClock.now + .seconds(5)
-        while ContinuousClock.now < deadline {
-            if state.pipelineState == .idle || state.pipelineState.isError { return }
-            try? await Task.sleep(for: .milliseconds(1))
-        }
-        Issue.record("Fixture pipeline did not finish")
-        state.cancelRequested()
+        await settleRun(state)
     }
 }

@@ -70,6 +70,60 @@ struct RecordingArchiveTests {
     }
 
     @Test
+    func deniedDiscardIsReportedRetriedAndBlocksNewEntries() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let deletion = DeletionGate()
+        let archive = RecordingArchive(storageDirectory: directory, fileManager: DeletionDenyingFileManager(gate: deletion))
+        let id = UUID()
+        let audioURL = try await archive.beginEntry(id: id)
+
+        deletion.deniesDeletion = true
+        #expect(await archive.discardEntry(id: id) == false)
+        #expect(FileManager.default.fileExists(atPath: audioURL.path(percentEncoded: false)))
+        #expect(await archive.unresolvedDeletions() == [id])
+        await #expect(throws: RecordingArchiveError.cleanupPending) {
+            try await archive.beginEntry(id: UUID())
+        }
+
+        deletion.deniesDeletion = false
+        #expect(await archive.unresolvedDeletions().isEmpty)
+        #expect(FileManager.default.fileExists(atPath: audioURL.path(percentEncoded: false)) == false)
+        _ = try await archive.beginEntry(id: UUID())
+    }
+
+    @Test
+    func entriesThatCannotBeDeletedNeverExceedTheCapOrReachAnalysis() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let clock = TestClock(Date(timeIntervalSince1970: 1_000))
+        let deletion = DeletionGate()
+        let archive = RecordingArchive(
+            maxEntries: 1,
+            storageDirectory: directory,
+            fileManager: DeletionDenyingFileManager(gate: deletion),
+            now: { clock.now }
+        )
+        let older = UUID()
+        let newer = UUID()
+        _ = try await archive.beginEntry(id: older)
+        await archive.commitEntry(id: older, localeID: "pt-BR", appleTranscript: "deploy")
+        clock.advance(by: 1)
+        _ = try await archive.beginEntry(id: newer)
+
+        deletion.deniesDeletion = true
+        await archive.commitEntry(id: newer, localeID: "pt-BR", appleTranscript: "deploy")
+
+        #expect(await archive.pendingEntries().map(\.id) == [newer])
+        #expect(entryExists(id: older, in: directory))
+        #expect(await archive.unresolvedDeletions() == [older])
+
+        deletion.deniesDeletion = false
+        #expect(await archive.pendingEntries().map(\.id) == [newer])
+        #expect(entryExists(id: older, in: directory) == false)
+    }
+
+    @Test
     func deleteEntryRemovesAudioAndSidecarFiles() async throws {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -249,6 +303,7 @@ struct RecordingArchiveTests {
         for try await buffer in tee.stream {
             forwardedFrameLengths.append(buffer.frameLength)
         }
+        #expect(await tee.waitForCompletion())
         let audioFile = try AVAudioFile(forReading: fileURL)
 
         #expect(forwardedFrameLengths == [256, 256, 256])
@@ -276,7 +331,39 @@ struct RecordingArchiveTests {
             forwardedCount += 1
         }
 
+        #expect(await tee.waitForCompletion() == false)
         #expect(forwardedCount == 3)
+        #expect(FileManager.default.fileExists(atPath: fileURL.path(percentEncoded: false)) == false)
+    }
+
+    @Test
+    func slowArchiveWriterNeverDelaysForwardingAndAbandonsTheFile() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let archive = RecordingArchive(storageDirectory: directory)
+        let fileURL = try await archive.beginEntry(id: UUID())
+        let writerGate = DispatchSemaphore(value: 0)
+        let (source, continuation) = AudioBufferSequence.makeStream()
+        let tee = RecordingTee.attach(
+            to: source,
+            fileURL: fileURL,
+            writeCapacity: 1,
+            makeAudioFile: { _, _ in BlockingRecordingFile(gate: writerGate) }
+        )
+
+        for _ in 0..<5 {
+            continuation.yield(try constantBuffer(sampleValue: 0.25, frameCount: 256))
+        }
+        continuation.finish()
+
+        var forwardedCount = 0
+        for try await _ in tee.stream {
+            forwardedCount += 1
+        }
+        #expect(forwardedCount == 5)
+
+        writerGate.signal()
+        #expect(await tee.waitForCompletion() == false)
         #expect(FileManager.default.fileExists(atPath: fileURL.path(percentEncoded: false)) == false)
     }
 
@@ -303,6 +390,7 @@ struct RecordingArchiveTests {
         for try await _ in tee.stream {
             forwardedCount += 1
         }
+        #expect(await tee.waitForCompletion() == false)
         await archive.commitEntry(id: id, localeID: "pt-BR", appleTranscript: "deploy")
 
         #expect(forwardedCount == 3)
@@ -384,6 +472,21 @@ private final class FailingRecordingFile: RecordingFileWriting {
     }
 }
 
+private final class BlockingRecordingFile: RecordingFileWriting, @unchecked Sendable {
+    private let gate: DispatchSemaphore
+    private var opened = false
+
+    init(gate: DispatchSemaphore) {
+        self.gate = gate
+    }
+
+    func write(from buffer: AVAudioPCMBuffer) throws {
+        guard opened == false else { return }
+        opened = true
+        gate.wait()
+    }
+}
+
 private final class FailingFilePermissionManager: FileManager {
     override func setAttributes(
         _ attributes: [FileAttributeKey: Any],
@@ -393,6 +496,29 @@ private final class FailingFilePermissionManager: FileManager {
             throw CocoaError(.fileWriteNoPermission)
         }
         try super.setAttributes(attributes, ofItemAtPath: path)
+    }
+}
+
+private final class DeletionGate: Sendable {
+    private let denies = Mutex(false)
+
+    var deniesDeletion: Bool {
+        get { denies.withLock { $0 } }
+        set { denies.withLock { $0 = newValue } }
+    }
+}
+
+private final class DeletionDenyingFileManager: FileManager {
+    private let gate: DeletionGate
+
+    init(gate: DeletionGate) {
+        self.gate = gate
+        super.init()
+    }
+
+    override func removeItem(at url: URL) throws {
+        if gate.deniesDeletion { throw CocoaError(.fileWriteNoPermission) }
+        try super.removeItem(at: url)
     }
 }
 

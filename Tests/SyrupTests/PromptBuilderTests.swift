@@ -246,8 +246,16 @@ struct PromptBuilderTests {
 struct DictationOptionsPromptTests {
     private let translate = WorkflowKind.translation(targetLanguage: "English", tonePreset: .neutral, customToneText: "")
 
+    @Test func omittingDictationOptionsNeverAddsSpokenEdits() {
+        for prompt in [PromptBuilder.instruction(for: translate),
+                       PromptBuilder.systemPrompt(targetLanguage: "English", toneInstruction: "")] {
+            #expect(prompt.contains(PromptBuilder.selfCorrectionInstruction) == false)
+            #expect(prompt.contains(PromptBuilder.spokenFormattingInstruction) == false)
+        }
+    }
+
     @Test func eachSettingAddsOnlyItsOwnInstruction() {
-        let both = PromptBuilder.instruction(for: translate)
+        let both = PromptBuilder.instruction(for: translate, dictation: .all)
         #expect(both.contains(PromptBuilder.selfCorrectionInstruction))
         #expect(both.contains(PromptBuilder.spokenFormattingInstruction))
 
@@ -286,7 +294,7 @@ struct DictationOptionsPromptTests {
     @Test func eitherSpokenEditAddsTheTargetLanguageReminderAndNeitherLeavesItOut() {
         let reminder = PromptBuilder.spokenEditsLanguageReminder(targetLanguage: "English")
         #expect(reminder.contains("English"))
-        for options in [DictationOptions(), DictationOptions(selfCorrections: true, spokenFormatting: false),
+        for options in [DictationOptions.all, DictationOptions(selfCorrections: true, spokenFormatting: false),
                         DictationOptions(selfCorrections: false, spokenFormatting: true)] {
             #expect(PromptBuilder.instruction(for: translate, dictation: options).contains(reminder))
         }
@@ -338,7 +346,7 @@ struct DictationOptionsSettingsTests {
         settings.handlesSelfCorrections = true
         settings.handlesSpokenFormatting = true
         #expect(settings.dictationOptions(input: .selection, provider: .openAICompatible) == .off)
-        #expect(settings.dictationOptions(input: .voice, provider: .openAICompatible) == DictationOptions())
+        #expect(settings.dictationOptions(input: .voice, provider: .openAICompatible) == DictationOptions.all)
     }
 
     @Test(arguments: [TranslationProvider.openAICompatible, .codexCLI, .appleOnDevice])
@@ -346,7 +354,7 @@ struct DictationOptionsSettingsTests {
         let settings = settings()
         settings.handlesSelfCorrections = true
         settings.handlesSpokenFormatting = true
-        let expected = provider == .appleOnDevice ? DictationOptions.off : DictationOptions()
+        let expected = provider == .appleOnDevice ? DictationOptions.off : DictationOptions.all
         #expect(provider.supportsSpokenEdits == (provider != .appleOnDevice))
         #expect(settings.dictationOptions(input: .voice, provider: provider) == expected)
     }

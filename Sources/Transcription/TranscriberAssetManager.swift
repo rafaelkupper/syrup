@@ -21,7 +21,7 @@ enum TranscriptionError: Error, Equatable {
 
 @MainActor
 @Observable
-final class TranscriberAssetManager: @unchecked Sendable {
+final class TranscriberAssetManager {
     enum AssetState: Equatable, Sendable {
         case unknown
         case checking

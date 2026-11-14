@@ -1,6 +1,7 @@
 import Darwin
 import Foundation
 import OSLog
+import Synchronization
 
 struct CommandResult: Equatable, Sendable {
     let exitCode: Int32
@@ -96,6 +97,8 @@ private func runProcess(
     process.standardInput = stdinPipe
     process.standardOutput = stdoutPipe
     process.standardError = stderrPipe
+    let exit = ProcessExitSignal()
+    process.terminationHandler = { _ in exit.markExited() }
 
     await processBox.set(process)
     try Task.checkCancellation()
@@ -124,10 +127,20 @@ private func runProcess(
         throw CommandRunnerError.timedOut
     }
 
-    stdinPipe.fileHandleForWriting.write(stdin)
-    try? stdinPipe.fileHandleForWriting.close()
+    // Codex may exit before reading all of stdin (a bad flag, a crash). The write then fails with
+    // EPIPE instead of raising SIGPIPE, and the exit status below reports what happened.
+    let stdinHandle = stdinPipe.fileHandleForWriting
+    _ = fcntl(stdinHandle.fileDescriptor, F_SETNOSIGPIPE, 1)
+    do {
+        try stdinHandle.write(contentsOf: stdin)
+    } catch {
+        Logger(subsystem: "org.syrup.SyrupApp", category: "CodexCLI")
+            .notice("codex_stdin_write_failed code=\((error as NSError).code, privacy: .public)")
+    }
+    try? stdinHandle.close()
 
-    process.waitUntilExit()
+    // Suspends instead of blocking a cooperative thread for the length of the run.
+    await exit.wait()
 
     let stdout = stdoutCollector.finish()
     let stderr = stderrCollector.finish()
@@ -148,6 +161,36 @@ private func runProcess(
         stdout: stdout,
         stderr: stderr
     )
+}
+
+/// Resumes one waiter when the process exits, whether it exited before or after the wait began.
+private final class ProcessExitSignal: Sendable {
+    private struct State {
+        var exited = false
+        var waiter: CheckedContinuation<Void, Never>?
+    }
+
+    private let state = Mutex(State())
+
+    func markExited() {
+        let waiter = state.withLock { state -> CheckedContinuation<Void, Never>? in
+            state.exited = true
+            defer { state.waiter = nil }
+            return state.waiter
+        }
+        waiter?.resume()
+    }
+
+    func wait() async {
+        await withCheckedContinuation { continuation in
+            let exited = state.withLock { state -> Bool in
+                if state.exited { return true }
+                state.waiter = continuation
+                return false
+            }
+            if exited { continuation.resume() }
+        }
+    }
 }
 
 private final class PipeDataCollector: @unchecked Sendable {
@@ -400,38 +443,6 @@ struct StaticCodexCLIConfigurationProvider: CodexCLIConfigurationProviding {
     }
 }
 
-final class AppSettingsCodexCLIConfigurationProvider: CodexCLIConfigurationProviding, @unchecked Sendable {
-    private struct CodexSettings: Sendable {
-        let path: String
-        let model: String
-    }
-
-    private let settings: AppSettings
-    private let environment: [String: String]
-
-    init(
-        settings: AppSettings,
-        environment: [String: String] = ProcessInfo.processInfo.environment
-    ) {
-        self.settings = settings
-        self.environment = environment
-    }
-
-    func configuration() async throws -> CodexCLIConfiguration {
-        let codexSettings = await MainActor.run {
-            CodexSettings(
-                path: settings.codexPath,
-                model: settings.codexModel
-            )
-        }
-        return try CodexCLIConfigurationResolver.configuration(
-            configuredPath: codexSettings.path,
-            modelName: codexSettings.model,
-            environment: environment
-        )
-    }
-}
-
 struct CodexCLITransformer: TextTransformer, @unchecked Sendable {
     private let configurationProvider: any CodexCLIConfigurationProviding
     private let commandRunner: any CommandRunning
@@ -515,7 +526,7 @@ struct CodexCLITransformer: TextTransformer, @unchecked Sendable {
             throw TranslationError.codexEmptyOutput
         }
 
-        let normalizedOutput = OpenAICompatibleTransformer.normalizedModelOutput(
+        let normalizedOutput = ModelOutputNormalizer.normalize(
             output,
             keepsWrapperQuotes: ModelOutputNormalizer.requestsQuotes(input: text, instruction: instruction)
         )

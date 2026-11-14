@@ -45,9 +45,7 @@ struct CanaryTests {
 
     @Test func longDictationIsCutIntoWindowsTheModelCanSee() async throws {
         let fake = FakeCanary()
-        let text = try await CanaryTranscriber(decoder: fake).transcribe(
-            audio(speechLike(seconds: 27)), locale: Locale(identifier: "en_US"), vocabulary: [], onPartialTranscript: nil
-        )
+        let text = try await CanaryTranscriber(decoder: fake).transcribe(audio(speechLike(seconds: 27)), request: TranscriptionRequest(locale: Locale(identifier: "en_US"), vocabulary: [], onPartialTranscript: nil))
         let segments = await fake.segments
         #expect(segments.count >= 3)
         #expect(segments.allSatisfy { $0 <= 160_000 })
@@ -59,18 +57,14 @@ struct CanaryTests {
 
     @Test func silenceIsNeverDecoded() async throws {
         let fake = FakeCanary()
-        let text = try await CanaryTranscriber(decoder: fake).transcribe(
-            audio([Float](repeating: 0, count: 48_000)), locale: Locale(identifier: "de-DE"), vocabulary: [], onPartialTranscript: nil
-        )
+        let text = try await CanaryTranscriber(decoder: fake).transcribe(audio([Float](repeating: 0, count: 48_000)), request: TranscriptionRequest(locale: Locale(identifier: "de-DE"), vocabulary: [], onPartialTranscript: nil))
         #expect(text.isEmpty)
         #expect(await fake.segments.isEmpty)
     }
 
     @Test func portugueseIsRefusedSoThePipelineUsesApple() async {
         await #expect(throws: CanaryError.unsupportedLanguage) {
-            _ = try await CanaryTranscriber(decoder: FakeCanary()).transcribe(
-                audio(speechLike(seconds: 2)), locale: Locale(identifier: "pt-BR"), vocabulary: [], onPartialTranscript: nil
-            )
+            _ = try await CanaryTranscriber(decoder: FakeCanary()).transcribe(audio(speechLike(seconds: 2)), request: TranscriptionRequest(locale: Locale(identifier: "pt-BR"), vocabulary: [], onPartialTranscript: nil))
         }
     }
 

@@ -245,23 +245,54 @@ struct StreamingTypistTests {
     }
 
     @Test(arguments: [false, true])
-    func rechecksTargetAndSecureInputBetweenSteps(secureInput: Bool) throws {
-        var sameTarget = true
+    func rechecksAppAndSecureInputBetweenSteps(secureInput: Bool) throws {
+        var frontmost = "fixture"
         var secure = false
         var steps: [TypingStep] = []
         let typist = StreamingTypist(trustStatus: { true },
-            secureInputStatus: { secure }, frontmostApplicationID: { "fixture" },
+            secureInputStatus: { secure }, frontmostApplicationID: { frontmost },
             eventPoster: {
                 steps.append($0)
-                if secureInput { secure = true } else { sameTarget = false }
+                if secureInput { secure = true } else { frontmost = "other" }
                 return true
             }, sleeper: { _ in })
-        typist.setTargetValidator { sameTarget }
         try typist.start()
         typist.append("first\nsecond")
         typist.finish()
         #expect(steps == [.text("first")])
         #expect(typist.stopReason == (secureInput ? .secureInputActive : .focusChanged))
+    }
+
+    @Test
+    func checksTheFocusedFieldOncePerFlushNotPerStep() throws {
+        var validations = 0
+        var steps: [TypingStep] = []
+        let typist = StreamingTypist(trustStatus: { true },
+            secureInputStatus: { false }, frontmostApplicationID: { "fixture" },
+            eventPoster: { steps.append($0); return true }, sleeper: { _ in })
+        typist.setTargetValidator { validations += 1; return true }
+        try typist.start()
+        typist.append("one\ntwo\nthree\nfour")
+        typist.finish()
+        #expect(steps.count == 7)
+        #expect(validations == 1)
+    }
+
+    @Test
+    func aFieldChangeStopsTheNextFlush() throws {
+        let field = FieldFocus()
+        var steps: [TypingStep] = []
+        let typist = StreamingTypist(sizeThreshold: 1, trustStatus: { true },
+            secureInputStatus: { false }, frontmostApplicationID: { "fixture" },
+            eventPoster: { steps.append($0); return true }, sleeper: { _ in })
+        typist.setTargetValidator { field.isSame }
+        try typist.start()
+        typist.append("first ")
+        field.isSame = false
+        typist.append("second ")
+        typist.finish()
+        #expect(typist.stopReason == .focusChanged)
+        #expect(steps.contains(.text("second")) == false)
     }
 
     private func makeTypist(
@@ -357,4 +388,9 @@ private actor ManualStreamingTypistSleeper {
         continuation?.resume(throwing: CancellationError())
         continuation = nil
     }
+}
+
+@MainActor
+private final class FieldFocus {
+    var isSame = true
 }

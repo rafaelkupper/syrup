@@ -100,10 +100,8 @@ struct MenuBarView: View {
         }
         .disabled(!updates.canCheckForUpdates)
         Button("Quit") {
-            Task {
-                await state.history.flush()
-                NSApplication.shared.terminate(nil)
-            }
+            // The app delegate flushes history and restores volume on every quit path.
+            NSApplication.shared.terminate(nil)
         }
     }
 

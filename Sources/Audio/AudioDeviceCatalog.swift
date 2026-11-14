@@ -4,6 +4,11 @@ import Foundation
 struct AudioInputDevice: Equatable, Identifiable, Sendable {
     static let builtInMicrophoneID = "BuiltInMicrophoneDevice"
 
+    /// The microphone a new install starts with: the built-in one when this Mac has it.
+    static func defaultSelectionID() -> String {
+        CoreAudioInputDeviceCatalog().inputDevice(for: builtInMicrophoneID)?.id ?? ""
+    }
+
     let id: String
     let name: String
     let sampleRate: Double

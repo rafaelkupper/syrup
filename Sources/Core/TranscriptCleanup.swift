@@ -36,6 +36,45 @@ enum TranscriptCleanup {
     ]
     private static let word = #"[\p{L}\p{M}\p{N}_'’-]"#
 
+    /// Every pattern is built from the fixed tables above, so it is compiled once per language.
+    /// A bad phrase edit fails the first test that touches the language instead of a live run.
+    private struct Compiled: @unchecked Sendable {
+        let symbolRules: [(String, Formatting)]
+        let symbolMatcher: NSRegularExpression
+        let phraseRules: [(NSRegularExpression, Formatting)]
+        let filler: NSRegularExpression
+    }
+
+    private static let compiled: [String: Compiled] = rules.mapValues { rules in
+        let symbolRules = rules.formatting.filter {
+            if case .symbol = $0.1 { return true }
+            return false
+        }.sorted { $0.0.count > $1.0.count }
+        let alternatives = symbolRules.map { "(" + NSRegularExpression.escapedPattern(for: $0.0) + ")" }.joined(separator: "|")
+        let phraseRules = rules.formatting.compactMap { phrase, formatting -> (NSRegularExpression, Formatting)? in
+            if case .symbol = formatting { return nil }
+            let pattern = #"[\t ,.\u2026]*(?<!"# + word + ")" + NSRegularExpression.escapedPattern(for: phrase)
+                + "(?!" + word + #")[\t ,.\u2026]*"#
+            return (regex(pattern, options: .caseInsensitive), formatting)
+        }
+        let fillers = rules.fillers.flatMap { [$0, $0.prefix(1).uppercased() + $0.dropFirst()] }
+            .map(NSRegularExpression.escapedPattern(for:)).joined(separator: "|")
+        return Compiled(
+            symbolRules: symbolRules,
+            symbolMatcher: regex("(?<!" + word + ")(?:" + alternatives + ")(?!" + word + ")", options: .caseInsensitive),
+            phraseRules: phraseRules,
+            filler: regex("(?<!" + word + ")(" + fillers + ")(?!" + word + #")(?:,|\.{3}|…)?[\t ]*"#)
+        )
+    }
+
+    private static func regex(_ pattern: String, options: NSRegularExpression.Options = []) -> NSRegularExpression {
+        do {
+            return try NSRegularExpression(pattern: pattern, options: options)
+        } catch {
+            preconditionFailure("TranscriptCleanup pattern does not compile")
+        }
+    }
+
     private static func isPadding(_ character: Character) -> Bool {
         "\t ,.\u{2026}".contains(character)
     }
@@ -49,14 +88,10 @@ enum TranscriptCleanup {
 
     private static func symbols(_ text: String, localeID: String, cleanup: Bool) -> String {
         let language = Locale(identifier: localeID).language.languageCode?.identifier ?? ""
-        guard let rules = rules[language] else { return text.trimmingCharacters(in: .whitespacesAndNewlines) }
+        guard let compiled = compiled[language] else { return text.trimmingCharacters(in: .whitespacesAndNewlines) }
         let normalized = (cleanup ? legacyCleanup(text, localeID: localeID) : text).precomposedStringWithCanonicalMapping
-        let formatting = rules.formatting.filter {
-            if case .symbol = $0.1 { return true }
-            return false
-        }.sorted { $0.0.count > $1.0.count }
-        let alternatives = formatting.map { "(" + NSRegularExpression.escapedPattern(for: $0.0) + ")" }.joined(separator: "|")
-        let matcher = try! NSRegularExpression(pattern: "(?<!" + word + ")(?:" + alternatives + ")(?!" + word + ")", options: .caseInsensitive)
+        let formatting = compiled.symbolRules
+        let matcher = compiled.symbolMatcher
         var result = ""
         var cursor = normalized.startIndex
         var protectedBytes = 0
@@ -82,29 +117,19 @@ enum TranscriptCleanup {
         return result.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private static func fillerRegex(_ rules: Rules) -> NSRegularExpression {
-        let fillers = rules.fillers.flatMap { [$0, $0.prefix(1).uppercased() + $0.dropFirst()] }
-            .map(NSRegularExpression.escapedPattern(for:)).joined(separator: "|")
-        return try! NSRegularExpression(pattern: "(?<!" + word + ")(" + fillers + ")(?!" + word + #")(?:,|\.{3}|…)?[\t ]*"#)
-    }
-
     /// How many filler words cleanup removes from this text.
     static func fillerCount(in text: String, localeID: String) -> Int {
         let language = Locale(identifier: localeID).language.languageCode?.identifier ?? ""
-        guard let rules = rules[language] else { return 0 }
+        guard let compiled = compiled[language] else { return 0 }
         let normalized = text.precomposedStringWithCanonicalMapping
-        return fillerRegex(rules).numberOfMatches(in: normalized, range: NSRange(normalized.startIndex..., in: normalized))
+        return compiled.filler.numberOfMatches(in: normalized, range: NSRange(normalized.startIndex..., in: normalized))
     }
 
     private static func legacyCleanup(_ text: String, localeID: String) -> String {
         let language = Locale(identifier: localeID).language.languageCode?.identifier ?? ""
-        guard let rules = rules[language] else { return text.trimmingCharacters(in: .whitespacesAndNewlines) }
+        guard let compiled = compiled[language] else { return text.trimmingCharacters(in: .whitespacesAndNewlines) }
         var result = text.precomposedStringWithCanonicalMapping
-        for (phrase, formatting) in rules.formatting {
-            if case .symbol = formatting { continue }
-            let pattern = #"[\t ,.\u2026]*(?<!"# + word + ")" + NSRegularExpression.escapedPattern(for: phrase)
-                + "(?!" + word + #")[\t ,.\u2026]*"#
-            let regex = try! NSRegularExpression(pattern: pattern, options: .caseInsensitive)
+        for (regex, formatting) in compiled.phraseRules {
             for match in regex.matches(in: result, range: NSRange(result.startIndex..., in: result)).reversed() {
                 let range = Range(match.range, in: result)!
                 let replacement: String
@@ -122,7 +147,7 @@ enum TranscriptCleanup {
                 result.replaceSubrange(range, with: replacement)
             }
         }
-        let regex = fillerRegex(rules)
+        let regex = compiled.filler
         while let match = regex.firstMatch(in: result, range: NSRange(result.startIndex..., in: result)) {
             let range = Range(match.range, in: result)!
             let token = Range(match.range(at: 1), in: result)!

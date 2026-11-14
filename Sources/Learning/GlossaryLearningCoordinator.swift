@@ -25,11 +25,10 @@ final class JudgingCrossCheckSink: CrossCheckSink {
         self.judge = judge
     }
 
+    /// The judge sees only the transcript pair. Findings that repeat an existing glossary term,
+    /// a pending proposal, or a dismissed one are dropped here by `addGlossaryProposal`.
     func process(_ pair: TranscriptPair) async -> Bool {
-        guard let findings = await judge.findings(
-            for: pair,
-            excluding: settings.glossaryList.terms.map(\.term)
-        ) else {
+        guard let findings = await judge.findings(for: pair) else {
             return false
         }
 

@@ -16,12 +16,7 @@ enum PauseTransformation {
     }
 
     static func isLoopback(_ url: URL) -> Bool {
-        guard let host = url.host()?.lowercased() else { return false }
-        if host == "localhost" || host == "[::1]" || host == "::1" { return true }
-        let parts = host.split(separator: ".", omittingEmptySubsequences: false)
-        return parts.count == 4 && parts[0] == "127" && parts.allSatisfy {
-            !$0.isEmpty && $0.allSatisfy { $0.isASCII && $0.isNumber } && UInt8($0) != nil
-        }
+        EndpointPolicy.isLoopback(url)
     }
 }
 
@@ -36,10 +31,10 @@ final class PauseTransformationAttempt {
     let task: Task<Output?, Never>
 
     init(input: String, instruction: String, provider: TranslationProvider,
-         snapshot: any TransformerProviding, clock: any RecordingClock) {
+         snapshot: TransformerSnapshot, clock: any RecordingClock) {
         self.input = input
         task = Task {
-            let transformer = await snapshot.transformer(for: provider, instruction: instruction)
+            let transformer = await snapshot.transformer(instruction: instruction)
             do {
                 try Task.checkCancellation()
                 let startedAt = clock.now

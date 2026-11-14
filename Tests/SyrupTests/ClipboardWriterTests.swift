@@ -33,6 +33,21 @@ struct ClipboardWriterTests {
     }
 
     @Test
+    func aRefusedRestoreReportsThePreviousClipboardAsLost() {
+        let pasteboard = FakeClipboardPasteboard(
+            storedString: "Previous clipboard",
+            setResults: [false]
+        )
+        pasteboard.writeObjectsResult = false
+        let writer = ClipboardWriter(pasteboard: pasteboard)
+
+        #expect(throws: ClipboardError.writeFailedPreviousContentLost) {
+            try writer.write("New clipboard")
+        }
+        #expect(pasteboard.writeObjectCallCount == 1)
+    }
+
+    @Test
     func failedWriteDoesNotRestoreUnsupportedNonStringItem() {
         let customType = NSPasteboard.PasteboardType("org.syrup.Syrup.test")
         let data = Data([1, 2, 3, 4])
@@ -44,7 +59,7 @@ struct ClipboardWriterTests {
         )
         let writer = ClipboardWriter(pasteboard: pasteboard)
 
-        #expect(throws: ClipboardError.writeFailed) {
+        #expect(throws: ClipboardError.writeFailedPreviousContentLost) {
             try writer.write("New clipboard")
         }
 
@@ -64,6 +79,7 @@ struct ClipboardWriterTests {
         )
         let writer = ClipboardWriter(pasteboard: pasteboard, snapshotByteLimit: 64)
 
+        // The text came back; only formatting was dropped, which most real copies carry.
         #expect(throws: ClipboardError.writeFailed) {
             try writer.write("New clipboard")
         }
@@ -104,7 +120,7 @@ struct ClipboardWriterTests {
         )
         let writer = ClipboardWriter(pasteboard: pasteboard, snapshotByteLimit: 8)
 
-        #expect(throws: ClipboardError.writeFailed) {
+        #expect(throws: ClipboardError.writeFailedPreviousContentLost) {
             try writer.write("New clipboard")
         }
 
@@ -120,7 +136,7 @@ struct ClipboardWriterTests {
         )
         let writer = ClipboardWriter(pasteboard: pasteboard, snapshotByteLimit: 8)
 
-        #expect(throws: ClipboardError.writeFailed) {
+        #expect(throws: ClipboardError.writeFailedPreviousContentLost) {
             try writer.write("New clipboard")
         }
 
@@ -150,6 +166,7 @@ private final class FakeClipboardPasteboard: ClipboardPasteboard {
     var pasteboardItems: [NSPasteboardItem]?
     private(set) var setStrings: [String] = []
     private(set) var writeObjectCallCount = 0
+    var writeObjectsResult = true
     private var setResults: [Bool]
 
     init(storedString: String?, setResults: [Bool]) {
@@ -190,6 +207,7 @@ private final class FakeClipboardPasteboard: ClipboardPasteboard {
 
     func writeObjects(_ objects: [any NSPasteboardWriting]) -> Bool {
         writeObjectCallCount += 1
+        guard writeObjectsResult else { return false }
         pasteboardItems = objects.compactMap { object in
             guard let item = object as? NSPasteboardItem else { return nil }
             return Self.copy(item)

@@ -6,7 +6,7 @@ import Synchronization
 @testable import Syrup
 
 @MainActor
-struct ReviewCorrectionsTests {
+struct StaleAndFailedStateTests {
     @Test func sseAcceptsCRLFLikeLF() throws {
         let payload = #"data: {"choices":[{"delta":{"content":"hello"}}]}"#
         var control = OpenAISSEParser()
@@ -229,16 +229,16 @@ struct ReviewCorrectionsTests {
             recordingCue: cue)
         state.triggerPressed()
         await transcriber.waitForCall()
-        for _ in 0..<1000 { if cue.levelCount == 1 { break }; await Task.yield() }
+        await eventually { cue.levelCount == 1 }
         #expect(cue.levelCount == 1)
         state.triggerReleased()
-        for _ in 0..<2000 { if cue.levelCount == AudioBufferStream.capacity { break }; await Task.yield() }
+        await eventually { cue.levelCount == AudioBufferStream.capacity }
         #expect(recorder.rawDropped == false)
         #expect(cue.levelCount == AudioBufferStream.capacity)
         // This main-actor hop queues after the tap's overflow notification.
         await Task { @MainActor in }.value
         await transcriber.succeed("partial audio transcript")
-        for _ in 0..<2000 { if state.pipelineState == .idle || state.pipelineState.isError { break }; await Task.yield() }
+        await eventually { state.pipelineState == .idle || state.pipelineState.isError }
         #expect(clipboard.writes.isEmpty)
         #expect(state.pipelineState.isError)
         state.cancelRequested()
@@ -260,11 +260,11 @@ struct ReviewCorrectionsTests {
         state.triggerPressed()
         await transcriber.waitForCall()
         state.triggerReleased()
-        for _ in 0..<1000 { if state.pipelineState == .transcribing { break }; await Task.yield() }
+        await eventually { state.pipelineState == .transcribing }
         #expect(state.pipelineState == .transcribing)
         recorder.onFailure?(AudioRecordingError.audioBufferOverflow)
         await transcriber.succeed("partial audio transcript")
-        for _ in 0..<1000 { if state.pipelineState == .idle || state.pipelineState.isError { break }; await Task.yield() }
+        await eventually { state.pipelineState == .idle || state.pipelineState.isError }
         #expect(clipboard.writes.isEmpty)
         #expect(state.pipelineState.isError)
         state.cancelRequested()

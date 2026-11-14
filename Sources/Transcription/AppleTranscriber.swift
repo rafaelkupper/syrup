@@ -12,19 +12,11 @@ struct AppleTranscriber: Transcriber {
         self.allowAssetPreparation = allowAssetPreparation
     }
 
-    func transcribe(
-        _ audio: AudioBufferSequence,
-        locale: Locale,
-        vocabulary: [String],
-        onPartialTranscript: (@Sendable (String) -> Void)?
-    ) async throws -> String {
-        try await transcribe(audio, locale: locale, vocabulary: vocabulary, onPartialTranscript: onPartialTranscript, preferFastResults: false)
-    }
-
-    func transcribe(
-        _ audio: AudioBufferSequence, locale: Locale, vocabulary: [String],
-        onPartialTranscript: (@Sendable (String) -> Void)?, preferFastResults: Bool
-    ) async throws -> String {
+    func transcribe(_ audio: AudioBufferSequence, request: TranscriptionRequest) async throws -> String {
+        let locale = request.locale
+        let vocabulary = request.vocabulary
+        let onPartialTranscript = request.onPartialTranscript
+        let preferFastResults = request.preferFastResults
         let metrics = AppleTranscriberMetricsRecorder()
         let supportedLocale = try await metrics.measure(.assetReadiness) {
             try await assetManager.requireInstalled(locale: locale, allowPreparation: allowAssetPreparation)
@@ -114,7 +106,7 @@ struct AppleTranscriber: Transcriber {
     }
 
     static func analysisContext(vocabulary: [String]) -> AnalysisContext? {
-        let terms = Array(vocabulary.prefix(PromptBuilder.maximumGlossaryTerms))
+        let terms = Array(vocabulary.prefix(GlossaryList.maximumUsedTerms))
         guard terms.isEmpty == false else { return nil }
 
         let context = AnalysisContext()

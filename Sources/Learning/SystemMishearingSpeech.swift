@@ -101,9 +101,7 @@ final class AppleMishearingRecognizer: MishearingRecognizing {
         continuation.yield(combined)
         continuation.finish()
         return try await withOperationTimeout(.seconds(60), error: MishearingProbeFailure.timedOut) { [transcriber] in
-            try await transcriber.transcribe(
-                audio, locale: Locale(identifier: localeID), vocabulary: vocabulary, onPartialTranscript: nil
-            )
+            try await transcriber.transcribe(audio, request: TranscriptionRequest(locale: Locale(identifier: localeID), vocabulary: vocabulary, onPartialTranscript: nil))
         }
     }
 

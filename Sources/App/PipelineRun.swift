@@ -36,7 +36,7 @@ final class PipelineRun {
     let showLiveTranscript: Bool
     let transformsOnPause: Bool
     let pauseTransformationEligible: Bool
-    let providerSnapshot: (any TransformerProviding)?
+    let providerSnapshot: TransformerSnapshot?
     let speechModel: (transcriber: (any Transcriber)?, fallbackNotice: String?)
     var pauseCheckTask: Task<Void, Never>?
     var pauseAttempt: PauseTransformationAttempt?
@@ -66,6 +66,8 @@ final class PipelineRun {
     var voicedDuration: Duration = .zero
     var releaseTailDeadline: Task<Void, Never>?
     var failure: (any Error)?
+    /// The failed history record this run appended, so its notification offers that record's actions.
+    var failedRecordID: UUID?
     var deliveryCommitted = false
     var streamingTypist: (any StreamingTyping)?
     var preparedTransformer: Task<any TextTransformer, Never>?
@@ -80,7 +82,7 @@ final class PipelineRun {
         holdsPaste: Bool = false,
         activities: any ProcessActivityControlling,
         isVoiceInput: Bool = true,
-        providerSnapshot: (any TransformerProviding)? = nil,
+        providerSnapshot: TransformerSnapshot? = nil,
         speechModel: (transcriber: (any Transcriber)?, fallbackNotice: String?) = (nil, nil)
     ) {
         self.configuration = configuration
@@ -115,6 +117,18 @@ final class PipelineRun {
         }
         self.activities = activities
         activity = activities.beginActivity(options: .userInitiated, reason: "Syrup is processing a request")
+    }
+
+    /// Smart spacing, caret fit, and pinning all need the editor captured at the trigger.
+    var needsDeliveryTarget: Bool {
+        autoPasteEnabled && (pinsDeliveryTarget || smartSpacingEnabled || matchesSentenceAtCaret)
+    }
+
+    var traits: ActiveRunTraits {
+        ActiveRunTraits(
+            isRevision: configuration.purpose.isRevision, hotkeyMode: hotkeyMode,
+            triggerWorkflowID: triggerWorkflowID, deliveryCommitted: deliveryCommitted
+        )
     }
 
     func endActivity() {

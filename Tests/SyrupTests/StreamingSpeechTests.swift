@@ -50,7 +50,7 @@ struct StreamingSpeechTests {
     @Test func refusesToRunBeforeLoading() async throws {
         let transcriber = StreamingTranscriber(engine: StreamingSpeechEngine(backend: FakeBackend()))
         await #expect(throws: ParakeetError.notLoaded) {
-            _ = try await transcriber.transcribe(audio(), locale: Locale(identifier: "pt_BR"), vocabulary: [], onPartialTranscript: nil)
+            _ = try await transcriber.transcribe(audio(), request: TranscriptionRequest(locale: Locale(identifier: "pt_BR"), vocabulary: [], onPartialTranscript: nil))
         }
     }
 
@@ -59,10 +59,7 @@ struct StreamingSpeechTests {
         let engine = StreamingSpeechEngine(backend: backend)
         try await engine.load(from: URL(fileURLWithPath: "/nonexistent"))
         let partials = Mutex<[String]>([])
-        let text = try await StreamingTranscriber(engine: engine).transcribe(
-            audio(), locale: Locale(identifier: "pt-BR"), vocabulary: [],
-            onPartialTranscript: { partial in partials.withLock { $0.append(partial) } }
-        )
+        let text = try await StreamingTranscriber(engine: engine).transcribe(audio(), request: TranscriptionRequest(locale: Locale(identifier: "pt-BR"), vocabulary: [], onPartialTranscript: { partial in partials.withLock { $0.append(partial) } }))
         #expect(text == "final words")
         #expect(backend.samples.withLock { $0 } == 4_800)
         #expect(partials.withLock { $0 } == ["heard so far"])

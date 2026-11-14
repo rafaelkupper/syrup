@@ -124,10 +124,7 @@ struct WorkflowAbilitiesTests {
         #expect(record.provider == nil)
         #expect(record.transformation == .contextual(workflowName: "Local", instruction: ""))
         #expect(record.canRetry == false)
-        for _ in 0..<1000 {
-            if await archive.snapshot().commits.count == 1 { break }
-            await Task.yield()
-        }
+        await eventually { await archive.snapshot().commits.count == 1 }
         let archived = await archive.snapshot()
         #expect(archived.commits.map(\.appleTranscript) == ["Um, hello"])
         for entry in archived.begunEntryIDs {
@@ -271,17 +268,11 @@ struct WorkflowAbilitiesTests {
                              transformer: FakeTextTransformer(.failure(.transformer)),
                              pasteboard: SpyPasteboard(), feedback: SpyFeedback())
         state.refreshWorkflowHotkeys()
-        for _ in 0..<1000 {
-            if await probe.locales.count == 1 { break }
-            await Task.yield()
-        }
+        await eventually { await probe.locales.count == 1 }
         #expect(await probe.locales == ["pt-BR"])
         settings.workflowList.routeApplication("test.app", to: routed.id)
         state.refreshWorkflowHotkeys()
-        for _ in 0..<1000 {
-            if await probe.locales.count == 2 { break }
-            await Task.yield()
-        }
+        await eventually { await probe.locales.count == 2 }
         #expect(await Set(probe.locales) == ["pt-BR", "fr-FR"])
     }
 
@@ -332,18 +323,16 @@ struct WorkflowAbilitiesTests {
     }
 
     private func settle(_ state: AppState) async {
-        for _ in 0..<1000 {
-            if state.pipelineState == .idle || state.pipelineState.isError { return }
-            await Task.yield()
-        }
-        Issue.record("Pipeline did not finish")
+        await settleRun(state)
     }
 }
 
-private struct UntouchableProvider: TransformerProviding {
-    @MainActor func snapshot(for provider: TranslationProvider) -> any TransformerProviding {
+private struct UntouchableProvider: TransformerSource {
+    @MainActor func snapshot(for provider: TranslationProvider) -> TransformerSnapshot {
         Issue.record("Transcribe-only resolved provider configuration")
-        return self
+        return TransformerSnapshot { [self] instruction in
+            await transformer(for: provider, instruction: instruction)
+        }
     }
     func transformer(for provider: TranslationProvider, instruction: String) async -> any TextTransformer {
         Issue.record("Transcribe-only prepared a provider")

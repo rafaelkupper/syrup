@@ -101,29 +101,6 @@ struct OpenAICompatibleTranslationResult: Equatable, Sendable {
     let usage: OpenAICompatibleTokenUsage?
 }
 
-enum TranslationError: Error, Equatable, Sendable {
-    case missingConfiguration(String)
-    case invalidBaseURL(String)
-    case invalidResponse
-    case emptyResponse
-    case outputLimitReached
-    case responseFiltered
-    case cannotConnect(String)
-    case timedOut
-    case apiKeyRejected
-    case rateLimited
-    case httpStatus(Int)
-    case codexCLINotFound
-    case codexNotSignedIn
-    case codexUsageLimit
-    case codexEmptyOutput
-    case codexFailed(Int)
-    case codexTimedOut
-    case onDeviceUnavailable(String)
-    case onDeviceGuardrail
-    case onDeviceContextExceeded
-}
-
 struct OpenAICompatibleTransformer: StreamingTextTransformer {
     private let configurationProvider: any OpenAICompatibleConfigurationProviding
     private let session: URLSession
@@ -280,10 +257,6 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
         return normalizedBaseURL.appending(path: "chat/completions")
     }
 
-    static func normalizedModelOutput(_ text: String, keepsWrapperQuotes: Bool = false) -> String {
-        ModelOutputNormalizer.normalize(text, keepsWrapperQuotes: keepsWrapperQuotes)
-    }
-
     static func validateFinishReason(_ reason: String?) throws {
         switch reason {
         case "length": throw TranslationError.outputLimitReached
@@ -297,7 +270,7 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
         guard let choice = response.choices.first else { throw TranslationError.emptyResponse }
         try validateFinishReason(choice.finishReason)
         guard let content = choice.message.content else { throw TranslationError.emptyResponse }
-        let text = normalizedModelOutput(content, keepsWrapperQuotes: keepsWrapperQuotes)
+        let text = ModelOutputNormalizer.normalize(content, keepsWrapperQuotes: keepsWrapperQuotes)
         guard text.isEmpty == false else { throw TranslationError.emptyResponse }
         return OpenAICompatibleTranslationResult(text: text, usage: response.usage)
     }

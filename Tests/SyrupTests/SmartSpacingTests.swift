@@ -93,10 +93,6 @@ struct SmartSpacingTests {
     }
 
     private func settle(_ state: AppState) async {
-        for _ in 0..<2000 {
-            if state.pipelineState == .idle || state.pipelineState.isError { return }
-            await Task.yield()
-        }
-        Issue.record("Spacing pipeline did not finish")
+        await settleRun(state)
     }
 }

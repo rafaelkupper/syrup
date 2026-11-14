@@ -133,18 +133,12 @@ struct UsageStatsStoreTests {
             .appending(path: "usage-stats.json")
     }
 
-    private func waitForFile(_ url: URL, toExist: Bool) async {
-        for _ in 0..<2_000 where FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) != toExist {
-            try? await Task.sleep(for: .milliseconds(1))
-        }
-    }
-
     @Test func survivesARestartWithAPrivateFileAndDeletes() async throws {
         let url = temporaryFile()
         defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
         let store = UsageStatsStore(fileURL: url)
         store.record(words: 12, seconds: 6, fixes: 1, appBundleID: "com.a")
-        await waitForFile(url, toExist: true)
+        await store.flush()
 
         let attributes = try FileManager.default.attributesOfItem(atPath: url.path(percentEncoded: false))
         #expect((attributes[.posixPermissions] as? NSNumber)?.intValue == 0o600)
@@ -152,7 +146,20 @@ struct UsageStatsStoreTests {
 
         store.deleteAll()
         #expect(store.stats.isEmpty)
-        await waitForFile(url, toExist: false)
+        await store.flush()
+        #expect(UsageStatsStore(fileURL: url).stats.isEmpty)
+    }
+
+    @Test func aDeleteAfterManyWritesAlwaysLandsLast() async {
+        let url = temporaryFile()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let store = UsageStatsStore(fileURL: url)
+        for index in 0..<50 {
+            store.record(words: index, seconds: 1, fixes: 0, appBundleID: "com.a")
+        }
+        store.deleteAll()
+        await store.flush()
+        #expect(FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) == false)
         #expect(UsageStatsStore(fileURL: url).stats.isEmpty)
     }
 

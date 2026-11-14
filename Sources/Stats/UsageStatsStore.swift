@@ -7,6 +7,9 @@ import Observation
 final class UsageStatsStore {
     private(set) var stats: UsageStats
     @ObservationIgnored private let disk: UsageStatsDisk?
+    /// The last disk operation. Each new one waits for it, so a slow write can never land after a
+    /// later delete and bring cleared stats back.
+    @ObservationIgnored private var lastDiskWork: Task<Void, Never>?
 
     /// A nil file keeps stats in memory only.
     init(fileURL: URL? = nil) {
@@ -26,13 +29,26 @@ final class UsageStatsStore {
         stats.record(words: words, seconds: seconds, fixes: fixes, appBundleID: appBundleID, now: now, calendar: calendar)
         guard let disk else { return }
         let stats = stats
-        Task { await disk.write(stats) }
+        enqueue { await disk.write(stats) }
     }
 
     func deleteAll() {
         stats = UsageStats()
         guard let disk else { return }
-        Task { await disk.delete() }
+        enqueue { await disk.delete() }
+    }
+
+    /// Waits until every queued write and delete has reached the disk.
+    func flush() async {
+        await lastDiskWork?.value
+    }
+
+    private func enqueue(_ operation: @escaping @Sendable () async -> Void) {
+        let previous = lastDiskWork
+        lastDiskWork = Task {
+            await previous?.value
+            await operation()
+        }
     }
 
     static func defaultFileURL(fileManager: FileManager = .default) -> URL {

@@ -1,5 +1,6 @@
 import Foundation
 import OSLog
+import Synchronization
 
 enum KeychainStoreError: Error, Equatable {
     case readFailed
@@ -7,7 +8,12 @@ enum KeychainStoreError: Error, Equatable {
     case deleteFailed
 }
 
+/// The API key in a 0600 file under Application Support (legacy name; not the macOS Keychain).
+/// Access is serialized by a lock. Every load reads the file, so a corrupted or unreadable key is
+/// reported instead of masked by an earlier read.
+/// Unchecked because `FileManager` is not `Sendable`; every file access happens inside the lock.
 final class KeychainStore: @unchecked Sendable {
+
     private static let defaultService = "org.syrup.SyrupApp"
     private static let defaultAccount = "apiKey"
 
@@ -16,7 +22,7 @@ final class KeychainStore: @unchecked Sendable {
     private let fileManager: FileManager
     private let directoryURL: URL
     private let fileURL: URL
-    private let queue: DispatchQueue
+    private let lock = Mutex(())
     private let logger: Logger
 
     init(
@@ -33,31 +39,24 @@ final class KeychainStore: @unchecked Sendable {
         self.fileURL = directoryURL
             .appendingPathComponent(Self.safePathComponent(account), isDirectory: false)
             .appendingPathExtension("secret")
-        self.queue = DispatchQueue(label: "\(service).api-key-store")
         self.logger = Logger(subsystem: service, category: "APIKeyStore")
     }
 
     func save(_ key: String) throws {
-        try queue.sync {
-            try saveOnQueue(key)
-        }
+        try lock.withLock { _ in try saveLocked(key) }
     }
 
     func load() throws -> String? {
-        try queue.sync {
-            try loadOnQueue()
-        }
+        try lock.withLock { _ in try loadLocked() }
     }
 
     func delete() throws {
-        try queue.sync {
-            try deleteOnQueue()
-        }
+        try lock.withLock { _ in try deleteLocked() }
     }
 
-    private func saveOnQueue(_ key: String) throws {
+    private func saveLocked(_ key: String) throws {
         do {
-            try prepareDirectoryOnQueue()
+            try prepareDirectoryLocked()
             try Data(key.utf8).write(to: fileURL, options: .atomic)
             try setPOSIXPermissions(0o600, at: fileURL)
         } catch {
@@ -66,7 +65,7 @@ final class KeychainStore: @unchecked Sendable {
         }
     }
 
-    private func loadOnQueue() throws -> String? {
+    private func loadLocked() throws -> String? {
         do {
             let data = try Data(contentsOf: fileURL)
             guard let key = String(data: data, encoding: .utf8) else {
@@ -81,7 +80,7 @@ final class KeychainStore: @unchecked Sendable {
         }
     }
 
-    private func deleteOnQueue() throws {
+    private func deleteLocked() throws {
         do {
             try fileManager.removeItem(at: fileURL)
         } catch let error as CocoaError where error.code == .fileNoSuchFile || error.code == .fileReadNoSuchFile {
@@ -92,7 +91,7 @@ final class KeychainStore: @unchecked Sendable {
         }
     }
 
-    private func prepareDirectoryOnQueue() throws {
+    private func prepareDirectoryLocked() throws {
         try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
         try setPOSIXPermissions(0o700, at: directoryURL.deletingLastPathComponent())
         try setPOSIXPermissions(0o700, at: directoryURL)

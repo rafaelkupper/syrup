@@ -20,17 +20,8 @@ final class FakeParakeetModels: SpeechModelProviding {
 actor FastResultsProbe: Transcriber {
     private(set) var requests: [Bool] = []
 
-    func transcribe(
-        _ audio: AudioBufferSequence, locale: Locale, vocabulary: [String],
-        onPartialTranscript: (@Sendable (String) -> Void)?
-    ) async throws -> String {
-        try await transcribe(audio, locale: locale, vocabulary: vocabulary, onPartialTranscript: onPartialTranscript, preferFastResults: false)
-    }
-
-    func transcribe(
-        _ audio: AudioBufferSequence, locale: Locale, vocabulary: [String],
-        onPartialTranscript: (@Sendable (String) -> Void)?, preferFastResults: Bool
-    ) async throws -> String {
+    func transcribe(_ audio: AudioBufferSequence, request: TranscriptionRequest) async throws -> String {
+        let preferFastResults = request.preferFastResults
         requests.append(preferFastResults)
         return "apple words"
     }
@@ -50,10 +41,8 @@ private actor PartialProbe: Transcriber {
         self.text = text
     }
 
-    func transcribe(
-        _ audio: AudioBufferSequence, locale: Locale, vocabulary: [String],
-        onPartialTranscript: (@Sendable (String) -> Void)?
-    ) async throws -> String {
+    func transcribe(_ audio: AudioBufferSequence, request: TranscriptionRequest) async throws -> String {
+        let onPartialTranscript = request.onPartialTranscript
         receivedHandler = onPartialTranscript != nil
         for try await _ in audio {}
         return text
@@ -360,24 +349,15 @@ private final class Harness {
         state.triggerPressed()
         await Task.yield()
         state.triggerReleased()
-        for _ in 0..<1000 {
-            if state.pipelineState == .idle || state.pipelineState.isError { return }
-            await Task.yield()
-        }
-        Issue.record("Pipeline did not finish")
+        await eventually("Pipeline did not finish") { state.pipelineState == .idle || state.pipelineState.isError }
     }
 
     func settle(until expected: AppState.PipelineState) async {
-        for _ in 0..<1000 where state.pipelineState != expected {
-            await Task.yield()
-        }
+        await eventually { state.pipelineState == expected }
         #expect(state.pipelineState == expected)
     }
 
     func wait(until condition: () async -> Bool) async {
-        for _ in 0..<1000 {
-            if await condition() { return }
-            await Task.yield()
-        }
+        await eventually { await condition() }
     }
 }

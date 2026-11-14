@@ -1,5 +1,7 @@
 #!/bin/sh
-# Hosted tests must not start production hotkeys, retention cleanup, or downloads.
+# Runs the suite from a temporary copy under its own bundle ID, so test preference domains and
+# build products never mix with the developer's installed Syrup. The app's entry point already
+# starts an inert host under XCTest (see SyrupMain), so no production service runs either way.
 set -eu
 source_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 test_root=${SYRUP_TEST_ROOT:-$(mktemp -d "${TMPDIR:-/tmp}/syrup-tests.XXXXXX")}
@@ -28,12 +30,6 @@ fi
 rsync -a --delete "$source_root/Sources/" "$test_root/Sources/"
 rsync -a --delete "$source_root/Tests/" "$test_root/Tests/"
 cp "$source_root/project.yml" "$source_root/Syrup.entitlements" "$test_root/"
-cat > "$test_root/Sources/App/SyrupApp.swift" <<'SWIFT'
-import SwiftUI
-@main struct SyrupApp: App {
-    var body: some Scene { Settings { EmptyView() } }
-}
-SWIFT
 sed -i '' 's/org.syrup.SyrupApp/org.syrup.SyrupIsolatedTests/' "$test_root/project.yml"
 cd "$test_root"
 xcodegen

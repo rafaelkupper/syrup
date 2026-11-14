@@ -440,13 +440,11 @@ struct RecoveryReliabilityTests {
     }
 
     private func settle(_ state: AppState) async {
-        await waitUntil { state.pipelineState == .idle || state.pipelineState.isError }
+        await settleRun(state)
     }
 
     private func waitUntil(_ condition: () -> Bool) async {
-        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
-        while !condition(), ContinuousClock.now < deadline { await Task.yield() }
-        #expect(condition())
+        await eventually { condition() }
     }
 
     private func configuration() throws -> OpenAICompatibleConfiguration {
@@ -508,7 +506,7 @@ private final class RecoverablePasteboard: PasteboardWriting {
     }
 }
 
-private actor RecoveryRoutingProvider: TransformerProviding {
+private actor RecoveryRoutingProvider: TransformerSource {
     private(set) var providers: [TranslationProvider] = []
     let failFirst: Bool
     init(failFirst: Bool) { self.failFirst = failFirst }

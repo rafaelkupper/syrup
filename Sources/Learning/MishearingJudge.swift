@@ -3,10 +3,8 @@ import OSLog
 
 protocol MishearingJudging: Sendable {
     /// nil = judge unavailable/failed (retry later); [] = judged, nothing found.
-    func findings(
-        for pair: TranscriptPair,
-        excluding terms: [String]
-    ) async -> [JudgeFinding]?
+    /// Only the transcript pair leaves the Mac; glossary terms are filtered locally by the caller.
+    func findings(for pair: TranscriptPair) async -> [JudgeFinding]?
 }
 
 struct JudgeFinding: Equatable, Sendable, Codable {
@@ -26,11 +24,10 @@ struct LLMMishearingJudge: MishearingJudging {
     and cross-language terms. Ignore punctuation, casing, fillers, and ordinary
     same-language word differences. Reply with ONLY this JSON, no other text:
     {"findings":[{"term":"<correct spelling from B>","mishearings":["<A's version>"],"confidence":<0.0-1.0>}]}
-    Reply {"findings":[]} if there are none. Do not include terms from the
-    EXCLUDE list.
+    Reply {"findings":[]} if there are none.
     """
 
-    private let transformerProvider: any TransformerProviding
+    private let transformerProvider: any TransformerSnapshotting
     private let providerReader: @MainActor @Sendable () -> TranslationProvider
     private static let logger = Logger(
         subsystem: "org.syrup.SyrupApp",
@@ -38,28 +35,22 @@ struct LLMMishearingJudge: MishearingJudging {
     )
 
     init(
-        transformerProvider: any TransformerProviding,
+        transformerProvider: any TransformerSnapshotting,
         providerReader: @escaping @MainActor @Sendable () -> TranslationProvider
     ) {
         self.transformerProvider = transformerProvider
         self.providerReader = providerReader
     }
 
-    func findings(
-        for pair: TranscriptPair,
-        excluding terms: [String]
-    ) async -> [JudgeFinding]? {
+    func findings(for pair: TranscriptPair) async -> [JudgeFinding]? {
         let instruction = Self.instruction
         let body = """
-        EXCLUDE: \(terms.joined(separator: ", "))
         A: \(pair.appleTranscript)
         B: \(pair.whisperTranscript)
         """
         let provider = await providerReader()
-        let transformer = await transformerProvider.transformer(
-            for: provider,
-            instruction: instruction
-        )
+        let snapshot = await transformerProvider.snapshot(for: provider)
+        let transformer = await snapshot.transformer(instruction: instruction)
 
         do {
             let response = try await transformer.transform(body, instruction: instruction)

@@ -114,6 +114,15 @@ struct ProviderSections: View {
                     .frame(width: 260)
             }
 
+            if EndpointPolicy.isUnencryptedRemote(settings.baseURL) {
+                Label(
+                    "This server uses http, so your API key and text travel unencrypted. Use https unless the server is on a network you trust.",
+                    systemImage: "exclamationmark.triangle"
+                )
+                .font(.callout)
+                .foregroundStyle(.orange)
+            }
+
             LabeledContent("Model") {
                 TextField("Model", text: $settings.modelName)
                     .labelsHidden()

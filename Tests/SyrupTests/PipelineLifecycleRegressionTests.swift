@@ -29,22 +29,22 @@ struct PipelineLifecycleRegressionTests {
         defer { UserDefaults.standard.removePersistentDomain(forName: name) }
         let permission = ReviewPermissionGate()
         let capture = ReviewCapture()
-        let recorder = AudioRecorder(settings: settings, deviceCatalog: ReviewDeviceCatalog(), microphonePermissionRequester: {
+        let realRecorder = AudioRecorder(settings: settings, deviceCatalog: ReviewDeviceCatalog(), microphonePermissionRequester: {
             await permission.wait()
         }, captureSessionFactory: { _, _ in capture })
+        let recorder = StartObservingRecorder(realRecorder)
         let state = AppState(settings: settings, audioRecorder: recorder,
             transcriber: FakeTranscriber(.success("fixture")), transformer: FakeTextTransformer(.success("fixture")),
             pasteboard: SpyPasteboard(), feedback: SpyFeedback(), autoPaster: SpyAutoPaster(), maximumRecordingDurationNanoseconds: 0, recordingClock: FastForwardClock())
         state.triggerPressed()
-        for _ in 0..<1000 { if permission.continuation != nil { break }; await Task.yield() }
-        #expect(permission.continuation != nil)
+        await eventually("The permission request never started") { permission.continuation != nil }
         state.cancelRequested()
         permission.continuation?.resume(returning: true)
         permission.continuation = nil
-        for _ in 0..<1000 { await Task.yield() }
+        await eventually("The recorder never returned after permission") { recorder.startReturned }
         #expect(state.pipelineState == .idle)
         #expect(capture.isRunning == false, "Cancelled run started microphone capture after permission returned")
-        recorder.stop()
+        realRecorder.stop()
     }
 
     @Test func oldFailureCleanupMustNotOverwriteNewRun() async throws {
@@ -58,14 +58,13 @@ struct PipelineLifecycleRegressionTests {
             recordingArchive: archive)
         state.triggerPressed()
         state.triggerReleased()
-        for _ in 0..<1000 { if await archive.isWaiting { break }; await Task.yield() }
-        #expect(await archive.isWaiting)
+        await eventually("The old run never reached its cleanup") { await archive.isWaiting }
         state.cancelRequested()
         state.triggerPressed()
-        for _ in 0..<1000 { if recorder.startCallCount == 2 { break }; await Task.yield() }
-        #expect(recorder.startCallCount == 2)
+        await eventually { recorder.startCallCount == 2 }
         await archive.resume()
-        for _ in 0..<1000 { await Task.yield() }
+        // The old run's code after the discard is queued on the main actor before this check resumes.
+        await eventually("The old run's cleanup never returned") { await archive.discardReturned }
         #expect(state.pipelineState == .recording, "Old run changed the new run's state after async cleanup")
         state.cancelRequested()
     }
@@ -80,8 +79,9 @@ struct PipelineLifecycleRegressionTests {
             pasteboard: SpyPasteboard(), feedback: SpyFeedback(), autoPaster: SpyAutoPaster(), maximumRecordingDurationNanoseconds: 0, recordingClock: FastForwardClock())
         state.triggerPressed()
         await transcriber.waitForCall()
-        for _ in 0..<1000 { await Task.yield() }
-        #expect(state.pipelineState != .recording, "Known speech failure is hidden until the user stops recording")
+        await eventually("Known speech failure is hidden until the user stops recording") {
+            state.pipelineState != .recording
+        }
         #expect(recorder.stopCallCount > 0)
         state.cancelRequested()
     }
@@ -105,12 +105,16 @@ private actor ReviewCleanupArchive: RecordingArchiving {
     var waiter: CheckedContinuation<Void, Never>?
     var isWaiting: Bool { waiter != nil }
     var didWait = false
+    private(set) var discardReturned = false
     func beginEntry(id: UUID) async throws -> URL { FileManager.default.temporaryDirectory.appending(path: "SyrupReview-\(id).wav") }
     func commitEntry(id: UUID, localeID: String, appleTranscript: String) async {}
-    func discardEntry(id: UUID) async {
-        guard didWait == false else { return }; didWait = true
+    func discardEntry(id: UUID) async -> Bool {
+        guard didWait == false else { return true }; didWait = true
         await withCheckedContinuation { waiter = $0 }
+        discardReturned = true
+        return true
     }
+    func unresolvedDeletions() async -> Set<UUID> { [] }
     func resume() { waiter?.resume(); waiter = nil }
     func pendingEntryCounts() async -> AsyncStream<Int> {
         let count = await pendingEntries().count
@@ -120,19 +124,38 @@ private actor ReviewCleanupArchive: RecordingArchiving {
     func pendingEntries() async -> [RecordingSidecar] { [] }
     func audioFileURL(id: UUID) async -> URL { FileManager.default.temporaryDirectory }
     func recordAttempt(id: UUID) async -> Int { 0 }
-    func deleteEntry(id: UUID) async {}
+    func deleteEntry(id: UUID) async -> Bool { true }
     func deleteAll() async throws {}
 }
 
 
 private actor RestartTranscriber: Transcriber {
     private var count = 0
-    func transcribe(_ audio: AudioBufferSequence, locale: Locale, vocabulary: [String],
-                    onPartialTranscript: (@Sendable (String) -> Void)?) async throws -> String {
+    func transcribe(_ audio: AudioBufferSequence, request: TranscriptionRequest) async throws -> String {
         count += 1
         if count == 1 { throw TranscriptionError.speechRecognitionAccessDenied }
         for try await _ in audio { try Task.checkCancellation() }
         try Task.checkCancellation()
         return "fixture"
     }
+}
+
+/// Forwards to a real recorder and reports when `start()` has returned or thrown.
+@MainActor private final class StartObservingRecorder: AudioRecording {
+    private let recorder: AudioRecorder
+    private(set) var startReturned = false
+    var onFailure: (@MainActor (any Error) -> Void)? {
+        get { recorder.onFailure }
+        set { recorder.onFailure = newValue }
+    }
+
+    init(_ recorder: AudioRecorder) { self.recorder = recorder }
+
+    func start() async throws -> AudioBufferSequence {
+        defer { startReturned = true }
+        return try await recorder.start()
+    }
+
+    func stop() { recorder.stop() }
+    func finish() async throws { try await recorder.finish() }
 }

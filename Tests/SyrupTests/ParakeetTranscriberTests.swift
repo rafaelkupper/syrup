@@ -8,7 +8,7 @@ struct ParakeetTranscriberTests {
         let samples = paused(syllables(59 * 16_000), atSeconds: [12, 26, 45])
         let decoder = SegmentRecorder()
         let text = try await ParakeetTranscriber(decoder: decoder)
-            .transcribe(try stream(samples), locale: Locale(identifier: "pt-BR"), vocabulary: [], onPartialTranscript: nil)
+            .transcribe(try stream(samples), request: TranscriptionRequest(locale: Locale(identifier: "pt-BR"), vocabulary: [], onPartialTranscript: nil))
         #expect(text == "segment 1")
         #expect(await decoder.segments.map(\.count) == [samples.count])
         #expect(await decoder.languageCodes == ["pt"])
@@ -35,7 +35,7 @@ struct ParakeetTranscriberTests {
         let decoder = SegmentRecorder()
         let speech = syllables(3_200)
         _ = try await ParakeetTranscriber(decoder: decoder)
-            .transcribe(try stream(speech), locale: Locale(identifier: "en-US"), vocabulary: [], onPartialTranscript: nil)
+            .transcribe(try stream(speech), request: TranscriptionRequest(locale: Locale(identifier: "en-US"), vocabulary: [], onPartialTranscript: nil))
         let segment = try #require(await decoder.segments.first)
         #expect(segment.count == ParakeetTranscriber.shortestDecode)
         #expect(Array(segment.prefix(3_200)) == speech)
@@ -45,7 +45,7 @@ struct ParakeetTranscriberTests {
     func roomNoiseWithoutSpeechIsNeverDecoded(level: Float) async throws {
         let decoder = SegmentRecorder()
         let text = try await ParakeetTranscriber(decoder: decoder)
-            .transcribe(try stream(noise(16_000, level: level)), locale: Locale(identifier: "pt-BR"), vocabulary: [], onPartialTranscript: nil)
+            .transcribe(try stream(noise(16_000, level: level)), request: TranscriptionRequest(locale: Locale(identifier: "pt-BR"), vocabulary: [], onPartialTranscript: nil))
         #expect(text.isEmpty)
         #expect(await decoder.segments.isEmpty)
     }
@@ -57,7 +57,7 @@ struct ParakeetTranscriberTests {
         }
         let decoder = SegmentRecorder()
         let text = try await ParakeetTranscriber(decoder: decoder)
-            .transcribe(try stream(samples), locale: Locale(identifier: "pt-BR"), vocabulary: [], onPartialTranscript: nil)
+            .transcribe(try stream(samples), request: TranscriptionRequest(locale: Locale(identifier: "pt-BR"), vocabulary: [], onPartialTranscript: nil))
         #expect(text == "segment 1")
     }
 
@@ -69,7 +69,7 @@ struct ParakeetTranscriberTests {
         }
         let decoder = SegmentRecorder()
         let text = try await ParakeetTranscriber(decoder: decoder)
-            .transcribe(try stream(samples), locale: Locale(identifier: "pt-BR"), vocabulary: [], onPartialTranscript: nil)
+            .transcribe(try stream(samples), request: TranscriptionRequest(locale: Locale(identifier: "pt-BR"), vocabulary: [], onPartialTranscript: nil))
         #expect(text == "segment 1")
         #expect(try #require(await decoder.segments.first).count >= speechEnd)
     }
@@ -77,7 +77,7 @@ struct ParakeetTranscriberTests {
     private func segmentLengths(_ samples: [Float]) async throws -> [Int] {
         let decoder = SegmentRecorder()
         _ = try await ParakeetTranscriber(decoder: decoder)
-            .transcribe(try stream(samples), locale: Locale(identifier: "pt-BR"), vocabulary: [], onPartialTranscript: nil)
+            .transcribe(try stream(samples), request: TranscriptionRequest(locale: Locale(identifier: "pt-BR"), vocabulary: [], onPartialTranscript: nil))
         return await decoder.segments.map(\.count)
     }
 

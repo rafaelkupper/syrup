@@ -46,12 +46,14 @@ enum TonePreset: String, CaseIterable, Identifiable, Sendable, Codable {
 }
 
 /// Spoken behavior added to Translate prompts. Only voice runs of the built-in
-/// Translate kind use it; custom instructions and selected text never do.
+/// Translate kind use it; custom instructions and selected text never do. There is no implicit
+/// "on": a caller that does not choose gets `.off`, so Apple On-Device and selections stay clean.
 struct DictationOptions: Equatable, Sendable {
-    var selfCorrections = true
-    var spokenFormatting = true
+    var selfCorrections: Bool
+    var spokenFormatting: Bool
 
     static let off = DictationOptions(selfCorrections: false, spokenFormatting: false)
+    static let all = DictationOptions(selfCorrections: true, spokenFormatting: true)
 }
 
 enum PromptBuilder {
@@ -82,7 +84,7 @@ enum PromptBuilder {
     }
 
     static let outputContract = "Output only the result: no preamble, explanation, or quotes."
-    static let maximumGlossaryTerms = 100
+    static let maximumGlossaryTerms = GlossaryList.maximumUsedTerms
 
     /// Assembles system-owned prompt blocks in the only supported order.
     ///
@@ -126,7 +128,7 @@ enum PromptBuilder {
         toneInstruction: String,
         glossary: GlossaryList = GlossaryList(),
         context: String? = nil,
-        dictation: DictationOptions = DictationOptions()
+        dictation: DictationOptions = .off
     ) -> String {
         let glossary = glossaryBlock(for: glossary)
         let needsSeparateContract = glossary != nil || context != nil
@@ -156,7 +158,7 @@ enum PromptBuilder {
         for kind: WorkflowKind,
         glossary: GlossaryList = GlossaryList(),
         context: String? = nil,
-        dictation: DictationOptions = DictationOptions()
+        dictation: DictationOptions = .off
     ) -> String {
         switch kind {
         case .transcribeOnly:
@@ -232,19 +234,5 @@ enum PromptBuilder {
         Input:
         \(transcript)
         """
-    }
-
-    static func codexPrompt(
-        transcript: String,
-        targetLanguage: String,
-        toneInstruction: String
-    ) -> String {
-        codexPrompt(
-            instruction: systemPrompt(
-                targetLanguage: targetLanguage,
-                toneInstruction: toneInstruction
-            ),
-            transcript: transcript
-        )
     }
 }

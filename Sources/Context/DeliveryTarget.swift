@@ -74,7 +74,7 @@ final class DeliveryTarget: @unchecked Sendable {
                 var value: CFTypeRef?
                 guard AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &value) == .success,
                       let value, CFGetTypeID(value) == AXValueGetTypeID() else { return nil }
-                let selection = unsafeBitCast(value, to: AXValue.self)
+                let selection = unsafeDowncast(value, to: AXValue.self)
                 var range = CFRange()
                 guard AXValueGetType(selection) == .cfRange, AXValueGetValue(selection, .cfRange, &range),
                       range.location >= 0, range.length >= 0, range.length <= Int.max - range.location else { return nil }
@@ -127,7 +127,7 @@ final class DeliveryTarget: @unchecked Sendable {
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &value) == .success,
               let value, CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
-        let element = unsafeBitCast(value, to: AXUIElement.self)
+        let element = unsafeDowncast(value, to: AXUIElement.self)
         AXUIElementSetMessagingTimeout(element, messagingTimeout)
         return element
     }

@@ -3,6 +3,10 @@ import OSLog
 
 enum ClipboardError: Error, Equatable {
     case writeFailed
+    /// The write failed and the previous clipboard did not come back: an item with no plain text
+    /// (an image or a file), text over the snapshot limit, or a restore the pasteboard refused.
+    /// Formatting dropped from an item whose plain text was restored does not count.
+    case writeFailedPreviousContentLost
 }
 
 @MainActor
@@ -45,10 +49,11 @@ final class ClipboardWriter: PasteboardWriting {
             pasteboard.setString(string, forType: .string)
         }
         guard didWrite else {
-            metrics.measure(.restore) {
+            let restored = metrics.measure(.restore) {
                 snapshot.restore(to: pasteboard)
             }
-            throw ClipboardError.writeFailed
+            throw restored && snapshot.lostItem == false
+                ? ClipboardError.writeFailed : ClipboardError.writeFailedPreviousContentLost
         }
     }
 }
@@ -57,6 +62,8 @@ private struct PasteboardSnapshot {
     let items: [PasteboardItemSnapshot]
     let byteCount: Int
     let didSkipData: Bool
+    /// Some item will not come back at all, as opposed to coming back as plain text only.
+    let lostItem: Bool
 
     @MainActor
     static func capture(
@@ -66,6 +73,7 @@ private struct PasteboardSnapshot {
         let captureLimit = max(0, byteLimit)
         var byteCount = 0
         var didSkipData = false
+        var lostItem = false
         var items: [PasteboardItemSnapshot] = []
 
         for item in pasteboard.pasteboardItems ?? [] {
@@ -76,12 +84,14 @@ private struct PasteboardSnapshot {
 
             didSkipData = didSkipData || snapshot.didSkipData
             guard snapshot.values.isEmpty == false else {
+                lostItem = lostItem || item.types.isEmpty == false
                 continue
             }
 
             byteCount += snapshot.byteCount
             if byteCount > captureLimit {
                 didSkipData = true
+                lostItem = true
                 items = []
                 break
             }
@@ -92,16 +102,18 @@ private struct PasteboardSnapshot {
         return PasteboardSnapshot(
             items: items,
             byteCount: byteCount,
-            didSkipData: didSkipData
+            didSkipData: didSkipData,
+            lostItem: lostItem
         )
     }
 
+    /// Returns false when the pasteboard refused the restored items.
     @MainActor
-    func restore(to pasteboard: any ClipboardPasteboard) {
+    func restore(to pasteboard: any ClipboardPasteboard) -> Bool {
         _ = pasteboard.clearContents()
         let restoredItems = items.map(\.pasteboardItem)
-        guard restoredItems.isEmpty == false else { return }
-        _ = pasteboard.writeObjects(restoredItems)
+        guard restoredItems.isEmpty == false else { return true }
+        return pasteboard.writeObjects(restoredItems)
     }
 }
 
@@ -110,6 +122,8 @@ private struct PasteboardItemSnapshot {
     let byteCount: Int
     let didSkipData: Bool
 
+    /// Only plain text is captured. Reading other types can ask the source app to render promised
+    /// data (an image, a rich document) on every Syrup write, so they are skipped and reported.
     init(_ item: NSPasteboardItem, remainingByteLimit: Int) {
         var byteCount = 0
         var didSkipData = item.types.contains { Self.restorableTypes.contains($0) == false }

@@ -1,6 +1,7 @@
 #!/bin/sh
 set -eu
 
+"$(dirname "$0")/check-boundaries.sh"
 xcodegen
 # Compile the production entry point without requiring a distribution certificate.
 # The isolated test host below uses its own ad-hoc signature.

@@ -13,6 +13,8 @@ struct RecordingSidecar: Codable, Equatable, Sendable {
 enum RecordingArchiveError: Error, Equatable, Sendable {
     case beginFailed(code: Int)
     case deleteAllFailed(code: Int)
+    /// A previous deletion is still unresolved, so retention cannot be guaranteed for new audio.
+    case cleanupPending
 }
 
 protocol RecordingArchiving: AnyObject, Sendable {
@@ -21,12 +23,17 @@ protocol RecordingArchiving: AnyObject, Sendable {
     /// Finalizes an entry once the run committed a non-empty transcript.
     func commitEntry(id: UUID, localeID: String, appleTranscript: String) async
     /// Removes a never-committed entry (cancel/error/empty transcript).
-    func discardEntry(id: UUID) async
+    /// Returns false when a file could not be removed; the archive retries it later.
+    @discardableResult func discardEntry(id: UUID) async -> Bool
+    /// Committed entries ready for analysis. Entries awaiting deletion are never returned.
     func pendingEntries() async -> [RecordingSidecar]
     func pendingEntryCounts() async -> AsyncStream<Int>
     func audioFileURL(id: UUID) async -> URL
     func recordAttempt(id: UUID) async -> Int
-    func deleteEntry(id: UUID) async
+    /// Returns false when a file could not be removed; the archive retries it later.
+    @discardableResult func deleteEntry(id: UUID) async -> Bool
+    /// IDs whose files could not be removed yet. New entries are refused while this is non-empty.
+    func unresolvedDeletions() async -> Set<UUID>
     func deleteAll() async throws
 }
 
@@ -35,6 +42,9 @@ actor RecordingArchive: RecordingArchiving {
     static let defaultMaxAge: TimeInterval = 7 * 24 * 60 * 60
 
     private var activeIDs: Set<UUID> = []
+    /// Entries whose deletion failed. They are retried before every operation, excluded from
+    /// analysis and counts, and block new entries so the caps stay enforceable.
+    private var awaitingDeletion: Set<UUID> = []
     private var countObservers: [UUID: AsyncStream<Int>.Continuation] = [:]
     private var lastPublishedCount: Int?
     private let storageDirectory: URL
@@ -64,6 +74,11 @@ actor RecordingArchive: RecordingArchiving {
 
     func beginEntry(id: UUID) throws -> URL {
         let audioURL = fileURL(id: id, extension: "wav")
+        retryAwaitingDeletion()
+        guard awaitingDeletion.isEmpty else {
+            logger.error("recording_archive_failed operation=begin reason=cleanup_pending")
+            throw RecordingArchiveError.cleanupPending
+        }
 
         do {
             try ensureDirectory()
@@ -102,9 +117,11 @@ actor RecordingArchive: RecordingArchiving {
         }
     }
 
-    func discardEntry(id: UUID) {
-        deleteEntry(id: id)
+    @discardableResult
+    func discardEntry(id: UUID) -> Bool {
+        let removed = deleteEntry(id: id)
         removeDirectoryIfEmpty()
+        return removed
     }
 
     func pendingEntries() -> [RecordingSidecar] {
@@ -113,8 +130,14 @@ actor RecordingArchive: RecordingArchiving {
             return []
         }
 
+        retryAwaitingDeletion()
         enforceCaps()
         return decodedPendingEntries()
+    }
+
+    func unresolvedDeletions() -> Set<UUID> {
+        retryAwaitingDeletion()
+        return awaitingDeletion
     }
 
     func pendingEntryCounts() -> AsyncStream<Int> {
@@ -177,6 +200,7 @@ actor RecordingArchive: RecordingArchiving {
                     return nil
                 }
             }
+            .filter { awaitingDeletion.contains($0.id) == false }
             .sorted(by: Self.oldestFirst)
         } catch {
             logFailure("list", error: error)
@@ -184,15 +208,30 @@ actor RecordingArchive: RecordingArchiving {
         }
     }
 
-    func deleteEntry(id: UUID) {
-        removeEntry(id: id)
+    @discardableResult
+    func deleteEntry(id: UUID) -> Bool {
+        let removed = removeEntry(id: id)
         publishPendingCount()
+        return removed
     }
 
-    private func removeEntry(id: UUID) {
+    @discardableResult
+    private func removeEntry(id: UUID) -> Bool {
         activeIDs.remove(id)
-        removeIfPresent(fileURL(id: id, extension: "wav"))
-        removeIfPresent(fileURL(id: id, extension: "json"))
+        let audioRemoved = removeIfPresent(fileURL(id: id, extension: "wav"))
+        let sidecarRemoved = removeIfPresent(fileURL(id: id, extension: "json"))
+        if audioRemoved && sidecarRemoved {
+            awaitingDeletion.remove(id)
+            return true
+        }
+        awaitingDeletion.insert(id)
+        return false
+    }
+
+    private func retryAwaitingDeletion() {
+        for id in awaitingDeletion {
+            removeEntry(id: id)
+        }
     }
 
     func deleteAll() throws {
@@ -204,6 +243,7 @@ actor RecordingArchive: RecordingArchiving {
 
         do {
             try fileManager.removeItem(at: storageDirectory)
+            awaitingDeletion.removeAll()
         } catch {
             logFailure("delete_all", error: error)
             throw RecordingArchiveError.deleteAllFailed(code: (error as NSError).code)
@@ -245,7 +285,8 @@ actor RecordingArchive: RecordingArchiving {
                     && sidecar?.id.uuidString.lowercased() == stem
 
                 if hasMatchingPair == false {
-                    urls.forEach(removeIfPresent)
+                    let removed = urls.map(removeIfPresent).allSatisfy { $0 }
+                    if removed == false, let id = UUID(uuidString: stem) { awaitingDeletion.insert(id) }
                 }
             }
         } catch {
@@ -271,15 +312,19 @@ actor RecordingArchive: RecordingArchiving {
         )
     }
 
-    private func removeIfPresent(_ url: URL) {
+    /// Returns true when the file is gone afterward.
+    @discardableResult
+    private func removeIfPresent(_ url: URL) -> Bool {
         guard fileManager.fileExists(atPath: url.path(percentEncoded: false)) else {
-            return
+            return true
         }
 
         do {
             try fileManager.removeItem(at: url)
+            return true
         } catch {
             logFailure("delete", error: error)
+            return false
         }
     }
 

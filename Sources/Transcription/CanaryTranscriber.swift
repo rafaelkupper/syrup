@@ -39,12 +39,8 @@ struct CanaryTranscriber: Transcriber {
         self.decoder = decoder
     }
 
-    func transcribe(
-        _ audio: AudioBufferSequence,
-        locale: Locale,
-        vocabulary: [String],
-        onPartialTranscript: (@Sendable (String) -> Void)?
-    ) async throws -> String {
+    func transcribe(_ audio: AudioBufferSequence, request: TranscriptionRequest) async throws -> String {
+        let locale = request.locale
         guard let language = SpeechEngine.languageCode(for: locale.identifier),
               CanaryModel.languages.contains(language) else { throw CanaryError.unsupportedLanguage }
         let window = await decoder.windowSamples

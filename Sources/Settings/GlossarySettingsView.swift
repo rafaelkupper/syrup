@@ -30,29 +30,6 @@ struct GlossaryExportDocument: FileDocument {
     }
 }
 
-/// Deletes pending recordings whenever learning is (or already was) off.
-/// `revertsSettingOnFailure` is only correct for the interactive toggle: it
-/// keeps the UI honest when the opt-out couldn't be honored. At startup the
-/// setting was never changed by the user, so a failed cleanup must never flip
-/// a privacy opt-in on — it just retries on the next launch.
-@MainActor
-func applyGlossaryLearningRetentionChange(
-    isEnabled: Bool,
-    settings: AppSettings,
-    recordingArchive: (any RecordingArchiving)?,
-    revertsSettingOnFailure: Bool
-) async {
-    guard isEnabled == false, let recordingArchive else { return }
-
-    do {
-        try await recordingArchive.deleteAll()
-    } catch {
-        if revertsSettingOnFailure {
-            settings.glossaryLearningEnabled = true
-        }
-    }
-}
-
 struct GlossarySettingsView: View {
     @Bindable var settings: AppSettings
     @Bindable var navigation: SettingsNavigation
@@ -61,6 +38,7 @@ struct GlossarySettingsView: View {
     let learningCoordinator: GlossaryLearningCoordinator?
     @Environment(MishearingSuggestionModel.self) private var suggestions
     @State private var pendingRecordingCount = 0
+    @State private var recordingDeletionFailed = false
     @State private var isConfirmingModelRemoval = false
     @State private var selectedTermID: UUID?
     @State private var termDrafts: [UUID: String] = [:]
@@ -243,9 +221,9 @@ struct GlossarySettingsView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Exact spellings go to speech recognition and to your AI provider with each run. To fix one word in one workflow, use that workflow's Corrections.")
 
-                if settings.glossaryList.terms.count > PromptBuilder.maximumGlossaryTerms {
+                if settings.glossaryList.terms.count > GlossaryList.maximumUsedTerms {
                     Label(
-                        "Only the first \(PromptBuilder.maximumGlossaryTerms) terms are sent — trim the list.",
+                        "Only the first \(GlossaryList.maximumUsedTerms) terms are sent — trim the list.",
                         systemImage: "exclamationmark.triangle"
                     )
                     .foregroundStyle(.orange)
@@ -396,6 +374,7 @@ struct GlossarySettingsView: View {
         }
     }
 
+    @ViewBuilder
     private var pendingRecordingsRow: some View {
         LabeledContent("Waiting to be compared") {
             HStack(spacing: 8) {
@@ -426,6 +405,11 @@ struct GlossarySettingsView: View {
                 }
                 .disabled(isAnalyzing || pendingRecordingCount == 0)
             }
+        }
+        if recordingDeletionFailed {
+            Text("Some recordings could not be deleted. Syrup tries again at the next cleanup.")
+                .font(.caption)
+                .foregroundStyle(.red)
         }
     }
 
@@ -474,7 +458,12 @@ struct GlossarySettingsView: View {
 
     private func clearPendingRecordings() {
         Task {
-            try? await recordingArchive?.deleteAll()
+            do {
+                try await recordingArchive?.deleteAll()
+                recordingDeletionFailed = false
+            } catch {
+                recordingDeletionFailed = true
+            }
         }
     }
 
@@ -494,7 +483,7 @@ struct GlossarySettingsView: View {
             return "\(retention) Analysis re-transcribes the audio on-device and compares the two transcript versions using your configured AI provider (\(settings.translationProvider.displayName) — fully on-device) to spot misheard terms. Nothing leaves your Mac. \(suggestions)"
         }
 
-        return "\(retention) Analysis re-transcribes the audio on-device and may send the two transcript versions plus your existing glossary terms as an exclusion list to your configured AI provider (\(settings.translationProvider.displayName)) to spot misheard terms. Audio and other content stay on your Mac. \(suggestions)"
+        return "\(retention) Analysis re-transcribes the audio on-device and may send the two transcript versions to your configured AI provider (\(settings.translationProvider.displayName)) to spot misheard terms. Audio, your glossary, and other content stay on your Mac. \(suggestions)"
     }
 
     private var filteredTerms: [GlossaryTerm] {

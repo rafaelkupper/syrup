@@ -108,7 +108,26 @@ struct GlossaryLearningCoordinatorTests {
         #expect(await archive.deletedEntryIDs.isEmpty)
         #expect(await archive.attempts(for: entry.id) == 1)
         #expect(settings.glossaryProposals.proposals.isEmpty)
-        #expect(await judge.excludedTerms == [["Existing"]])
+        #expect(await judge.pairs.count == 1)
+    }
+
+    @Test
+    func existingGlossaryTermsAreFilteredLocallyNotSentToTheJudge() async {
+        let settings = makeCoordinatorSettings(enabled: true)
+        settings.addGlossaryTerm(GlossaryTerm(term: "Existing"))
+        let judge = CoordinatorJudge(findings: [
+            JudgeFinding(term: "existing", mishearings: ["exist ting"], confidence: 0.9),
+            JudgeFinding(term: "Syrup", mishearings: ["sirup"], confidence: 0.8),
+        ])
+        let sink = JudgingCrossCheckSink(settings: settings, judge: judge)
+        let pair = TranscriptPair(
+            recordingID: UUID(), localeID: "pt-BR",
+            appleTranscript: "hello", whisperTranscript: "hello"
+        )
+
+        #expect(await sink.process(pair))
+        #expect(await judge.pairs == [pair])
+        #expect(settings.glossaryProposals.proposals.map(\.term) == ["Syrup"])
     }
 
     @Test
@@ -289,17 +308,14 @@ private enum CoordinatorTestError: Error {
 
 private actor CoordinatorJudge: MishearingJudging {
     private let result: [JudgeFinding]?
-    private(set) var excludedTerms: [[String]] = []
+    private(set) var pairs: [TranscriptPair] = []
 
     init(findings: [JudgeFinding]?) {
         self.result = findings
     }
 
-    func findings(
-        for pair: TranscriptPair,
-        excluding terms: [String]
-    ) async -> [JudgeFinding]? {
-        excludedTerms.append(terms)
+    func findings(for pair: TranscriptPair) async -> [JudgeFinding]? {
+        pairs.append(pair)
         return result
     }
 }
@@ -373,7 +389,8 @@ private actor CoordinatorArchive: RecordingArchiving {
     }
 
     func commitEntry(id: UUID, localeID: String, appleTranscript: String) async {}
-    func discardEntry(id: UUID) async { await deleteEntry(id: id) }
+    func discardEntry(id: UUID) async -> Bool { await deleteEntry(id: id) }
+    func unresolvedDeletions() async -> Set<UUID> { [] }
 
     func pendingEntryCounts() async -> AsyncStream<Int> {
         let count = await pendingEntries().count
@@ -402,9 +419,10 @@ private actor CoordinatorArchive: RecordingArchiving {
         return updated.attempts
     }
 
-    func deleteEntry(id: UUID) async {
+    func deleteEntry(id: UUID) async -> Bool {
         deletedEntryIDs.append(id)
         entries.removeAll { $0.id == id }
+        return true
     }
 
     func deleteAll() async throws {
@@ -438,7 +456,7 @@ extension GlossaryLearningCoordinatorTests {
         #expect(model.ensureCount == 0)
         coordinator.setForegroundActive(false)
         let pass = Task { await coordinator.runPass() }
-        for _ in 0..<1_000 { if await transcriber.started { break }; await Task.yield() }
+        await eventually { await transcriber.started }
         #expect(await transcriber.started)
         coordinator.setForegroundActive(true)
         await pass.value

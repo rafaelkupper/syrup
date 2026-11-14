@@ -44,7 +44,7 @@ struct MishearingJudgeTests {
 
     @Test
     @MainActor
-    func judgeUsesConfiguredProviderAndSendsExactContractWithExcludeList() async throws {
+    func judgeUsesConfiguredProviderAndSendsOnlyTheTranscriptPair() async throws {
         let transformer = JudgeFakeTransformer(
             output: #"{"findings":[{"term":"Syrup","mishearings":["sirup"],"confidence":0.8}]}"#
         )
@@ -60,14 +60,15 @@ struct MishearingJudgeTests {
             whisperTranscript: "use Syrup"
         )
 
-        let findings = await judge.findings(for: pair, excluding: ["Kubernetes", "Codex"])
+        let findings = await judge.findings(for: pair)
         let providerCall = try #require(await provider.call)
         let transformCall = try #require(await transformer.call)
 
         #expect(providerCall.provider == .codexCLI)
         #expect(providerCall.instruction == LLMMishearingJudge.instruction)
         #expect(transformCall.instruction == LLMMishearingJudge.instruction)
-        #expect(transformCall.text == "EXCLUDE: Kubernetes, Codex\nA: use sirup\nB: use Syrup")
+        #expect(transformCall.text == "A: use sirup\nB: use Syrup")
+        #expect(transformCall.instruction.contains("EXCLUDE") == false)
         #expect(findings == [JudgeFinding(term: "Syrup", mishearings: ["sirup"], confidence: 0.8)])
     }
 }
@@ -91,7 +92,7 @@ private actor JudgeFakeTransformer: TextTransformer {
     }
 }
 
-private actor JudgeFakeTransformerProvider: TransformerProviding {
+private actor JudgeFakeTransformerProvider: TransformerSource {
     struct Call: Sendable {
         let provider: TranslationProvider
         let instruction: String

@@ -124,6 +124,11 @@ final class HotkeyController {
         setListening(appState.isHotkeyPaused == false)
     }
 
+    /// Whether the person assigned a shortcut to this workflow. Shortcut storage stays behind this type.
+    static func hasShortcut(forWorkflow id: UUID) -> Bool {
+        KeyboardShortcuts.getShortcut(for: .dictateWorkflow(id)) != nil
+    }
+
     func rebuildWorkflowShortcuts(workflowIDs: [UUID]) {
         let nextIDs = Set(workflowIDs)
         let removedIDs = registeredWorkflowIDs.subtracting(nextIDs)

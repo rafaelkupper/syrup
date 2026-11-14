@@ -53,7 +53,7 @@ struct AppleOnDeviceTransformer: StreamingTextTransformer {
                 )
                 content = response.content
             }
-            let normalizedOutput = OpenAICompatibleTransformer.normalizedModelOutput(
+            let normalizedOutput = ModelOutputNormalizer.normalize(
                 content,
                 keepsWrapperQuotes: ModelOutputNormalizer.requestsQuotes(input: text, instruction: instruction)
             )

@@ -4,7 +4,7 @@ import Testing
 @testable import Syrup
 
 @MainActor
-struct ReviewImprovementTests {
+struct PipelineSafeguardTests {
     @Test func historyDeletionFailurePreservesOptInAndRecords() async throws {
         let directory = FileManager.default.temporaryDirectory.appending(path: "SyrupHistoryFailure.\(UUID())")
         defer {
@@ -71,7 +71,7 @@ struct ReviewImprovementTests {
             captureDeliveryTarget: { _ in DeliveryTarget(checkCurrent: { sameEditor }) })
         state.triggerPressed()
         state.triggerReleased()
-        for _ in 0..<1_000 { if state.pipelineState == .idle { break }; await Task.yield() }
+        await eventually { state.pipelineState == .idle }
         #expect(state.pipelineState == .idle)
         #expect(pasteboard.writes == ["output"])
         #expect(paster.pasteCount == 0)
@@ -109,7 +109,7 @@ struct ReviewImprovementTests {
         let snapshot = provider.snapshot(for: .openAICompatible)
         settings.baseURL = "https://changed.invalid/v1"
         settings.modelName = "changed-model"
-        let transformer = await snapshot.transformer(for: .openAICompatible, instruction: "fixture")
+        let transformer = await snapshot.transformer(instruction: "fixture")
         let output = try await transformer.transform("fixture", instruction: "fixture")
         #expect(output == "snapshot.invalid original-model")
     }
@@ -168,13 +168,13 @@ struct ReviewImprovementTests {
         let manager = TranscriberAssetManager(prepare: { await gate.prepare($0) })
         manager.prepareSelectedLocale("pt_BR")
         manager.prepareLocales(["pt-BR", "en-US", "en-US"])
-        for _ in 0..<1_000 { if await gate.count == 2 { break }; await Task.yield() }
+        await eventually { await gate.count == 2 }
         #expect(await gate.count == 2)
         await gate.finish("en-US")
         for _ in 0..<50 { await Task.yield() }
         #expect(manager.selectedLocaleAssetState == .checking)
         await gate.finish("pt-BR")
-        for _ in 0..<1_000 { if manager.selectedLocaleAssetState == .installed("pt-BR") { break }; await Task.yield() }
+        await eventually { manager.selectedLocaleAssetState == .installed("pt-BR") }
         #expect(manager.selectedLocaleAssetState == .installed("pt-BR"))
         manager.prepareSelectedLocale("en-US")
         #expect(manager.selectedLocaleAssetState == .installed("en-US"))
@@ -199,7 +199,7 @@ struct ReviewImprovementTests {
         state.triggerPressed()
         state.triggerReleased()
         continuation.yield("Visible partial")
-        for _ in 0..<1_000 { if cue.outputs.isEmpty == false { break }; await Task.yield() }
+        await eventually { cue.outputs.isEmpty == false }
         #expect(cue.outputs == ["Visible partial"])
         #expect(pasteboard.writes.isEmpty)
         #expect(paster.pasteCount == 0)
