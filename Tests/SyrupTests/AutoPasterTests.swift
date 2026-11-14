@@ -1,3 +1,4 @@
+import Synchronization
 import Testing
 @testable import Syrup
 
@@ -57,15 +58,15 @@ struct AutoPasterTests {
     }
     @Test
     func resolvesCurrentLayoutForEveryPaste() throws {
-        var keyCode: UInt16 = 9
+        let layout = Mutex<UInt16>(9)
         var posted: [UInt16] = []
         let autoPaster = AutoPaster(trustStatus: { true }, secureInputStatus: { false },
-            frontmostBundleURL: { nil }, keyCodeResolver: { keyCode }, eventPoster: { posted.append($0); return true })
+            frontmostBundleURL: { nil }, keyCodeResolver: { layout.withLock { $0 } }, eventPoster: { posted.append($0); return true })
         #expect(autoPaster.strategy == .commandV(9))
-        try autoPaster.paste(keyCode: keyCode)
-        keyCode = 47
+        try autoPaster.paste(keyCode: 9)
+        layout.withLock { $0 = 47 }
         #expect(autoPaster.strategy == .commandV(47))
-        try autoPaster.paste(keyCode: keyCode)
+        try autoPaster.paste(keyCode: 47)
         #expect(posted == [9, 47])
     }
 

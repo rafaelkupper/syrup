@@ -97,7 +97,7 @@ struct UsageStatsTests {
         #expect(weeks.allSatisfy { $0.count == 7 })
         let first = try #require(weeks[0][0])
         #expect(calendar.component(.weekday, from: first) == 1)
-        let last = try #require(weeks[2])
+        let last = weeks[2]
         #expect(last[2].map { UsageStats.dayKey(for: $0, calendar: calendar) } == "2026-11-03")
         #expect(last[3] == nil)
     }
