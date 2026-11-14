@@ -84,11 +84,11 @@ Gaps found in the baseline suite, each pinned before its owner moves:
 
 ## Test changes beyond new tests
 
-None planned. Any mechanical call-site change will be listed here with its reason.
+None. No existing test file changed, and `AppState.fixture` and `Tests/SyrupTests/TestSupport.swift` are untouched: `AppState` keeps a forward for every member tests use (`lastResult`, `canCopy...`, the copy actions, `pasteLastResult`, `menuBarSymbol`, `AppState.menuBarSymbol(for:showingSuccess:)`, `refreshWorkflowHotkeys`, `restoreOutputVolumeAfterCrash`, `recordingArchive`), so no call site needed even a mechanical change. The only test change is the new `AppStateCharacterizationTests.swift`.
 
 ## Mutation checks
 
-For each owner: break one rule on purpose, run the named suite, record the failing test, restore, rerun.
+For each owner: break one rule on purpose, run the named suites, record the failing tests, restore, rerun. Every mutation was reverted before its step's commit (by diff against a saved copy for the last three owners, by reverse replacement and a check of the restored lines for the first two), its suites passed again, and every later full run used the committed code. No `MUTATION` marker remains in `Sources/`.
 
 | Owner | Mutation | Failing tests | Restored and green |
 | --- | --- | --- | --- |
