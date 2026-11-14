@@ -12,6 +12,9 @@ struct PrivacySettingsPane: View {
     let onPermissionAction: () -> Void
     /// Reads the saved key, to name the endpoint runs actually use.
     let keychainStore: KeychainStore
+    /// Folders the retired glossary learning left that the launch cleanup could not delete.
+    @State private var retiredLearningLeftovers: [URL] = []
+    @State private var retiredLearningDeletionFailed = false
     /// The endpoint a run would use, resolved like a run resolves it. In a Debug build with no saved
     /// key, a complete development environment overrides the saved endpoint.
     @State private var resolvedEndpointHost: String?
@@ -34,6 +37,11 @@ struct PrivacySettingsPane: View {
             keptSection
         }
         .formStyle(.grouped)
+        .task {
+            retiredLearningLeftovers = await Task.detached(priority: .utility) {
+                RetiredGlossaryLearning.remainingFolders()
+            }.value
+        }
         .task(id: settings.baseURL + "\n" + settings.modelName) {
             resolvedEndpointHost = try? await OpenAICompatibleSettingsConfigurationResolver.configuration(
                 baseURLString: settings.baseURL, modelName: settings.modelName, keychainStore: keychainStore
@@ -142,6 +150,39 @@ struct PrivacySettingsPane: View {
                 Text(message)
                     .foregroundStyle(.red)
             }
+
+            if retiredLearningLeftovers.isEmpty == false {
+                retiredLearningRow
+            }
+        }
+    }
+
+    /// Recordings and the comparison model from the removed glossary learning, still on disk because
+    /// the launch cleanup could not delete them.
+    @ViewBuilder
+    private var retiredLearningRow: some View {
+        LabeledContent {
+            HStack(spacing: 8) {
+                Button("Show in Finder") {
+                    NSWorkspace.shared.activateFileViewerSelecting(retiredLearningLeftovers)
+                }
+                Button("Delete Now", role: .destructive) {
+                    Task {
+                        let remaining = await Task.detached(priority: .userInitiated) {
+                            RetiredGlossaryLearning.removeLeftovers()
+                        }.value
+                        retiredLearningDeletionFailed = remaining.isEmpty == false
+                        retiredLearningLeftovers = remaining
+                    }
+                }
+            }
+        } label: {
+            Text("Files from glossary learning")
+            Text("An earlier version kept recordings and a comparison model on this Mac. They could not be deleted yet; Syrup tries again at each launch.")
+        }
+        if retiredLearningDeletionFailed {
+            Text("Couldn't delete them. You can delete them in Finder.")
+                .foregroundStyle(.red)
         }
     }
 

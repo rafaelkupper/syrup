@@ -120,9 +120,12 @@ struct OpenAISSEParser: Sendable {
             let fields = try decoder.singleValueContainer().decode([String: JSONFieldValue].self)
             content = fields["content"]?.text
             // `role` names the speaker in the first chunk; it is not the model working. `content`
-            // counts like any field, so a reasoning part inside it, such as Mistral's thinking chunk,
-            // is progress, while a part whose text is empty is not.
-            carriesSomething = fields.contains { key, value in key != "role" && value.carriesSomething }
+            // counts by its text, and by any part without text that carries something, such as
+            // Mistral's thinking chunk. A text part with empty text is not progress, whatever labels
+            // it carries beside it.
+            carriesSomething = content?.isEmpty == false
+                || fields["content"]?.hasPartWithoutTextCarryingSomething == true
+                || fields.contains { key, value in key != "role" && key != "content" && value.carriesSomething }
         }
     }
 }
@@ -164,6 +167,17 @@ enum JSONFieldValue: Decodable, Sendable {
         case .number, .bool: true
         case .array(let array): array.contains { $0.carriesSomething }
         case .object(let object): object.contains { key, value in key != "type" && key != "index" && value.carriesSomething }
+        }
+    }
+
+    /// In a list of parts, whether a part with no `text` string carries something: a reasoning part,
+    /// such as `{"type":"thinking","thinking":[{"type":"text","text":"…"}]}`. A part with a `text`
+    /// string counts only by that text, which `text` reads.
+    var hasPartWithoutTextCarryingSomething: Bool {
+        guard case .array(let parts) = self else { return false }
+        return parts.contains { part in
+            if case .object(let fields) = part, case .string? = fields["text"] { return false }
+            return part.carriesSomething
         }
     }
 

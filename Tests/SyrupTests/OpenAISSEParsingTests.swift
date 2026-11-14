@@ -108,10 +108,12 @@ struct OpenAISSEParsingTests {
         }
     }
 
-    /// Mistral's reasoning models stream like this (https://docs.mistral.ai/capabilities/reasoning/,
-    /// read 2026-11-14): while thinking, `delta.content` is a list holding a thinking chunk; at the
-    /// transition, one list holds a closing thinking chunk and the first text chunk; the answer is a
-    /// plain string. Thinking is progress, so a long think is not cut off, but never answer text.
+    /// Mistral's reasoning docs (https://docs.mistral.ai/capabilities/reasoning/, read 2026-11-14)
+    /// describe the stream in prose and print no streamed JSON; these chunks are built from that
+    /// description and its `ThinkChunk` and `TextChunk` types. While thinking, `delta.content` is a
+    /// list holding a thinking chunk; at the transition, one list holds a closing thinking chunk and
+    /// the first text chunk; the answer is a plain string. Thinking is progress, so a long think is not
+    /// cut off, but never answer text.
     @Test func mistralThinkingChunksAreProgressButNotAnswerText() throws {
         var parser = OpenAISSEParser()
         let thinking = try parser.append(
@@ -132,11 +134,15 @@ struct OpenAISSEParsingTests {
     }
 
     /// The other side of the rule: chunks that carry nothing generated are not progress, so a server
-    /// repeating them cannot hold a run open.
+    /// repeating them cannot hold a run open. A text part counts only by its text, whatever labels it
+    /// carries beside it.
     @Test(arguments: [
         #"data: {"choices":[{"delta":{"role":"assistant","content":""}}]}"#,
         #"data: {"choices":[{"delta":{"content":[{"type":"text","text":""}]}}]}"#,
+        #"data: {"choices":[{"delta":{"content":[{"type":"text","text":"","id":"part_1"}]}}]}"#,
+        #"data: {"choices":[{"delta":{"content":[{"type":"text","text":"","format":"markdown"}]}}]}"#,
         #"data: {"choices":[{"delta":{"content":[{"type":"thinking","thinking":[]}]}}]}"#,
+        #"data: {"choices":[{"delta":{"content":[{"type":"thinking","thinking":[{"type":"text","text":""}]}]}}]}"#,
         #"data: {"choices":[{"delta":{}}]}"#,
     ])
     func chunksCarryingNothingAreNotProgress(chunk: String) throws {

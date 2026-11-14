@@ -45,8 +45,9 @@ struct RetiredGlossaryLearningTests {
         defaults.set(true, forKey: "glossaryLearningEnabled")
         defaults.set(true, forKey: "persistHistory")
 
-        RetiredGlossaryLearning.removeLeftovers(inSupportFolder: support, userDefaults: defaults)
+        let remaining = RetiredGlossaryLearning.removeLeftovers(inSupportFolder: support, userDefaults: defaults)
 
+        #expect(remaining.isEmpty)
         #expect(exists("Recordings", in: support) == false)
         #expect(exists("WhisperModels", in: support) == false)
         for relative in kept { #expect(exists(relative, in: support), "\(relative) must survive") }
@@ -72,7 +73,7 @@ struct RetiredGlossaryLearningTests {
         #expect(exists(present, in: support) == false)
     }
 
-    /// A folder that cannot be deleted stays until a later launch, which deletes it.
+    /// A folder that cannot be deleted is reported, for Privacy to show, and a later launch deletes it.
     @Test func aFolderThatCannotBeDeletedGoesAtTheNextLaunch() throws {
         let support = supportFolder()
         defer {
@@ -85,11 +86,14 @@ struct RetiredGlossaryLearningTests {
         defer { defaults.removePersistentDomain(forName: suite) }
         try fileManager.setAttributes([.posixPermissions: 0o500], ofItemAtPath: support.path(percentEncoded: false))
 
-        RetiredGlossaryLearning.removeLeftovers(inSupportFolder: support, userDefaults: defaults)
+        let reported = RetiredGlossaryLearning.removeLeftovers(inSupportFolder: support, userDefaults: defaults)
+        #expect(reported.map(\.lastPathComponent) == ["Recordings", "WhisperModels"])
+        #expect(RetiredGlossaryLearning.remainingFolders(inSupportFolder: support) == reported)
         #expect(exists("Recordings", in: support))
 
         try fileManager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: support.path(percentEncoded: false))
-        RetiredGlossaryLearning.removeLeftovers(inSupportFolder: support, userDefaults: defaults)
+        #expect(RetiredGlossaryLearning.removeLeftovers(inSupportFolder: support, userDefaults: defaults).isEmpty)
+        #expect(RetiredGlossaryLearning.remainingFolders(inSupportFolder: support).isEmpty)
         #expect(exists("Recordings", in: support) == false)
         #expect(exists("WhisperModels", in: support) == false)
     }

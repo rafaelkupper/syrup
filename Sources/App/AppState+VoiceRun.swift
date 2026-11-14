@@ -34,7 +34,7 @@ extension AppState {
 
         do {
             guard let run = activeRun, run.id == runID else { return }
-            let audio = try await openMicrophone(for: run, work: work)
+            let audio = try await openMicrophone(for: run)
             let configuration = try await awaitConfiguration(resolvedConfiguration, for: run)
             work.transformer = run.preparedTransformer
             run.transformationInstruction = configuration.instruction
@@ -61,7 +61,7 @@ extension AppState {
 
     /// Starts capture and wraps the stream with the level tap and the pause-transformation copy.
     /// Returns once audio is flowing.
-    private func openMicrophone(for run: PipelineRun, work: VoiceRunWork) async throws -> AudioBufferSequence {
+    private func openMicrophone(for run: PipelineRun) async throws -> AudioBufferSequence {
         let runID = run.id
         try Task.checkCancellation()
         if let failure = run.failure { throw failure }

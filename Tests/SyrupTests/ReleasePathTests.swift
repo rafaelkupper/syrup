@@ -399,6 +399,26 @@ struct OutputDuckingTests {
         volume.cleanUp()
     }
 
+    /// Quitting while other audio is lowered waits for the restore, so the volume is back before the
+    /// process exits.
+    @Test
+    func quittingWaitsForTheVolumeRestore() async {
+        let volume = VolumeControllerFake(channels: Self.original, holdsWrite: 1)
+        let fixture = RecordingFixture(settings: Self.loweringSettings(), outputDucker: volume.makeDucker())
+        await fixture.startSpeaking()
+        await waitUntil { volume.writes == [Self.lowered] }
+
+        var quitFinished = false
+        let quit = Task { await fixture.state.prepareForTermination(); quitFinished = true }
+        await waitUntil { volume.isHoldingWrite }
+        await expectStillPending(quitFinished)
+        volume.releaseHeldWrite()
+        await quit.value
+
+        #expect(volume.writes == [Self.lowered, Self.original])
+        volume.cleanUp()
+    }
+
     @Test
     func cancelDuringTheTailRestoresOnce() async {
         let volume = VolumeControllerFake(channels: Self.original)
@@ -537,15 +557,20 @@ final class VolumeControllerFake: OutputVolumeControlling {
     }
 
     private let state: Mutex<State>
-    private let firstWriteGate: DispatchSemaphore?
+    private let writeGate: DispatchSemaphore?
+    /// The write that waits for `releaseHeldWrite()`: 0 holds the lowering, 1 the restore after it.
+    private let heldWrite: Int?
+    private let holding = Mutex(false)
     private let failsReads: Bool
     private let suiteName = testDomainName("SyrupOutputDuckingTests")
     var writes: [[UInt32: Float32]] { state.withLock { $0.writes } }
     var accessCount: Int { state.withLock { $0.accessCount } }
+    var isHoldingWrite: Bool { holding.withLock { $0 } }
 
-    init(channels: [UInt32: Float32], holdsFirstWrite: Bool = false, failsReads: Bool = false) {
+    init(channels: [UInt32: Float32], holdsFirstWrite: Bool = false, holdsWrite: Int? = nil, failsReads: Bool = false) {
         state = Mutex(State(channels: channels))
-        firstWriteGate = holdsFirstWrite ? DispatchSemaphore(value: 0) : nil
+        heldWrite = holdsFirstWrite ? 0 : holdsWrite
+        writeGate = heldWrite == nil ? nil : DispatchSemaphore(value: 0)
         self.failsReads = failsReads
     }
 
@@ -558,8 +583,10 @@ final class VolumeControllerFake: OutputVolumeControlling {
     }
 
     func setVolume(_ volume: OutputVolume) {
-        if state.withLock({ $0.writes.isEmpty }) {
-            firstWriteGate?.wait()
+        if let writeGate, state.withLock({ $0.writes.count }) == heldWrite {
+            holding.withLock { $0 = true }
+            writeGate.wait()
+            holding.withLock { $0 = false }
         }
         state.withLock { state in
             state.accessCount += 1
@@ -573,7 +600,11 @@ final class VolumeControllerFake: OutputVolumeControlling {
     }
 
     func releaseFirstWrite() {
-        firstWriteGate?.signal()
+        releaseHeldWrite()
+    }
+
+    func releaseHeldWrite() {
+        writeGate?.signal()
     }
 
     func cleanUp() {

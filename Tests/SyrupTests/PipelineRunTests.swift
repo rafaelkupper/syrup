@@ -275,6 +275,67 @@ struct PipelineRunTests {
         #expect(recorder.stopCallCount >= 1)
         #expect(clipboard.writes.isEmpty)
     }
+
+    /// Quitting waits for a cancelled run to finish unwinding. The transcriber here ignores
+    /// cancellation, so the run stays open until the test lets it go.
+    @Test func quittingWaitsForACancelledRunToUnwind() async throws {
+        let (settings, defaults) = try settings()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let transcriber = CancellationIgnoringTranscriber()
+        let clipboard = SpyPasteboard()
+        let state = AppState.fixture(
+            settings: settings, audioRecorder: FakeRecorder(), transcriber: transcriber,
+            transformer: FakeTextTransformer(.success("never")), pasteboard: clipboard, feedback: SpyFeedback(),
+            autoPaster: SpyAutoPaster(), maximumRecordingDurationNanoseconds: 0, recordingClock: FastForwardClock()
+        )
+        state.triggerPressed()
+        state.triggerReleased()
+        await eventually { state.pipelineState == .transcribing }
+
+        var quitFinished = false
+        let quit = Task { await state.prepareForTermination(); quitFinished = true }
+        await eventually("The run was never cancelled") { await transcriber.wasCancelled }
+        await expectStillPending(quitFinished)
+        await transcriber.finish()
+        await quit.value
+
+        #expect(state.pipelineState == .idle)
+        #expect(clipboard.writes.isEmpty)
+    }
+}
+
+/// A quit that does not wait would finish within a few main-actor hops; this gives it far longer,
+/// then checks it is still waiting.
+@MainActor
+func expectStillPending(_ finished: @autoclosure () -> Bool, sourceLocation: SourceLocation = #_sourceLocation) async {
+    for _ in 0..<20 { await Task.yield() }
+    try? await Task.sleep(for: .milliseconds(100))
+    #expect(finished() == false, "Quit finished before the held work was released", sourceLocation: sourceLocation)
+}
+
+/// Waits for `finish()` whether or not it is cancelled, and records the cancellation.
+private actor CancellationIgnoringTranscriber: Transcriber {
+    private var continuation: CheckedContinuation<String, Never>?
+    private var finished = false
+    private(set) var wasCancelled = false
+
+    func transcribe(_ audio: AudioBufferSequence, request: TranscriptionRequest) async throws -> String {
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                if finished { continuation.resume(returning: "late") } else { self.continuation = continuation }
+            }
+        } onCancel: {
+            Task { await self.markCancelled() }
+        }
+    }
+
+    func finish() {
+        finished = true
+        continuation?.resume(returning: "late")
+        continuation = nil
+    }
+
+    private func markCancelled() { wasCancelled = true }
 }
 
 @MainActor

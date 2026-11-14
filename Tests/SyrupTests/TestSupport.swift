@@ -181,7 +181,6 @@ final class FakeRecorder: AudioRecording {
     var startCallCount = 0
     var stopCallCount = 0
     var startError: (any Error)?
-    var finishesStreamOnStop = true
     private var continuation: AudioBufferSequence.Continuation?
 
     func start() async throws -> AudioBufferSequence {
@@ -198,10 +197,8 @@ final class FakeRecorder: AudioRecording {
 
     func stop() {
         stopCallCount += 1
-        if finishesStreamOnStop {
-            continuation?.finish()
-            continuation = nil
-        }
+        continuation?.finish()
+        continuation = nil
     }
 }
 

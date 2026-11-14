@@ -238,6 +238,27 @@ struct ParakeetPipelineTests {
         #expect(harness.state.history.records.isEmpty)
     }
 
+    /// Apple's text is only a preview and backup in a model run, so Apple stops as soon as the model's
+    /// transcript exists: here while the transformation is still running, not when the run ends.
+    @Test func appleStopsAsSoonAsTheModelTranscriptExists() async throws {
+        let apple = FakeTranscriber(.suspended)
+        let transformer = FakeTextTransformer(.suspended)
+        let harness = try Harness(
+            apple: apple, parakeet: FakeTranscriber(.success("parakeet words")),
+            kind: .translation(targetLanguage: "English", tonePreset: .neutral, customToneText: ""),
+            transformer: transformer
+        )
+        harness.state.triggerPressed()
+        await apple.waitForCall()
+        harness.state.triggerReleased()
+        await harness.settle(until: .translating)
+
+        await harness.wait { await apple.cancellationCount == 1 }
+        #expect(await apple.cancellationCount == 1)
+        #expect(harness.state.pipelineState == .translating)
+        harness.state.cancelRequested()
+    }
+
     @Test func aShortTapWithAModelThatIsNotReadyStaysSilent() async throws {
         let apple = FakeTranscriber(.suspended)
         let clock = ManualRecordingClock()
@@ -309,6 +330,7 @@ private final class Harness {
         models: FakeParakeetModels = FakeParakeetModels(.ready),
         engine: SpeechEngine = .parakeetUltra,
         locale: String = "pt-BR",
+        transformer: FakeTextTransformer = FakeTextTransformer(.failure(.transformer)),
         clock: any RecordingClock = FastForwardClock(),
         recordingCue: (any RecordingCuePresenting)? = nil
     ) throws {
@@ -325,7 +347,7 @@ private final class Harness {
         )])
         state = AppState.fixture(
             settings: settings, audioRecorder: recorder, transcriber: apple, speechModels: [engine == .apple ? .parakeetUltra : engine: InstalledSpeechModel(transcriber: parakeet, models: models)],
-            transformer: FakeTextTransformer(.failure(.transformer)), pasteboard: clipboard,
+            transformer: transformer, pasteboard: clipboard,
             feedback: feedback, maximumRecordingDurationNanoseconds: 0, recordingClock: clock, recordingCue: recordingCue
         )
     }
