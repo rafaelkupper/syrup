@@ -54,17 +54,21 @@ protocol StreamingTyping: AnyObject {
     func addLeadingSpace()
     func setSentenceFit(context: CaretContext, protectedTerms: [String])
     func setKeepsWrapperQuotes(_ keepsWrapperQuotes: Bool)
-    func typeText(_ text: String) throws
-    func finish()
+    func typeText(_ text: String) async throws
+    func finish() async
     func cancel()
-    func setTargetValidator(_ validator: @escaping @MainActor () -> Bool)
+    func setTargetValidator(_ validator: @escaping TypingTargetValidator)
     var onTextPosted: (() -> Void)? { get set }
 }
+
+/// Checks that the editor typing started in still has focus. It may wait on Accessibility off the
+/// main actor; the typist posts nothing for a flush until its check returns.
+typealias TypingTargetValidator = @MainActor () async -> Bool
 
 extension StreamingTyping {
     func setSentenceFit(context: CaretContext, protectedTerms: [String]) {}
     func setKeepsWrapperQuotes(_ keepsWrapperQuotes: Bool) {}
-    func setTargetValidator(_ validator: @escaping @MainActor () -> Bool) {}
+    func setTargetValidator(_ validator: @escaping TypingTargetValidator) {}
     var onTextPosted: (() -> Void)? { get { nil } set {} }
 }
 
@@ -76,8 +80,8 @@ final class PreviewOnlyTypist: StreamingTyping {
     func start() throws {}
     func append(_ delta: String) {}
     func addLeadingSpace() {}
-    func typeText(_ text: String) throws {}
-    func finish() {}
+    func typeText(_ text: String) async throws {}
+    func finish() async {}
     func cancel() {}
 }
 
@@ -92,8 +96,13 @@ final class StreamingTypist: StreamingTyping {
     private let sleeper: StreamingTypistSleeper
 
     var onTextPosted: (() -> Void)?
-    private var targetValidator: @MainActor () -> Bool = { true }
+    private var targetValidator: TypingTargetValidator = { true }
     private var cadenceTask: Task<Void, Never>?
+    /// Flushes run one after another, each validating the target before it posts, so text keeps its
+    /// order even though validation waits. Cancelling bumps `generation`, and a queued flush then
+    /// posts nothing.
+    private var flushChain: Task<Void, Never>?
+    private var generation = 0
     private var pinnedApplicationID: String?
     private var pendingText = ""
     private var pendingLeadingSpace = false
@@ -142,6 +151,8 @@ final class StreamingTypist: StreamingTyping {
 
         cadenceTask?.cancel()
         cadenceTask = nil
+        generation += 1
+        flushChain = nil
         pinnedApplicationID = frontmostApplicationID
         pendingText = ""
         pendingLeadingSpace = false
@@ -154,10 +165,17 @@ final class StreamingTypist: StreamingTyping {
         isActive = true
     }
 
-    func typeText(_ text: String) throws {
+    func typeText(_ text: String) async throws {
         try start()
-        post(text)
-        isActive = false
+        guard text.isEmpty == false else {
+            isActive = false
+            return
+        }
+        let generation = generation
+        if await validateTarget(), generation == self.generation, isActive {
+            post(text)
+        }
+        if generation == self.generation { isActive = false }
     }
 
     func addLeadingSpace() {
@@ -178,25 +196,45 @@ final class StreamingTypist: StreamingTyping {
 
         pendingText += delta
         if pendingText.count >= sizeThreshold {
-            flush(force: false)
+            enqueueFlush(force: false)
         }
         scheduleCadenceIfNeeded()
     }
 
-    func finish() {
+    func finish() async {
         guard isActive else { return }
 
         cadenceTask?.cancel()
         cadenceTask = nil
-        flush(force: true)
-        isActive = false
+        let generation = generation
+        await enqueueFlush(force: true).value
+        if generation == self.generation { isActive = false }
     }
 
     func cancel() {
         cadenceTask?.cancel()
         cadenceTask = nil
+        generation += 1
+        flushChain = nil
         pendingText = ""
         isActive = false
+    }
+
+    /// Waits for every flush queued so far. Tests use it to observe posted text deterministically.
+    func waitForQueuedFlushes() async {
+        await flushChain?.value
+    }
+
+    @discardableResult
+    private func enqueueFlush(force: Bool) -> Task<Void, Never> {
+        let previous = flushChain
+        let generation = generation
+        let flush = Task { [weak self] in
+            await previous?.value
+            await self?.flush(force: force, generation: generation)
+        }
+        flushChain = flush
+        return flush
     }
 
     private func scheduleCadenceIfNeeded() {
@@ -214,24 +252,27 @@ final class StreamingTypist: StreamingTyping {
             } catch {
                 return
             }
-            guard Task.isCancelled == false else { return }
-            self?.cadenceTask = nil
-            self?.flush(force: false)
-            self?.scheduleCadenceIfNeeded()
+            guard Task.isCancelled == false, let self else { return }
+            self.cadenceTask = nil
+            await self.enqueueFlush(force: false).value
+            self.scheduleCadenceIfNeeded()
         }
     }
 
-    private func flush(force: Bool) {
-        guard isActive, validateTarget() else { return }
-        // The focused-field check is an Accessibility round trip on the main actor, so it runs once
-        // per flush. Steps within the flush recheck only the frontmost app and secure input.
+    private func flush(force: Bool, generation: Int) async {
+        guard isActive, generation == self.generation else { return }
+        // The focused-field check is an Accessibility round trip, so it runs once per flush and waits
+        // off the main actor. Steps within the flush recheck only the frontmost app and secure input.
+        guard await validateTarget() else { return }
+        // A cancel or stop while the check waited ends this flush before it posts anything.
+        guard isActive, generation == self.generation else { return }
 
         if force, hasStartedTyping == false {
             let normalized = ModelOutputNormalizer.normalize(pendingText, keepsWrapperQuotes: keepsWrapperQuotes)
             let textToPost = sentenceContext.map { SentenceFit.apply(normalized, context: $0, protectedTerms: protectedTerms) } ?? normalized
             pendingText = ""
             hasStartedTyping = true
-            post(textToPost, targetValidated: true)
+            post(textToPost)
             return
         }
 
@@ -253,16 +294,29 @@ final class StreamingTypist: StreamingTyping {
             pendingText = String(pendingText[heldStart...])
         }
 
-        post(textToPost, targetValidated: true)
+        post(textToPost)
     }
 
-    func setTargetValidator(_ validator: @escaping @MainActor () -> Bool) {
+    func setTargetValidator(_ validator: @escaping TypingTargetValidator) {
         targetValidator = validator
     }
 
-    private func validateTarget(checksFocusedField: Bool = true) -> Bool {
-        guard frontmostApplicationID() == pinnedApplicationID,
-              checksFocusedField == false || targetValidator() else {
+    /// The full check before a flush: the pinned app, the focused field, and secure input.
+    private func validateTarget() async -> Bool {
+        guard checkApplicationAndSecureInput() else { return false }
+        let generation = generation
+        let isCurrent = await targetValidator()
+        guard generation == self.generation, isActive else { return false }
+        guard isCurrent else {
+            stop(reason: .focusChanged)
+            return false
+        }
+        return checkApplicationAndSecureInput()
+    }
+
+    /// The cheap check before each posted step.
+    private func checkApplicationAndSecureInput() -> Bool {
+        guard frontmostApplicationID() == pinnedApplicationID else {
             stop(reason: .focusChanged)
             return false
         }
@@ -299,13 +353,13 @@ final class StreamingTypist: StreamingTyping {
         return sentenceContext?.textFollows == true ? SentenceFit.removingFinalPeriod(finalText) : finalText
     }
 
-    private func post(_ text: String, targetValidated: Bool = false) {
+    /// Posts text whose target the caller has just validated.
+    private func post(_ text: String) {
         guard !text.isEmpty else { return }
         let prefix = pendingLeadingSpace && text.first?.isWhitespace == false ? " " : ""
         pendingLeadingSpace = false
-        for (index, step) in TypingStep.plan(prefix + text).enumerated() {
-            let checksFocusedField = index == 0 && targetValidated == false
-            guard validateTarget(checksFocusedField: checksFocusedField) else { return }
+        for step in TypingStep.plan(prefix + text) {
+            guard checkApplicationAndSecureInput() else { return }
             guard eventPoster(step) else {
                 stop(reason: .eventCreationFailed)
                 return
@@ -318,6 +372,7 @@ final class StreamingTypist: StreamingTyping {
     private func stop(reason: StreamingTypingStopReason) {
         cadenceTask?.cancel()
         cadenceTask = nil
+        generation += 1
         pendingText = ""
         stopReason = reason
         isActive = false

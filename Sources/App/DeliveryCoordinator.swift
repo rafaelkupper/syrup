@@ -44,8 +44,9 @@ final class DeliveryCoordinator {
     }
 
     /// A pinned run delivers only while the editor captured at the trigger still has focus.
-    func targetIsCurrent(_ run: PipelineRun) -> Bool {
-        run.pinsDeliveryTarget == false || run.deliveryTarget?.isCurrent() == true
+    func targetIsCurrent(_ run: PipelineRun) async -> Bool {
+        guard run.pinsDeliveryTarget, let target = run.deliveryTarget else { return run.pinsDeliveryTarget == false }
+        return await target.isCurrent()
     }
 
     /// Match the sentence at the cursor. The clipboard and any paste carry the fitted text, and history
@@ -57,7 +58,7 @@ final class DeliveryCoordinator {
         var context = knownContext
         if context == nil {
             let target: DeliveryTarget?
-            if let pinned = run.deliveryTarget, pinned.isCurrent() {
+            if let pinned = run.deliveryTarget, await pinned.isCurrent() {
                 target = pinned
             } else if let processID = frontmostApplication(false).processID,
                       processID != ProcessInfo.processInfo.processIdentifier {
@@ -77,8 +78,8 @@ final class DeliveryCoordinator {
         isCurrentRun: @escaping @MainActor () -> Bool
     ) async throws {
         guard isCurrentRun(), run.autoPasteEnabled else { return }
-        guard targetIsCurrent(run) else {
-            feedback.notifyError(message: "The editor changed - the full result was copied.")
+        guard await targetIsCurrent(run), isCurrentRun() else {
+            if isCurrentRun() { feedback.notifyError(message: "The editor changed - the full result was copied.") }
             return
         }
         metrics.begin(.autoPaste, runID: run.id)
@@ -89,7 +90,7 @@ final class DeliveryCoordinator {
             canContinue: isCurrentRun,
             targetIsCurrent: { [weak self, weak run] in
                 guard let self, let run else { return false }
-                return self.targetIsCurrent(run)
+                return await self.targetIsCurrent(run)
             }
         )
     }
@@ -100,11 +101,13 @@ final class DeliveryCoordinator {
         _ text: String, contextTarget: DeliveryTarget?,
         usesSpacing: Bool, knownContext: CaretContext?,
         canContinue: @escaping @MainActor () -> Bool,
-        targetIsCurrent: @escaping @MainActor () -> Bool
+        targetIsCurrent: @escaping TypingTargetValidator
     ) async throws {
         try await autoPasteSleeper(autoPasteDelayNanoseconds)
         guard canContinue(), Task.isCancelled == false else { throw CancellationError() }
-        guard targetIsCurrent() else {
+        let targetIsCurrentBeforePaste = await targetIsCurrent()
+        guard canContinue(), Task.isCancelled == false else { throw CancellationError() }
+        guard targetIsCurrentBeforePaste else {
             feedback.notifyError(message: "The editor changed - the full result was copied.")
             return
         }
@@ -113,7 +116,9 @@ final class DeliveryCoordinator {
         if spaces, context == nil, let contextTarget, autoPaster.isTrusted {
             context = await contextTarget.caretContext(readsSentence: false)
             guard canContinue(), !Task.isCancelled else { throw CancellationError() }
-            guard targetIsCurrent() else {
+            let stillCurrent = await targetIsCurrent()
+            guard canContinue(), !Task.isCancelled else { throw CancellationError() }
+            guard stillCurrent else {
                 feedback.notifyError(message: "The editor changed - the full result was copied.")
                 return
             }
@@ -123,8 +128,8 @@ final class DeliveryCoordinator {
             let strategy = autoPaster.strategy
             if strategy == .typeText || !prefix.isEmpty {
                 let typist = streamingTypistFactory()
-                typist.setTargetValidator { canContinue() && targetIsCurrent() }
-                try typist.typeText(strategy == .typeText ? prefix + text : prefix)
+                typist.setTargetValidator { canContinue() ? await targetIsCurrent() : false }
+                try await typist.typeText(strategy == .typeText ? prefix + text : prefix)
                 notifyIfStopped(typist.stopReason, focusMessage: "The editor changed - the full result was copied.",
                                 secureInput: { feedback.notifyAutoPasteSecureInput() })
                 if typist.stopReason != nil { return }

@@ -5,24 +5,25 @@ import Testing
 @MainActor
 struct StreamingTypistTests {
     @Test(arguments: [1, 200])
-    func requestedQuotesSurviveIncrementalAndForcedFlush(sizeThreshold: Int) throws {
+    func requestedQuotesSurviveIncrementalAndForcedFlush(sizeThreshold: Int) async throws {
         let poster = StreamingEventPosterSpy()
         let typist = makeTypist(poster: poster, sizeThreshold: sizeThreshold)
         try typist.start()
         typist.setKeepsWrapperQuotes(true)
         typist.append(#"  "hello"#)
+        await typist.waitForQueuedFlushes()
         if sizeThreshold == 1 {
             #expect(poster.text == #""hel"#)
         } else {
             #expect(poster.text.isEmpty)
         }
         typist.append(#""  "#)
-        typist.finish()
+        await typist.finish()
         #expect(poster.text == #""hello""#)
 
         try typist.start()
         typist.append(#""hello""#)
-        typist.finish()
+        await typist.finish()
         #expect(poster.text == #""hello"hello"#)
     }
 
@@ -49,12 +50,13 @@ struct StreamingTypistTests {
     }
 
     @Test
-    func bufferSizeFlushesWithoutWaitingForCadence() {
+    func bufferSizeFlushesWithoutWaitingForCadence() async {
         let poster = StreamingEventPosterSpy()
         let typist = makeTypist(poster: poster)
         try? typist.start()
 
         typist.append(String(repeating: "a", count: 202))
+        await typist.waitForQueuedFlushes()
 
         #expect(poster.text == String(repeating: "a", count: 200))
         #expect(typist.hasPostedText)
@@ -73,15 +75,16 @@ struct StreamingTypistTests {
         input: String,
         prefix: String,
         expected: String
-    ) {
+    ) async {
         let poster = StreamingEventPosterSpy()
         let typist = makeTypist(poster: poster, sizeThreshold: 1)
         try? typist.start()
 
         typist.append(input)
+        await typist.waitForQueuedFlushes()
         #expect(poster.text == prefix)
 
-        typist.finish()
+        await typist.finish()
         #expect(poster.text == expected)
         #expect(poster.text == ModelOutputNormalizer.normalize(input))
         #expect(typist.hasPostedText == (expected.isEmpty == false))
@@ -114,7 +117,7 @@ struct StreamingTypistTests {
         await sleeper.resume()
         await expectPostedText(poster, prefix)
 
-        typist.finish()
+        await typist.finish()
         #expect(poster.text == expected)
         #expect(poster.text == ModelOutputNormalizer.normalize(input))
         #expect(typist.hasPostedText == (expected.isEmpty == false))
@@ -128,19 +131,19 @@ struct StreamingTypistTests {
         (#"""#, ""),
         ("  Hello  ", "Hello"),
     ])
-    func finishAppliesStreamingQuoteAndTailNormalization(input: String, expected: String) {
+    func finishAppliesStreamingQuoteAndTailNormalization(input: String, expected: String) async {
         let poster = StreamingEventPosterSpy()
         let typist = makeTypist(poster: poster)
         try? typist.start()
 
         typist.append(input)
-        typist.finish()
+        await typist.finish()
 
         #expect(poster.text == expected)
     }
 
     @Test
-    func focusChangeStopsTypingPermanently() {
+    func focusChangeStopsTypingPermanently() async {
         var frontmostID = "app-a"
         let poster = StreamingEventPosterSpy()
         let typist = makeTypist(
@@ -151,15 +154,17 @@ struct StreamingTypistTests {
         frontmostID = "app-b"
 
         typist.append(String(repeating: "a", count: 202))
+        await typist.waitForQueuedFlushes()
         frontmostID = "app-a"
         typist.append(String(repeating: "b", count: 202))
+        await typist.waitForQueuedFlushes()
 
         #expect(poster.text == "")
         #expect(typist.stopReason == .focusChanged)
     }
 
     @Test
-    func unavailableInitialTargetPreventsEventPosting() {
+    func unavailableInitialTargetPreventsEventPosting() async {
         let poster = StreamingEventPosterSpy()
         let typist = makeTypist(
             poster: poster,
@@ -170,14 +175,14 @@ struct StreamingTypistTests {
             try typist.start()
         }
         typist.append(String(repeating: "a", count: 202))
-        typist.finish()
+        await typist.finish()
 
         #expect(poster.chunks.isEmpty)
         #expect(typist.hasPostedText == false)
     }
 
     @Test
-    func secureInputAppearingMidStreamStopsTyping() {
+    func secureInputAppearingMidStreamStopsTyping() async {
         var isSecureInputEnabled = false
         let poster = StreamingEventPosterSpy()
         let typist = makeTypist(
@@ -188,6 +193,7 @@ struct StreamingTypistTests {
         isSecureInputEnabled = true
 
         typist.append(String(repeating: "a", count: 202))
+        await typist.waitForQueuedFlushes()
 
         #expect(poster.text == "")
         #expect(typist.stopReason == .secureInputActive)
@@ -225,7 +231,7 @@ struct StreamingTypistTests {
     }
 
     @Test
-    func splitCRLFDeltasProduceOneLineBreak() throws {
+    func splitCRLFDeltasProduceOneLineBreak() async throws {
         var steps: [TypingStep] = []
         let typist = StreamingTypist(sizeThreshold: 1, trustStatus: { true },
             secureInputStatus: { false }, frontmostApplicationID: { "fixture" },
@@ -233,7 +239,7 @@ struct StreamingTypistTests {
         try typist.start()
         typist.append("first\r")
         typist.append("\nsecond")
-        typist.finish()
+        await typist.finish()
         #expect(steps.filter { $0 == .lineBreak }.count == 1)
         let delivered = steps.map { step in
             switch step {
@@ -245,7 +251,7 @@ struct StreamingTypistTests {
     }
 
     @Test(arguments: [false, true])
-    func rechecksAppAndSecureInputBetweenSteps(secureInput: Bool) throws {
+    func rechecksAppAndSecureInputBetweenSteps(secureInput: Bool) async throws {
         var frontmost = "fixture"
         var secure = false
         var steps: [TypingStep] = []
@@ -258,13 +264,13 @@ struct StreamingTypistTests {
             }, sleeper: { _ in })
         try typist.start()
         typist.append("first\nsecond")
-        typist.finish()
+        await typist.finish()
         #expect(steps == [.text("first")])
         #expect(typist.stopReason == (secureInput ? .secureInputActive : .focusChanged))
     }
 
     @Test
-    func checksTheFocusedFieldOncePerFlushNotPerStep() throws {
+    func checksTheFocusedFieldOncePerFlushNotPerStep() async throws {
         var validations = 0
         var steps: [TypingStep] = []
         let typist = StreamingTypist(trustStatus: { true },
@@ -273,13 +279,13 @@ struct StreamingTypistTests {
         typist.setTargetValidator { validations += 1; return true }
         try typist.start()
         typist.append("one\ntwo\nthree\nfour")
-        typist.finish()
+        await typist.finish()
         #expect(steps.count == 7)
         #expect(validations == 1)
     }
 
     @Test
-    func aFieldChangeStopsTheNextFlush() throws {
+    func aFieldChangeStopsTheNextFlush() async throws {
         let field = FieldFocus()
         var steps: [TypingStep] = []
         let typist = StreamingTypist(sizeThreshold: 1, trustStatus: { true },
@@ -288,11 +294,51 @@ struct StreamingTypistTests {
         typist.setTargetValidator { field.isSame }
         try typist.start()
         typist.append("first ")
+        await typist.waitForQueuedFlushes()
         field.isSame = false
         typist.append("second ")
-        typist.finish()
+        await typist.finish()
         #expect(typist.stopReason == .focusChanged)
         #expect(steps.contains(.text("second")) == false)
+    }
+
+    /// The focus check may wait on Accessibility off the main actor. Deltas that arrive meanwhile
+    /// queue behind it, and each flush still checks before it posts, so the text stays in order.
+    @Test func aSlowFocusCheckKeepsTextInOrder() async throws {
+        let gate = FocusCheckGate()
+        var steps: [TypingStep] = []
+        let typist = StreamingTypist(sizeThreshold: 1, trustStatus: { true },
+            secureInputStatus: { false }, frontmostApplicationID: { "fixture" },
+            eventPoster: { steps.append($0); return true }, sleeper: { _ in })
+        typist.setTargetValidator { await gate.check() }
+        try typist.start()
+        typist.append("one two ")
+        await eventually { gate.waiting == 1 }
+        typist.append("three four ")
+        typist.append("five")
+        #expect(steps.isEmpty)
+        gate.open()
+        await typist.finish()
+        #expect(steps.compactMap { if case .text(let text) = $0 { text } else { nil } }.joined() == "one two three four five")
+        #expect(gate.checks >= 2)
+    }
+
+    /// Esc cancels the typist while a focus check is still waiting: nothing is posted afterwards.
+    @Test func cancelDuringAFocusCheckPostsNothing() async throws {
+        let gate = FocusCheckGate()
+        var steps: [TypingStep] = []
+        let typist = StreamingTypist(sizeThreshold: 1, trustStatus: { true },
+            secureInputStatus: { false }, frontmostApplicationID: { "fixture" },
+            eventPoster: { steps.append($0); return true }, sleeper: { _ in })
+        typist.setTargetValidator { await gate.check() }
+        try typist.start()
+        typist.append("private words")
+        await eventually { gate.waiting == 1 }
+        typist.cancel()
+        gate.open()
+        await typist.waitForQueuedFlushes()
+        #expect(steps.isEmpty)
+        #expect(typist.hasPostedText == false)
     }
 
     private func makeTypist(
@@ -314,20 +360,14 @@ struct StreamingTypistTests {
     }
 }
 
-// The cadence task hops back to the main actor after its sleep resumes, so
-// give the scheduler bounded yields instead of racing it with a single one.
+// The cadence task hops back to the main actor after its sleep resumes, so wait for the text.
 @MainActor
 private func expectPostedText(
     _ poster: StreamingEventPosterSpy,
     _ expected: String,
     sourceLocation: SourceLocation = #_sourceLocation
 ) async {
-    for _ in 0..<200 {
-        if poster.text == expected {
-            break
-        }
-        await Task.yield()
-    }
+    await eventually(sourceLocation: sourceLocation) { poster.text == expected }
     #expect(poster.text == expected, sourceLocation: sourceLocation)
 }
 
@@ -393,4 +433,27 @@ private actor ManualStreamingTypistSleeper {
 @MainActor
 private final class FieldFocus {
     var isSame = true
+}
+
+/// A focus check that waits until the test answers it, like an Accessibility read of a slow app.
+@MainActor
+private final class FocusCheckGate {
+    private var waiters: [CheckedContinuation<Bool, Never>] = []
+    private var isOpen = false
+    private(set) var checks = 0
+    var waiting: Int { waiters.count }
+
+    func check() async -> Bool {
+        checks += 1
+        if isOpen { return true }
+        return await withCheckedContinuation { waiters.append($0) }
+    }
+
+    /// Answers the waiting checks, and every later one, with "still focused".
+    func open() {
+        isOpen = true
+        let pending = waiters
+        waiters = []
+        for waiter in pending { waiter.resume(returning: true) }
+    }
 }

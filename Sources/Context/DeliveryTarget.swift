@@ -40,12 +40,16 @@ final class DeliveryTarget: @unchecked Sendable {
         }.value
     }
 
+    /// Whether the captured editor still has focus. The Accessibility read runs off the main actor, so a
+    /// slow or hung app costs this caller up to the messaging timeout and never blocks the main thread.
     @MainActor
-    func isCurrent() -> Bool {
+    func isCurrent() async -> Bool {
         if let checkCurrent { return checkCurrent() }
-        guard let element, NSWorkspace.shared.frontmostApplication?.processIdentifier == processID,
-              let focused = Self.focusedElement(processID: processID) else { return false }
-        return CFEqual(element, focused)
+        guard element != nil, NSWorkspace.shared.frontmostApplication?.processIdentifier == processID else { return false }
+        return await Task.detached(priority: .userInitiated) { [self] in
+            guard let element, let focused = Self.focusedElement(processID: processID) else { return false }
+            return CFEqual(element, focused)
+        }.value
     }
 
     @MainActor

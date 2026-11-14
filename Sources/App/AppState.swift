@@ -532,7 +532,10 @@ final class AppState {
             try await delivery.pasteCompletedText(delivered, contextTarget: usesSpacing ? target : nil,
                                                   usesSpacing: usesSpacing, knownContext: context, canContinue: { [weak self] in
                 self?.pendingPasteID == pasteID && self?.canCopyLastResult == true
-            }, targetIsCurrent: { !pinsTarget || target?.isCurrent() == true })
+            }, targetIsCurrent: {
+                guard pinsTarget else { return true }
+                return await target?.isCurrent() == true
+            })
         } catch is CancellationError {
         } catch {
             presentError(error)

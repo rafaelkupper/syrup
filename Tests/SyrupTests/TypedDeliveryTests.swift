@@ -72,7 +72,7 @@ struct TypedDeliveryTests {
         #expect(paster.pasteCount == expectedPastes)
     }
 
-    @Test func repeatedSpacingRequestPostsOnlyOneSpace() throws {
+    @Test func repeatedSpacingRequestPostsOnlyOneSpace() async throws {
         var posted = ""
         let typist = StreamingTypist(trustStatus: { true }, secureInputStatus: { false },
                                     frontmostApplicationID: { "fixture" }, eventPoster: {
@@ -83,7 +83,8 @@ struct TypedDeliveryTests {
         typist.addLeadingSpace()
         typist.addLeadingSpace()
         typist.append("  \"word\"  ")
-        typist.finish()
+        await typist.waitForQueuedFlushes()
+        await typist.finish()
         #expect(posted == " word")
     }
 

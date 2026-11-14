@@ -270,49 +270,55 @@ private final class CaretFitFixture {
 @MainActor
 struct CaretFitStreamingTests {
     @Test(arguments: [1, 200])
-    func waitsForCompleteFirstWordAndDropsFinalPeriod(threshold: Int) throws {
+    func waitsForCompleteFirstWordAndDropsFinalPeriod(threshold: Int) async throws {
         var text = ""
         let typist = makeTypist(threshold: threshold) { text += $0 }
         try typist.start()
         typist.addLeadingSpace()
         typist.setSentenceFit(context: CaretContext(continuesSentence: true, textFollows: true), protectedTerms: [])
         typist.append("En")
+        await typist.waitForQueuedFlushes()
         #expect(text.isEmpty)
         typist.append("tão")
+        await typist.waitForQueuedFlushes()
         #expect(text.isEmpty)
         typist.append(" vamos.")
-        typist.finish()
+        await typist.waitForQueuedFlushes()
+        await typist.finish()
         #expect(text == " então vamos")
     }
 
     @Test(arguments: [1, 200])
-    func preservesNamesAndAbbreviationsAcrossDeltas(threshold: Int) throws {
+    func preservesNamesAndAbbreviationsAcrossDeltas(threshold: Int) async throws {
         var text = ""
         let typist = makeTypist(threshold: threshold) { text += $0 }
         try typist.start()
         typist.setSentenceFit(context: CaretContext(continuesSentence: true, textFollows: true), protectedTerms: [])
         for delta in ["Pe", "dro ", "disse ", "p.", "ex", "."] { typist.append(delta) }
-        typist.finish()
+        await typist.finish()
         #expect(text == "Pedro disse p.ex.")
     }
 
     @Test(arguments: [true, false])
-    func protectsGlossaryPhrasesAcrossDeltas(matchesTerm: Bool) throws {
+    func protectsGlossaryPhrasesAcrossDeltas(matchesTerm: Bool) async throws {
         var text = ""
         let typist = makeTypist(threshold: 1) { text += $0 }
         try typist.start()
         typist.setSentenceFit(context: CaretContext(continuesSentence: true), protectedTerms: ["Example Product"])
         typist.append("Example ")
+        await typist.waitForQueuedFlushes()
         #expect(text.isEmpty)
         typist.append("Pro")
+        await typist.waitForQueuedFlushes()
         #expect(text.isEmpty)
         typist.append(matchesTerm ? "duct works." : "ject works.")
-        typist.finish()
+        await typist.waitForQueuedFlushes()
+        await typist.finish()
         #expect(text == (matchesTerm ? "Example Product works." : "example Project works."))
     }
 
     @Test(arguments: ["Hello.", "Hello...", "Hello?", "Hello!", "  \"Hello.\"  "])
-    func finishOnlyUsesSameFit(input: String) throws {
+    func finishOnlyUsesSameFit(input: String) async throws {
         var text = ""
         let typist = makeTypist(threshold: 200) { text += $0 }
         try typist.start()
@@ -320,7 +326,8 @@ struct CaretFitStreamingTests {
         let context = CaretContext(continuesSentence: true, textFollows: true)
         typist.setSentenceFit(context: context, protectedTerms: [])
         typist.append(input)
-        typist.finish()
+        await typist.waitForQueuedFlushes()
+        await typist.finish()
         #expect(text == " " + SentenceFit.apply(ModelOutputNormalizer.normalize(input), context: context, protectedTerms: []))
     }
 

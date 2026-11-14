@@ -184,12 +184,16 @@ extension AppState {
         recordReleaseToClipboard: Bool
     ) async throws -> String? {
         guard let run = activeRun, run.id == runID else { throw CancellationError() }
-        let typesIntoEditor = run.streamingDeliveryEnabled && run.autoPasteEnabled && autoPaster.isTrusted
-            && delivery.targetIsCurrent(run)
+        var typesIntoEditor = run.streamingDeliveryEnabled && run.autoPasteEnabled && autoPaster.isTrusted
+        if typesIntoEditor {
+            typesIntoEditor = await delivery.targetIsCurrent(run)
+            guard isCurrentRun(runID) else { throw CancellationError() }
+            try Task.checkCancellation()
+        }
         let typist: any StreamingTyping = typesIntoEditor ? streamingTypistFactory() : PreviewOnlyTypist()
         typist.setTargetValidator { [weak self, weak run] in
-            guard let self, let run else { return false }
-            return self.isCurrentRun(runID) && self.delivery.targetIsCurrent(run)
+            guard let self, let run, self.isCurrentRun(runID) else { return false }
+            return await self.delivery.targetIsCurrent(run)
         }
         typist.onTextPosted = { [metrics] in metrics.end(.firstVisibleOutput, runID: runID) }
         do {
@@ -292,7 +296,12 @@ extension AppState {
         if let atomicFallbackText {
             transformedText = atomicFallbackText
         } else {
-            typist.finish()
+            await typist.finish()
+            guard isCurrentRun(runID) else {
+                cancelStreamingTypist(ifOwnedBy: typist)
+                throw CancellationError()
+            }
+            try Task.checkCancellation()
             transformedText = ModelOutputNormalizer.normalize(
                 fullText,
                 keepsWrapperQuotes: keepsWrapperQuotes

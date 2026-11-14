@@ -77,7 +77,7 @@ struct PipelineSafeguardTests {
         #expect(paster.pasteCount == 0)
     }
 
-    @Test func sameApplicationFieldChangeStopsStreaming() throws {
+    @Test func sameApplicationFieldChangeStopsStreaming() async throws {
         var sameEditor = true
         var posted: [TypingStep] = []
         let typist = StreamingTypist(sizeThreshold: 1, trustStatus: { true }, secureInputStatus: { false },
@@ -85,11 +85,13 @@ struct PipelineSafeguardTests {
         typist.setTargetValidator { sameEditor }
         try typist.start()
         typist.append("first ")
+        await typist.waitForQueuedFlushes()
         let beforeFocusChange = posted
         #expect(beforeFocusChange.isEmpty == false)
         sameEditor = false
         typist.append("second")
-        typist.finish()
+        await typist.waitForQueuedFlushes()
+        await typist.finish()
         #expect(posted == beforeFocusChange)
         #expect(typist.stopReason == .focusChanged)
     }
