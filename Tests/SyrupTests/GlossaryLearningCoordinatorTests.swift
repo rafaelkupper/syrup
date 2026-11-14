@@ -297,29 +297,23 @@ struct WhisperModelManagerTests {
         #expect(WhisperModelManager(storageDirectory: directory).state == .notDownloaded)
     }
 
+    /// The model as Hugging Face publishes it, with the tokenizer Syrup fetches beside it, is ready.
+    /// The earlier check wanted a `tokenizer.json` inside the model folder, which the published folder
+    /// never has, so a real download could never become ready.
     @Test
-    func completeLocalModelIsReportedReadyWithoutNetwork() throws {
+    func thePublishedLayoutWithItsTokenizerIsReady() throws {
         let directory = temporaryModelDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
-        let completeModelDirectory = modelDirectory(in: directory)
-        try FileManager.default.createDirectory(
-            at: completeModelDirectory,
-            withIntermediateDirectories: true
-        )
-        for component in ["MelSpectrogram", "AudioEncoder", "TextDecoder"] {
-            let bundle = completeModelDirectory.appending(path: "\(component).mlmodelc")
-            try FileManager.default.createDirectory(at: bundle, withIntermediateDirectories: true)
-            try Data().write(to: bundle.appending(path: "coremldata.bin"))
-        }
-        try Data().write(to: completeModelDirectory.appending(path: "tokenizer.json"))
+        try WhisperPublishedLayout.write(in: directory, tokenizer: true)
+        #expect(WhisperModelManager(storageDirectory: directory).state == .ready)
+    }
 
-        let manager = WhisperModelManager(storageDirectory: directory)
-
-        #expect(manager.state == .ready)
-        #expect(
-            manager.modelDirectory.standardizedFileURL.path(percentEncoded: false)
-                == completeModelDirectory.standardizedFileURL.path(percentEncoded: false)
-        )
+    @Test
+    func thePublishedLayoutWithoutItsTokenizerIsNotReady() throws {
+        let directory = temporaryModelDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try WhisperPublishedLayout.write(in: directory, tokenizer: false)
+        #expect(WhisperModelManager(storageDirectory: directory).state == .notDownloaded)
     }
 
     private func temporaryModelDirectory() -> URL {
@@ -546,4 +540,42 @@ private actor CancellableBatchTranscriber: BatchTranscribing {
         return "unexpected"
     }
     func releaseModels() async { released = true }
+}
+
+/// The comparison model's files as Hugging Face publishes them (`argmaxinc/whisperkit-coreml`,
+/// `openai_whisper-large-v3-v20240930_626MB`, listed 2026-11-14), and the tokenizer files WhisperKit
+/// fetches from `openai/whisper-large-v3` into its hub layout. Tests build on this, not on what the
+/// code expects, so a check the real download cannot pass fails here.
+enum WhisperPublishedLayout {
+    static let modelFiles = ["AudioEncoder", "MelSpectrogram", "TextDecoder"].flatMap { bundle in
+        ["analytics/coremldata.bin", "coremldata.bin", "metadata.json", "model.mil", "weights/weight.bin"]
+            .map { "\(bundle).mlmodelc/\($0)" }
+    } + ["config.json", "generation_config.json"]
+    static let tokenizerFiles = ["config.json", "tokenizer.json", "tokenizer_config.json"]
+
+    static func modelFolder(in base: URL) -> URL {
+        base.appending(path: "models/argmaxinc/whisperkit-coreml/\(WhisperModelManager.modelVariant)", directoryHint: .isDirectory)
+    }
+
+    static func tokenizerFolder(in base: URL) -> URL {
+        base.appending(path: "models/openai/whisper-large-v3", directoryHint: .isDirectory)
+    }
+
+    static func write(in base: URL, tokenizer: Bool) throws {
+        try writeModel(in: base)
+        if tokenizer { try writeTokenizer(in: base) }
+    }
+
+    static func writeModel(in base: URL) throws {
+        for file in modelFiles { try writeFile(modelFolder(in: base).appending(path: file)) }
+    }
+
+    static func writeTokenizer(in base: URL) throws {
+        for file in tokenizerFiles { try writeFile(tokenizerFolder(in: base).appending(path: file)) }
+    }
+
+    private static func writeFile(_ url: URL) throws {
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("x".utf8).write(to: url)
+    }
 }

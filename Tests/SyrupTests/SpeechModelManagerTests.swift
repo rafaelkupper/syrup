@@ -222,15 +222,35 @@ struct SpeechModelManagerTests {
         #expect(fixture.log.calls == ["unload"])
     }
 
-    /// Delete during a load: the load is not let become ready, and the files still go.
-    @Test func deleteDuringALoadStillRemovesTheModel() async throws {
-        let fixture = try Fixture(onDisk: true)
+    /// Delete while a load is under way: the load is held inside the backend, so it has started. It
+    /// is not let become ready, and the files still go.
+    @Test func deleteDuringAStartedLoadStillRemovesTheModel() async throws {
+        let loadGate = Gate()
+        let fixture = try Fixture(onDisk: true, loadGate: loadGate)
         fixture.manager.loadIfDownloaded()
-        #expect(fixture.manager.state == .loading)
+        await eventually { fixture.log.calls == ["load"] }
         fixture.manager.remove()
-        await eventually { FileManager.default.fileExists(atPath: fixture.manager.directory.path(percentEncoded: false)) == false }
         #expect(fixture.manager.state == .notDownloaded)
-        #expect(fixture.log.calls.last == "unload")
+        await loadGate.open()
+        await fixture.manager.waitUntilIdle()
+        #expect(FileManager.default.fileExists(atPath: fixture.manager.directory.path(percentEncoded: false)) == false)
+        #expect(fixture.manager.state == .notDownloaded)
+        #expect(fixture.log.calls == ["load", "unload"])
+    }
+
+    /// Download pressed right after Delete, while the model is still unloading: the deletion goes
+    /// first, so the download starts with no model on disk instead of reusing the deleted one.
+    @Test func downloadRightAfterDeleteStartsFromNothing() async throws {
+        let unloadGate = Gate()
+        let fixture = try Fixture(onDisk: true, unloadGate: unloadGate)
+        await fixture.gate.open()
+        fixture.manager.remove()
+        fixture.manager.download()
+        await unloadGate.open()
+        await fixture.manager.waitUntilIdle()
+        #expect(fixture.downloadsFoundAModel.values == [false])
+        #expect(fixture.log.calls == ["unload", "download", "load"])
+        #expect(fixture.manager.state == .ready)
     }
 
     @Test func deleteWhileDownloadingCancelsTheDownloadThenRemovesWhatItFetched() async throws {
@@ -318,6 +338,12 @@ private final class OverlapLog: Sendable {
     }
 }
 
+private final class Recorded<Value: Sendable>: Sendable {
+    private let entries = Mutex<[Value]>([])
+    var values: [Value] { entries.withLock { $0 } }
+    func append(_ value: Value) { entries.withLock { $0.append(value) } }
+}
+
 private final class CallLog: Sendable {
     private let entries = Mutex<[String]>([])
     var calls: [String] { entries.withLock { $0 } }
@@ -348,11 +374,13 @@ private final class Fixture {
     let manager: SpeechModelManager
     /// Records "reported" once the fake download has made all its progress reports.
     let progressLog: CallLog
+    /// For each download, whether a model was on disk when it started.
+    let downloadsFoundAModel = Recorded<Bool>()
 
     /// `downloadsWaitForCancel`: a download stays in progress until its task is cancelled.
     init(
         onDisk: Bool, isSupported: Bool = true, progress: [Double] = [], failingDownloads: Int = 0, failingLoads: Int = 0,
-        downloadsWaitForCancel: Bool = false
+        downloadsWaitForCancel: Bool = false, loadGate: Gate? = nil, unloadGate: Gate? = nil
     ) throws {
         let root = FileManager.default.temporaryDirectory.appending(path: testDomainName("SpeechModelManagerTests"), directoryHint: .isDirectory)
         let log = CallLog(), gate = Gate()
@@ -368,7 +396,8 @@ private final class Fixture {
             engine: .parakeetUltra,
             operations: .init(
                 modelsExist: { _ in onDiskFlag.withLock { $0 } },
-                download: { directory, report in
+                download: { [downloadsFoundAModel] directory, report in
+                    downloadsFoundAModel.append(FileManager.default.fileExists(atPath: directory.path(percentEncoded: false)))
                     log.record("download")
                     if downloadsWaitForCancel {
                         do {
@@ -392,6 +421,7 @@ private final class Fixture {
                 },
                 load: { _ in
                     log.record("load")
+                    await loadGate?.wait()
                     if loadFailures.withLock({ count in
                         count -= 1
                         return count >= 0
@@ -399,7 +429,10 @@ private final class Fixture {
                         throw CocoaError(.fileReadCorruptFile)
                     }
                 },
-                unload: { log.record("unload") }
+                unload: {
+                    log.record("unload")
+                    await unloadGate?.wait()
+                }
             ),
             isSupported: isSupported,
             storageDirectory: root

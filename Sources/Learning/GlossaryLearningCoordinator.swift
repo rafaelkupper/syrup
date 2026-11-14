@@ -143,8 +143,8 @@ final class GlossaryLearningCoordinator {
                 break
             } catch BatchTranscriptionError.modelUnavailable {
                 // The model, not the recording, failed: no attempt is used up, and passes stop until
-                // the person retries or removes the model.
-                modelManager.modelFailedToLoad()
+                // the person retries or removes the model. A pass being cancelled is not that.
+                if Task.isCancelled == false { modelManager.modelFailedToLoad() }
                 break
             } catch {
                 guard Task.isCancelled == false else { break }

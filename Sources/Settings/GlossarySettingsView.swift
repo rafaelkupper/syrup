@@ -342,10 +342,15 @@ struct GlossarySettingsView: View {
                     }
                 }
             case .downloading(let progress):
-                ProgressView(value: progress)
-                    .frame(width: 180)
-                    .accessibilityLabel("Downloading comparison model")
-                    .accessibilityValue(progress.formatted(.percent.precision(.fractionLength(0))))
+                HStack(spacing: 8) {
+                    ProgressView(value: progress)
+                        .frame(width: 180)
+                        .accessibilityLabel("Downloading comparison model")
+                        .accessibilityValue(progress.formatted(.percent.precision(.fractionLength(0))))
+                    Button("Cancel") {
+                        whisperModelManager.cancelDownload()
+                    }
+                }
             case .ready:
                 HStack(spacing: 8) {
                     Text("Ready (626 MB)")
@@ -361,7 +366,7 @@ struct GlossarySettingsView: View {
                     Text(message)
                         .foregroundStyle(.red)
                     Button("Retry") {
-                        Task { await whisperModelManager.retryDownload() }
+                        Task { await whisperModelManager.retry() }
                     }
                     Button("Delete", role: .destructive) {
                         whisperModelManager.removeModel()
@@ -451,6 +456,8 @@ struct GlossarySettingsView: View {
             settings.glossaryLearningEnabled
         } set: { isEnabled in
             settings.privacyOptIns.setGlossaryLearning(isEnabled)
+            // A download for a feature just turned off is not finished.
+            if isEnabled == false { whisperModelManager.cancelDownload() }
             if isEnabled == false, whisperModelManager.state == .ready {
                 isConfirmingModelRemoval = true
             }

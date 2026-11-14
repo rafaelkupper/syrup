@@ -114,8 +114,15 @@ struct PrivacySettingsPane: View {
                 Text(settings.persistHistory ? "Results from now on are stored on this Mac" : "Off: the last \(HistoryStore.defaultCapacity) results stay in memory until Syrup quits. Turning it on keeps only later results.")
             }
             if let message = history.persistenceError {
-                Text(message)
-                    .foregroundStyle(.red)
+                HStack(spacing: 8) {
+                    Text(message)
+                        .foregroundStyle(.red)
+                    if history.leftoverFileRemains {
+                        Button("Try Again") {
+                            Task { await history.deleteLeftoverFileIfPersistenceIsOff() }
+                        }
+                    }
+                }
             }
 
             LabeledContent {

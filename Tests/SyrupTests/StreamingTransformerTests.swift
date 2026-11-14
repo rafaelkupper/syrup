@@ -149,7 +149,7 @@ struct StreamingTransformerTests {
         yield(#"data: {"choices":[{"delta":{"reasoning_details":[{"type":"reasoning.summary","summary":"Plan"}]}}]}"# + "\n", to: bytes.continuation)
         _ = await lineIterator.next()
         await sleeper.waitForCallCount(4)
-        yield(#"data: {"choices":[{"delta":{"tool_calls":[{"index":0}]}}]}"# + "\n", to: bytes.continuation)
+        yield(#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"q\""}}]}}]}"# + "\n", to: bytes.continuation)
         _ = await lineIterator.next()
         await sleeper.waitForCallCount(5)
         #expect(await sleeper.callCount == 5)
@@ -187,6 +187,9 @@ struct StreamingTransformerTests {
         for empty in [
             #"data: {}"#, #"data: {"usage":{"total_tokens":3}}"#, #"data: {"choices":[{"delta":{}}]}"#,
             #"data: {"choices":[{"delta":{"role":"assistant"}}]}"#, #"data: {"choices":[{"delta":{"content":""}}]}"#,
+            #"data: {"choices":[{"delta":{"content":[{"type":"text","text":""}]}}]}"#,
+            #"data: {"choices":[{"delta":{"reasoning_details":[{"type":"reasoning.text","index":0,"text":""}]}}]}"#,
+            #"data: {"choices":[{"delta":{"tool_calls":[{"index":0}]}}]}"#,
         ] {
             yield(empty + "\n", to: bytes.continuation)
             _ = await lineIterator.next()

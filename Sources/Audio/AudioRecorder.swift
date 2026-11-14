@@ -377,8 +377,11 @@ final class AudioQueueCaptureSession: AudioCaptureSessioning, @unchecked Sendabl
             return nil
         }
 
-        memcpy(destination, audioData, Int(byteSize))
-        pcmBuffer.mutableAudioBufferList.pointee.mBuffers.mDataByteSize = byteSize
+        // Whole frames only: the buffer holds `frameLength` frames, and a trailing partial frame would
+        // write past it.
+        let copiedBytes = frameLength * bytesPerFrame
+        memcpy(destination, audioData, Int(copiedBytes))
+        pcmBuffer.mutableAudioBufferList.pointee.mBuffers.mDataByteSize = copiedBytes
         return pcmBuffer
     }
 }

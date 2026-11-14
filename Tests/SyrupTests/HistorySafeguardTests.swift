@@ -47,6 +47,32 @@ struct HistorySafeguardTests {
         }
     }
 
+    /// A leftover file that cannot be deleted at launch is not silent: Settings shows it, and trying
+    /// again once the folder allows it deletes the file and clears the message.
+    @Test func aLeftoverHistoryFileThatCannotBeDeletedIsShownWithARetry() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: testDomainName("SyrupLeftoverLocked"))
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path(percentEncoded: false))
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let file = directory.appending(path: "history.json")
+        try Data("[]".utf8).write(to: file)
+        try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: directory.path(percentEncoded: false))
+        let history = HistoryStore(persistenceEnabled: false, storageDirectory: directory)
+
+        await history.deleteLeftoverFileIfPersistenceIsOff()
+        #expect(history.leftoverFileRemains)
+        #expect(history.persistenceError != nil)
+        #expect(FileManager.default.fileExists(atPath: file.path(percentEncoded: false)))
+
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path(percentEncoded: false))
+        await history.deleteLeftoverFileIfPersistenceIsOff()
+        #expect(history.leftoverFileRemains == false)
+        #expect(history.persistenceError == nil)
+        #expect(FileManager.default.fileExists(atPath: file.path(percentEncoded: false)) == false)
+    }
+
     @Test func historyDeletionWaitsForQueuedWrites() async throws {
         let directory = FileManager.default.temporaryDirectory.appending(path: testDomainName("SyrupHistoryBarrier"))
         defer { try? FileManager.default.removeItem(at: directory) }

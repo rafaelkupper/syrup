@@ -5,7 +5,9 @@
 #
 # Each run gets a token, used in its bundle ID (org.syrup.SyrupIsolatedTests.<token>) and in every
 # preference domain its tests create (testDomainName: org.syrup.tests.<token>.<name>.<UUID>). Only
-# names under those two prefixes are ever deleted, so no other app's preferences can match.
+# names under those two prefixes are ever deleted, so no other app's preferences can match. In the
+# temporary folder it deletes only its own copies (syrup-tests.XXXXXX), the host's temporary folder
+# (org.syrup.SyrupIsolatedTests.<token>), and the SwiftPM lock files named after a copy.
 #
 # Tests keep their preferences in memory (TestDefaults in TestSupport.swift), so they write no
 # preference files. The one file a run writes is its host's own domain, where KeyboardShortcuts
@@ -23,6 +25,18 @@ preferences="$HOME/Library/Preferences"
 host_prefix=org.syrup.SyrupIsolatedTests
 domain_prefix=org.syrup.tests
 runs_dir="$HOME/Library/Caches/$domain_prefix/runs"
+
+tmp_root=${TMPDIR:-/tmp}
+tmp_root=${tmp_root%/}
+
+# remove_run_temp <token> <temporary copy>: the host's temporary folder, and the lock file SwiftPM
+# leaves beside it, named after the temporary copy.
+remove_run_temp() {
+    rm -rf "$tmp_root/$host_prefix.$1"
+    case $2 in */syrup-tests.??????)
+        find "$tmp_root" -maxdepth 1 -type f -name "*_$(basename "$2")_build_SourcePackages_Package.resolved.lock" -delete ;;
+    esac
+}
 
 # remove_run_prefs <token>: one run's test preference files and its host's domain.
 remove_run_prefs() {
@@ -45,16 +59,31 @@ remove_finished_runs() {
         run_is_live "$token" && continue
         remove_run_prefs "$token"
         root=$(sed -n 2p "$marker")
+        remove_run_temp "$token" "$root"
         case $root in */syrup-tests.??????) rm -rf "$root" ;; esac
         rm -f "$marker"
     done
     find "$preferences" -maxdepth 1 -type f -mmin +60 -name "$domain_prefix.local.*.plist" -delete
+    # Left by runs from before markers covered them: host folders of runs no longer going, and
+    # SwiftPM lock files whose temporary copy is gone.
+    for folder in "$tmp_root/$host_prefix".*; do
+        [ -d "$folder" ] || continue
+        run_is_live "${folder##*.}" || rm -rf "$folder"
+    done
+    for lock in "$tmp_root"/*syrup-tests.??????_build_SourcePackages_Package.resolved.lock; do
+        [ -f "$lock" ] || continue
+        copy=$(printf '%s' "$lock" | sed -E 's/.*(syrup-tests\.[A-Za-z0-9]{6})_build_SourcePackages_Package\.resolved\.lock$/\1/')
+        [ -d "$tmp_root/$copy" ] || rm -f "$lock"
+    done
 }
 
 # The marker stays, so the next run checks once more.
 finish_test_run() {
     remove_run_prefs "$run_token"
-    if [ -z "${SYRUP_TEST_ROOT:-}" ]; then rm -rf "$test_root"; fi
+    if [ -z "${SYRUP_TEST_ROOT:-}" ]; then
+        remove_run_temp "$run_token" "$test_root"
+        rm -rf "$test_root"
+    fi
 }
 
 mkdir -p "$runs_dir"

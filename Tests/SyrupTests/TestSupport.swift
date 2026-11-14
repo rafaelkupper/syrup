@@ -949,7 +949,8 @@ extension AppState {
     /// match the production initializer, plus `transformer:` for a fixed transformer.
     static func fixture(
         settings: AppSettings,
-        transcriberAssetManager: TranscriberAssetManager = TranscriberAssetManager(),
+        // Inert by default: the real one can ask AssetInventory to install speech assets.
+        transcriberAssetManager: TranscriberAssetManager = TranscriberAssetManager(prepare: { _ in .installed("Fixture") }),
         history: HistoryStore? = nil,
         keychainStore: KeychainStore? = nil,
         audioRecorder: (any AudioRecording)? = nil,
@@ -986,7 +987,11 @@ extension AppState {
         return AppState(
             settings: settings,
             transcriberAssetManager: transcriberAssetManager,
-            history: history ?? HistoryStore(),
+            // A temporary folder, never the real one, so no test can touch the person's history file
+            // by leaving this out.
+            history: history ?? HistoryStore(
+                storageDirectory: FileManager.default.temporaryDirectory.appending(path: testDomainName("SyrupFixtureHistory"))
+            ),
             keychainStore: keychainStore ?? KeychainStore(
                 storageDirectory: FileManager.default.temporaryDirectory.appending(path: "SyrupTestSecrets-\(UUID().uuidString)")
             ),

@@ -16,10 +16,14 @@ protocol BatchTranscribing: Sendable {
 
 actor WhisperKitBatchTranscriber: BatchTranscribing {
     private let modelDirectory: URL
+    /// Where the tokenizer was fetched with the model (`WhisperModelManager.tokenizerBase`). Without
+    /// it WhisperKit downloads one at load time into `~/Documents/huggingface`.
+    private let tokenizerBase: URL
     private var pipeline: WhisperKit?
 
-    init(modelDirectory: URL) {
+    init(modelDirectory: URL, tokenizerBase: URL) {
         self.modelDirectory = modelDirectory
+        self.tokenizerBase = tokenizerBase
     }
 
     func transcribe(fileURL: URL, languageCode: String) async throws -> String {
@@ -55,13 +59,16 @@ actor WhisperKitBatchTranscriber: BatchTranscribing {
             pipeline = try await WhisperKit(WhisperKitConfig(
                 model: WhisperModelManager.modelVariant,
                 modelFolder: modelDirectory.path,
+                tokenizerFolder: tokenizerBase,
                 verbose: false,
                 load: true,
                 download: false
             ))
-        } catch is CancellationError {
-            throw CancellationError()
         } catch {
+            // A cancelled load is the pass stopping, not a broken model; it can surface as a URL error.
+            if error is CancellationError || Task.isCancelled || (error as? URLError)?.code == .cancelled {
+                throw CancellationError()
+            }
             throw BatchTranscriptionError.modelUnavailable
         }
         self.pipeline = pipeline

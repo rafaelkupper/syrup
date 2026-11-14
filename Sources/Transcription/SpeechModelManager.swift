@@ -151,20 +151,32 @@ final class SpeechModelManager: SpeechModelProviding {
         if state != .unsupported { state = .notDownloaded }
         removeReplacedDirectory()
         let previous = lastOperation
+        // An accepted Delete always removes the files, even if a later Download, which waits its turn
+        // behind it, has changed what the state should show; only that state update is skipped.
         lastOperation = Task {
             await previous?.value
             await operations.unload()
-            guard generation == self.generation else { return }
+            var removed = true
             for folder in [directory, Self.stagingDirectory(for: directory)]
             where fileManager.fileExists(atPath: folder.path(percentEncoded: false)) {
                 do {
                     try fileManager.removeItem(at: folder)
                 } catch {
-                    state = .failed("Couldn't remove the model.")
-                    return
+                    removed = false
+                    break
                 }
             }
-            state = .notDownloaded
+            guard generation == self.generation, state != .unsupported else { return }
+            state = removed ? .notDownloaded : .failed("Couldn't remove the model.")
+        }
+    }
+
+    /// Waits until every queued download, load, and removal has finished, including any queued
+    /// meanwhile.
+    func waitUntilIdle() async {
+        while let operation = lastOperation {
+            await operation.value
+            if lastOperation == operation { return }
         }
     }
 

@@ -119,8 +119,11 @@ struct OpenAISSEParser: Sendable {
         init(from decoder: any Decoder) throws {
             let fields = try decoder.singleValueContainer().decode([String: JSONFieldValue].self)
             content = fields["content"]?.text
-            // `role` names the speaker in the first chunk; it is not the model working.
-            carriesSomething = fields.contains { $0.key != "role" && $0.value.isEmpty == false }
+            // `role` names the speaker in the first chunk; it is not the model working. `content`
+            // counts only by its text, so a part list whose text is empty is not progress either.
+            carriesSomething = content?.isEmpty == false || fields.contains { key, value in
+                key != "role" && key != "content" && value.carriesSomething
+            }
         }
     }
 }
@@ -152,13 +155,16 @@ enum JSONFieldValue: Decodable, Sendable {
         }
     }
 
-    var isEmpty: Bool {
+    /// Whether the value holds anything generated: a non-empty string, a number or a flag, or a list or
+    /// object holding one. An object's `type` and `index` only label it, so `{"type":"text","text":""}`
+    /// carries nothing.
+    var carriesSomething: Bool {
         switch self {
-        case .string(let string): string.isEmpty
-        case .null: true
-        case .array(let array): array.isEmpty
-        case .object(let object): object.isEmpty
-        case .number, .bool: false
+        case .string(let string): string.isEmpty == false
+        case .null: false
+        case .number, .bool: true
+        case .array(let array): array.contains { $0.carriesSomething }
+        case .object(let object): object.contains { key, value in key != "type" && key != "index" && value.carriesSomething }
         }
     }
 

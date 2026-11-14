@@ -114,7 +114,8 @@ struct SyrupApp: App {
             archive: recordingArchive,
             modelManager: whisperModelManager,
             transcriber: WhisperKitBatchTranscriber(
-                modelDirectory: whisperModelManager.modelDirectory
+                modelDirectory: whisperModelManager.modelDirectory,
+                tokenizerBase: whisperModelManager.tokenizerBase
             ),
             sink: JudgingCrossCheckSink(settings: appState.settings, judge: judge)
         )

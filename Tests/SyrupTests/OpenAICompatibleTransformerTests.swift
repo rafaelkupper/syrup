@@ -151,7 +151,11 @@ struct OpenAICompatibleTransformerTests {
                                     headerFields: ["Content-Type": "application/json"])!, data)
         }
         defer { StubURLProtocol.reset() }
-        let transformer = OpenAICompatibleTransformer(configuration: try Self.configuration(), session: session)
+        // A model name of its own: a rejection is remembered per endpoint and model.
+        let configuration = OpenAICompatibleConfiguration(
+            baseURL: try #require(URL(string: "https://example.com/v1")), apiKey: "test-key", model: "temperature-\(UUID())"
+        )
+        let transformer = OpenAICompatibleTransformer(configuration: configuration, session: session)
         let output = streamed
             ? try await transformer.transform("hello", instruction: "Polish it.")
             : try await transformer.transformWithUsage("hello", instruction: "Polish it.").text
@@ -159,6 +163,53 @@ struct OpenAICompatibleTransformerTests {
         let requests = sent.withLock { $0 }
         #expect(requests.map(\.temperature) == [0.3, nil])
         #expect(requests.allSatisfy { $0.stream == streamed })
+    }
+
+    /// The rejection is remembered for this endpoint and model, so the next run sends no temperature
+    /// at once instead of paying a rejected request every time.
+    @Test
+    func aTemperatureRejectionIsRememberedForTheModel() async throws {
+        let sent = Mutex<[Double?]>([])
+        let session = Self.stubbedSession { request in
+            let temperature = try Self.jsonBody(from: request)["temperature"] as? Double
+            sent.withLock { $0.append(temperature) }
+            if temperature != nil {
+                return Self.response(statusCode: 400, body: #"{"error":{"param":"temperature","code":"unsupported_value"}}"#)
+            }
+            return Self.response(statusCode: 200, body: #"{"choices":[{"message":{"role":"assistant","content":"Hello"}}]}"#)
+        }
+        defer { StubURLProtocol.reset() }
+        let configuration = OpenAICompatibleConfiguration(
+            baseURL: try #require(URL(string: "https://example.com/v1")), apiKey: "test-key", model: "default-temperature-only-\(UUID())"
+        )
+        for _ in 0..<2 {
+            let transformer = OpenAICompatibleTransformer(configuration: configuration, session: session)
+            #expect(try await transformer.transform("hello", instruction: "Polish it.") == "Hello")
+        }
+        #expect(sent.withLock { $0 } == [0.3, nil, nil])
+    }
+
+    /// Routers phrase the rejection in different shapes; any rejection that mentions the parameter
+    /// earns the one retry without it.
+    @Test(arguments: [
+        #"{"detail":"Unsupported parameter: temperature"}"#,
+        #"{"error":"temperature is not supported for this model"}"#,
+    ])
+    func aTemperatureRejectionInAnotherShapeIsRetried(body: String) async throws {
+        let sent = Mutex<[Double?]>([])
+        let session = Self.stubbedSession { request in
+            let temperature = try Self.jsonBody(from: request)["temperature"] as? Double
+            sent.withLock { $0.append(temperature) }
+            if temperature != nil { return Self.response(statusCode: 422, body: body) }
+            return Self.response(statusCode: 200, body: #"{"choices":[{"message":{"role":"assistant","content":"Hello"}}]}"#)
+        }
+        defer { StubURLProtocol.reset() }
+        let configuration = OpenAICompatibleConfiguration(
+            baseURL: try #require(URL(string: "https://example.com/v1")), apiKey: "test-key", model: "router-\(UUID())"
+        )
+        let transformer = OpenAICompatibleTransformer(configuration: configuration, session: session)
+        #expect(try await transformer.transform("hello", instruction: "Polish it.") == "Hello")
+        #expect(sent.withLock { $0 } == [0.3, nil])
     }
 
     @Test

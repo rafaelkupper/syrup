@@ -171,6 +171,22 @@ struct AudioRecorderTests {
         #expect(Array(UnsafeBufferPointer(start: copiedSamples, count: 4)) == samples)
     }
 
+    /// A buffer whose byte count is not a whole number of frames yields only whole frames. The copy
+    /// itself is sized from them too (`AudioQueueCaptureSession.makePCMBuffer`); a copy that ran a few
+    /// bytes past the buffer cannot be observed safely here, so that part is checked by reading.
+    @Test
+    func aTrailingPartialFrameIsNotCopied() throws {
+        let format = try #require(AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 16_000, channels: 1, interleaved: true))
+        var bytes = [UInt8](repeating: 0x3F, count: 4 * 4 + 2)
+
+        let pcmBuffer = try bytes.withUnsafeMutableBytes { raw in
+            try #require(AudioQueueCaptureSession.makePCMBuffer(audioData: raw.baseAddress, byteSize: UInt32(raw.count), format: format))
+        }
+
+        #expect(pcmBuffer.frameLength == 4)
+        #expect(pcmBuffer.audioBufferList.pointee.mBuffers.mDataByteSize == 16)
+    }
+
     @Test @MainActor
     func normalFinishPreservesFinalCallbackWhileCancelDiscardsIt() async throws {
         let (settings, suiteName) = try makeSettings()

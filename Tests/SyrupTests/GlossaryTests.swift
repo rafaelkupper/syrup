@@ -241,26 +241,6 @@ struct GlossaryTests {
         #expect(backups == [AppSettings.unusableBlobBackupKey(for: current, key: "glossaryV1")])
     }
 
-    /// The backup holds terms the person may later delete. Emptying the glossary drops it; a glossary
-    /// that still has terms keeps it.
-    @Test
-    func emptyingTheGlossaryDropsItsBackup() throws {
-        let suiteName = testDomainName("SyrupTests")
-        let userDefaults = try #require(TestDefaults(suiteName: suiteName))
-        defer { userDefaults.removePersistentDomain(forName: suiteName) }
-        let unreadable = Data([0xFF])
-        userDefaults.set(unreadable, forKey: "glossaryV1")
-        let backupKey = AppSettings.unusableBlobBackupKey(for: unreadable, key: "glossaryV1")
-        let settings = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
-        let term = GlossaryTerm(term: "Syrup")
-        settings.addGlossaryTerm(term)
-        #expect(userDefaults.data(forKey: backupKey) == unreadable)
-
-        settings.deleteGlossaryTerm(id: term.id)
-        #expect(settings.glossaryList.terms.isEmpty)
-        #expect(userDefaults.data(forKey: backupKey) == nil)
-    }
-
     /// A newer build's blob is not copied: it stays where it is and is never overwritten.
     @Test
     func aNewerBlobGetsNoBackup() throws {

@@ -123,7 +123,8 @@ final class SpeechModelCatalog {
             at: staging.appending(path: directory.lastPathComponent, directoryHint: .isDirectory),
             to: directory
         )
-        try fileManager.removeItem(at: staging)
+        // The model is in place; an empty staging folder left behind is not a failed download.
+        try? fileManager.removeItem(at: staging)
     }
 
     private static func stagedManager(

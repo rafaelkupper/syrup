@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 struct OpenAICompatibleConfiguration: Equatable, Sendable {
     let baseURL: URL
@@ -181,7 +182,7 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
             answerStarted()
             continuation.yield(text)
         }
-        var sendsTemperature = true
+        var sendsTemperature = sendsTemperatureFirst
         while true {
             let request = try makeRequest(
                 text: text,
@@ -203,6 +204,9 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
                 }
             }
             try Self.validate(httpResponse)
+            // Remembered only once the request without it went through, so an unrelated error that
+            // happens to mention it changes nothing for later runs.
+            if sendsTemperature == false { rememberTemperatureRejection() }
 
             // A JSON answer passes on its content as a streamed one does, so the consumer normalizes
             // either once, the same way.
@@ -249,8 +253,9 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
             // bounded reader, not `data(for:)`, so a runaway body stops at the limit instead of being
             // held in memory whole. Runs reach this only through the streaming fallback (see `transform`).
             // A model that rejects `temperature` is asked once more without it.
-            return try await withOperationTimeout(timeout, error: TranslationError.timedOut) { [session] in
-                var sendsTemperature = true
+            let sendsTemperatureFirst = sendsTemperatureFirst
+            return try await withOperationTimeout(timeout, error: TranslationError.timedOut) { [session, self] in
+                var sendsTemperature = sendsTemperatureFirst
                 while true {
                     let (bytes, response) = try await session.bytes(for: sendsTemperature ? withTemperature : withoutTemperature)
                     guard let httpResponse = response as? HTTPURLResponse else {
@@ -263,6 +268,7 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
                         continue
                     }
                     try Self.validate(httpResponse)
+                    if sendsTemperature == false { rememberTemperatureRejection() }
                     return try Self.decodeCompletion(data, keepsWrapperQuotes: keepsWrapperQuotes)
                 }
             }
@@ -355,13 +361,27 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
             && ["unsupported_parameter", "unsupported_value", "not_supported"].contains(rejection.error.code ?? "")
     }
 
-    /// The reply rejects `temperature`, as a model that accepts only its default does: by naming it as
-    /// the parameter, whatever the code, or in the message, as some routers do. Asked only of a
-    /// request that sent one, and retried once without it, so a wrong guess costs one request.
+    /// The reply rejects `temperature`, as a model that accepts only its default does. Servers phrase
+    /// that in many shapes (`error.param`, `error.message`, a bare `error` string, `detail`), so any
+    /// rejection body that names the parameter counts. Asked only of a request that sent one, and
+    /// retried once without it, so a wrong guess costs one request.
     private static func rejectsTemperature(_ data: Data) -> Bool {
-        guard let rejection = try? JSONDecoder().decode(ParameterRejection.self, from: data) else { return false }
-        return rejection.error.param == "temperature"
-            || rejection.error.message?.localizedCaseInsensitiveContains("temperature") == true
+        String(decoding: data, as: UTF8.self).localizedCaseInsensitiveContains("temperature")
+    }
+
+    /// Endpoints and models that rejected `temperature` during this session: their requests leave it
+    /// out from the start instead of paying a rejected request on every run.
+    private static let modelsWithoutTemperature = Mutex<Set<String>>([])
+
+    private var temperatureKey: String { "\(configuration.baseURL.absoluteString)|\(configuration.model)" }
+
+    private var sendsTemperatureFirst: Bool {
+        Self.modelsWithoutTemperature.withLock { $0.contains(temperatureKey) } == false
+    }
+
+    private func rememberTemperatureRejection() {
+        let key = temperatureKey
+        _ = Self.modelsWithoutTemperature.withLock { $0.insert(key) }
     }
 
     private func makeRequest(
@@ -650,14 +670,12 @@ private struct ParameterRejection: Decodable {
         let param: String?
         /// A string, or a number written as one; some routers send a numeric code.
         let code: String?
-        let message: String?
 
-        enum CodingKeys: String, CodingKey { case param, code, message }
+        enum CodingKeys: String, CodingKey { case param, code }
 
         init(from decoder: any Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             param = try? container.decodeIfPresent(String.self, forKey: .param)
-            message = try? container.decodeIfPresent(String.self, forKey: .message)
             code = (try? container.decodeIfPresent(String.self, forKey: .code))
                 ?? (try? container.decodeIfPresent(Int.self, forKey: .code)).flatMap { $0.map(String.init) }
         }

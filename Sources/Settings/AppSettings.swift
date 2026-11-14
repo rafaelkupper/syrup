@@ -541,23 +541,15 @@ final class AppSettings {
         }
     }
 
-    /// Saved empty, the glossary also drops its `.unreadable` backups: they hold terms the person has
-    /// now removed. The same goes for proposals below.
     private func persistGlossaryList() {
-        let saved = persistVersioned(glossaryList, version: GlossaryList.currentVersion, forKey: Self.glossaryListKey, name: "glossary")
-        if saved, glossaryList.terms.isEmpty {
-            Self.removeUnusableBlobBackups(forKey: Self.glossaryListKey, keeping: nil, in: userDefaults)
-        }
+        persistVersioned(glossaryList, version: GlossaryList.currentVersion, forKey: Self.glossaryListKey, name: "glossary")
     }
 
     private func persistGlossaryProposals() {
-        let saved = persistVersioned(
+        persistVersioned(
             glossaryProposals, version: GlossaryProposalList.currentVersion,
             forKey: Self.glossaryProposalsKey, name: "glossary_proposals"
         )
-        if saved, glossaryProposals.proposals.isEmpty, glossaryProposals.dismissedKeys.isEmpty {
-            Self.removeUnusableBlobBackups(forKey: Self.glossaryProposalsKey, keeping: nil, in: userDefaults)
-        }
     }
 
     /// Writes a versioned JSON blob. A blob saved by a newer build loads empty here (the workflow
@@ -638,7 +630,7 @@ final class AppSettings {
         logger.notice("settings_blob_preserved blob=\(name, privacy: .public)")
     }
 
-    private static func removeUnusableBlobBackups(forKey key: String, keeping kept: String?, in userDefaults: UserDefaults) {
+    private static func removeUnusableBlobBackups(forKey key: String, keeping kept: String, in userDefaults: UserDefaults) {
         for backup in userDefaults.dictionaryRepresentation().keys
         where backup.hasPrefix(key + ".unreadable.") && backup != kept {
             userDefaults.removeObject(forKey: backup)
@@ -672,10 +664,13 @@ final class AppSettings {
         if let current {
             preserveUnusableBlob(current, forKey: workflowListKey, currentVersion: WorkflowList.currentVersion,
                                  name: "workflow_list", in: userDefaults)
-            // An unusable current list falls back to the person's older one, if that still reads, before
-            // the default workflow. It is not written here: the first edit saves it, unless the current
-            // list is a newer build's, which is never overwritten.
-            if let legacy = userDefaults.data(forKey: legacyWorkflowListKey),
+            // A corrupt or older current list falls back to the person's older one, if that still reads,
+            // before the default workflow; the first edit saves it. A newer build's list does not: it
+            // loads the default workflow, as AGENTS.md says, rather than a stale one.
+            let isNewer = (try? JSONDecoder().decode(BlobVersion.self, from: current))
+                .map { $0.version > WorkflowList.currentVersion } ?? false
+            if isNewer == false,
+               let legacy = userDefaults.data(forKey: legacyWorkflowListKey),
                let decoded = try? JSONDecoder().decode(WorkflowList.self, from: legacy),
                (1...WorkflowList.currentVersion).contains(decoded.version) {
                 var upgraded = decoded

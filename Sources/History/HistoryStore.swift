@@ -16,6 +16,9 @@ final class HistoryStore: HistoryRecording {
 
     private(set) var records: [DictationRecord] = []
     private(set) var persistenceError: String?
+    /// A history file from an earlier launch is still on disk although Keep history is off, because
+    /// deleting it failed. Settings shows it and offers to try again.
+    private(set) var leftoverFileRemains = false
     private(set) var isChangingPersistence = false
 
     @ObservationIgnored private let capacity: Int
@@ -86,8 +89,14 @@ final class HistoryStore: HistoryRecording {
         guard isPersistenceEnabled == false else { return }
         do {
             try await disk.delete()
+            if leftoverFileRemains {
+                leftoverFileRemains = false
+                persistenceError = nil
+            }
         } catch {
             logger.error("history_leftover_delete_failed code=\((error as NSError).code, privacy: .public)")
+            leftoverFileRemains = true
+            persistenceError = "History from an earlier session could not be deleted from this Mac."
         }
     }
 
