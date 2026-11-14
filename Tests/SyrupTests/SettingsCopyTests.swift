@@ -272,3 +272,17 @@ struct MishearingCheckCopyTests {
         #expect(copy.detail.contains("ordinary sentences"))
     }
 }
+
+struct RetiredLearningCopyTests {
+    /// The row names only what is left, so it never says recordings remain when only the model does.
+    @Test func theLeftoverRowNamesOnlyWhatIsLeft() {
+        let support = URL(filePath: "/Syrup", directoryHint: .isDirectory)
+        let recordings = support.appending(path: "Recordings"), model = support.appending(path: "WhisperModels")
+        #expect(RetiredGlossaryLearning.leftoverDescription(for: [recordings, model])
+            == "An earlier version kept recordings and a comparison model on this Mac. They could not be deleted yet; Syrup tries again at each launch.")
+        #expect(RetiredGlossaryLearning.leftoverDescription(for: [recordings])
+            == "An earlier version kept recordings on this Mac. They could not be deleted yet; Syrup tries again at each launch.")
+        #expect(RetiredGlossaryLearning.leftoverDescription(for: [model])
+            == "An earlier version kept a comparison model on this Mac. It could not be deleted yet; Syrup tries again at each launch.")
+    }
+}

@@ -115,7 +115,7 @@ struct SyrupApp: App {
         Task { @MainActor in
             await appState.history.deleteLeftoverFileIfPersistenceIsOff()
         }
-        Task.detached(priority: .utility) {
+        RetiredGlossaryLearning.launchCleanup = Task.detached(priority: .utility) {
             RetiredGlossaryLearning.removeLeftovers()
         }
         Task { @MainActor in

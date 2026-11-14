@@ -98,6 +98,51 @@ struct RetiredGlossaryLearningTests {
         #expect(exists("WhisperModels", in: support) == false)
     }
 
+    /// A support folder that cannot be searched hides whether the folders exist. They are reported, so
+    /// Privacy never says nothing is left when it cannot tell.
+    @Test func foldersThatCannotBeInspectedAreReported() throws {
+        let support = supportFolder()
+        defer {
+            try? fileManager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: support.path(percentEncoded: false))
+            try? fileManager.removeItem(at: support)
+        }
+        try writeLeftovers(in: support)
+        let suite = testDomainName("RetiredLearning")
+        let defaults = try #require(TestDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: support.path(percentEncoded: false))
+
+        #expect(RetiredGlossaryLearning.remainingFolders(inSupportFolder: support).map(\.lastPathComponent) == ["Recordings", "WhisperModels"])
+        #expect(RetiredGlossaryLearning.removeLeftovers(inSupportFolder: support, userDefaults: defaults).count == 2)
+
+        try fileManager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: support.path(percentEncoded: false))
+        #expect(exists("Recordings", in: support), "Nothing was deleted while the folder could not be searched")
+    }
+
+    /// A symbolic link in a folder's place, even one pointing nowhere, is removed; what it points to
+    /// is never touched.
+    @Test func aLinkInAFoldersPlaceIsRemovedAndItsTargetKept() throws {
+        let support = supportFolder()
+        let outside = supportFolder()
+        defer {
+            try? fileManager.removeItem(at: support)
+            try? fileManager.removeItem(at: outside)
+        }
+        try write("kept.wav", in: outside)
+        try fileManager.createDirectory(at: support, withIntermediateDirectories: true)
+        try fileManager.createSymbolicLink(at: support.appending(path: "Recordings"), withDestinationURL: outside)
+        try fileManager.createSymbolicLink(at: support.appending(path: "WhisperModels"), withDestinationURL: outside.appending(path: "missing"))
+        let suite = testDomainName("RetiredLearning")
+        let defaults = try #require(TestDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        #expect(RetiredGlossaryLearning.removeLeftovers(inSupportFolder: support, userDefaults: defaults).isEmpty)
+
+        #expect((try? fileManager.destinationOfSymbolicLink(atPath: support.appending(path: "Recordings").path(percentEncoded: false))) == nil)
+        #expect((try? fileManager.destinationOfSymbolicLink(atPath: support.appending(path: "WhisperModels").path(percentEncoded: false))) == nil)
+        #expect(exists("kept.wav", in: outside))
+    }
+
     @Test func launchWithNothingLeftOverChangesNothing() throws {
         let support = supportFolder()
         defer { try? fileManager.removeItem(at: support) }

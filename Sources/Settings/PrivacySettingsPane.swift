@@ -38,6 +38,7 @@ struct PrivacySettingsPane: View {
         }
         .formStyle(.grouped)
         .task {
+            _ = await RetiredGlossaryLearning.launchCleanup?.value
             retiredLearningLeftovers = await Task.detached(priority: .utility) {
                 RetiredGlossaryLearning.remainingFolders()
             }.value
@@ -178,7 +179,7 @@ struct PrivacySettingsPane: View {
             }
         } label: {
             Text("Files from glossary learning")
-            Text("An earlier version kept recordings and a comparison model on this Mac. They could not be deleted yet; Syrup tries again at each launch.")
+            Text(RetiredGlossaryLearning.leftoverDescription(for: retiredLearningLeftovers))
         }
         if retiredLearningDeletionFailed {
             Text("Couldn't delete them. You can delete them in Finder.")
