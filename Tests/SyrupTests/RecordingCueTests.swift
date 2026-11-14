@@ -413,12 +413,6 @@ private func waitFor(
     _ condition: () -> Bool,
     sourceLocation: SourceLocation = #_sourceLocation
 ) async {
-    for _ in 0..<200 {
-        if condition() {
-            return
-        }
-        await Task.yield()
-    }
-
+    await eventually(sourceLocation: sourceLocation, condition)
     #expect(condition(), sourceLocation: sourceLocation)
 }

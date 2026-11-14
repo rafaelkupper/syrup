@@ -196,17 +196,14 @@ struct PauseTransformationTests {
         await f.start()
         await f.pause()
         f.clock.advance(by: .seconds(1))
-        f.recorder.yield(dBFS: -60)
-        await pauseSettle()
+        await f.yieldLevel(-60)
         #expect(await f.transcriber.offlineCount == 1)
-        f.recorder.yield(dBFS: -20)
-        await pauseSettle()
+        await f.yieldLevel(-20)
         await f.pause()
         #expect(await f.transcriber.offlineCount == 2)
         #expect(await f.provider.creationCount == 2)
         await f.transcriber.setOfflineText("different")
-        f.recorder.yield(dBFS: -20)
-        await pauseSettle()
+        await f.yieldLevel(-20)
         await f.pause(expectAttempt: false)
         await pauseWait { await f.provider.creationCount == 3 }
         #expect(await f.attempt.cancellationCount == 1)
@@ -244,10 +241,8 @@ struct PauseTransformationTests {
         let f = PauseFixture()
         defer { f.cleanUp() }
         await f.start()
-        f.recorder.yield(dBFS: -60)
-        await pauseSettle()
+        await f.yieldLevel(-60)
         f.clock.advance(by: .milliseconds(299))
-        await pauseSettle()
         #expect(await f.transcriber.offlineCount == 0)
         f.clock.advance(by: .milliseconds(1))
         await pauseWait { await f.attempt.callCount == 1 }
@@ -295,14 +290,13 @@ struct PauseTransformationTests {
         await f.start()
         await f.pause(expectAttempt: false)
         await pauseWait { await f.transcriber.offlineCount == 1 }
-        await pauseSettle()
         f.clock.advance(by: .seconds(1))
-        f.recorder.yield(dBFS: -60)
-        await pauseSettle()
-        #expect(await f.transcriber.offlineCount == 1)
-        #expect(await f.attempt.callCount == 0)
+        await f.yieldLevel(-60)
         f.release()
         await f.completed()
+        // The run is over and its pause work cancelled, so these hold for the whole run.
+        #expect(await f.transcriber.offlineCount == 1)
+        #expect(await f.attempt.callCount == 0)
         #expect(f.pasteboard.writes == ["normal"])
         #expect(f.history.records.count == 1)
     }
@@ -338,8 +332,7 @@ struct PauseTransformationTests {
         let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 90 * 48_000)!
         buffer.frameLength = buffer.frameCapacity
         memset(buffer.floatChannelData![0], 0, Int(buffer.frameLength) * MemoryLayout<Float>.size)
-        f.recorder.yield(buffer)
-        await pauseSettle()
+        await f.yield(buffer)
         await f.pause(expectAttempt: false)
         #expect(await f.transcriber.offlineCount == 0)
         f.release()
@@ -363,13 +356,10 @@ struct PauseTransformationTests {
         let f = PauseFixture()
         defer { f.cleanUp() }
         await f.start()
-        f.recorder.yield(dBFS: -60)
-        await pauseSettle()
+        await f.yieldLevel(-60)
         f.clock.advance(by: .milliseconds(299))
-        f.recorder.yield(dBFS: -20)
-        await pauseSettle()
+        await f.yieldLevel(-20)
         f.clock.advance(by: .seconds(1))
-        await pauseSettle()
         #expect(await f.provider.creationCount == 1)
         await f.pause()
         f.state.cancelRequested()
@@ -380,7 +370,6 @@ struct PauseTransformationTests {
         defer { f.cleanUp() }
         await f.start()
         f.release()
-        await pauseSettle()
         f.clock.advance(by: .milliseconds(300))
         f.recorder.yield(dBFS: -60)
         await f.completed()
@@ -550,23 +539,30 @@ private final class PauseFixture {
     func start() async {
         state.triggerPressed()
         await pauseWait { await self.transcriber.ready }
-        recorder.yield(dBFS: -20)
-        await pauseSettle()
+        await yieldLevel(-20)
         clock.advance(by: .seconds(1))
-        recorder.yield(dBFS: -20)
-        await pauseSettle()
+        await yieldLevel(-20)
     }
+    /// Yields one buffer and waits until the run has handled its level, so the quiet timer starts
+    /// from this clock reading and not a later one.
+    func yieldLevel(_ dBFS: Double) async {
+        await yield(LevelRecorder.buffer(dBFS: dBFS))
+    }
+    func yield(_ buffer: AVAudioPCMBuffer) async {
+        let handled = metrics.bufferLevelCount
+        recorder.yield(buffer)
+        await pauseWait { self.metrics.bufferLevelCount > handled }
+    }
+    /// Goes quiet for the pause length. With `expectAttempt`, waits for the offline pass and the attempt;
+    /// otherwise nothing is pending once the quiet buffer is handled, unless the test waits for more.
     func pause(expectAttempt: Bool = true) async {
         let before = await transcriber.offlineCount
-        recorder.yield(dBFS: -60)
-        await pauseSettle()
+        await yieldLevel(-60)
         clock.advance(by: .milliseconds(300))
         if expectAttempt {
             await pauseWait { await self.transcriber.offlineCount > before }
             await pauseWait { await self.attempt.callCount >= 1 }
-            await pauseSettle()
         }
-        else { await pauseSettle() }
     }
     func release() { state.triggerReleased() }
     func completed() async { await pauseWait { self.state.pipelineState == .idle } }
@@ -576,14 +572,10 @@ private final class PauseFixture {
     }
 }
 
-@MainActor private func pauseSettle() async { for _ in 0..<100 { await Task.yield() } }
-@MainActor private func pauseWait(_ condition: () async -> Bool) async {
-    let deadline = ContinuousClock.now + .seconds(5)
-    while ContinuousClock.now < deadline {
-        if await condition() { return }
-        await Task.yield()
-    }
-    #expect(await condition())
+@MainActor private func pauseWait(
+    sourceLocation: SourceLocation = #_sourceLocation, _ condition: () async -> Bool
+) async {
+    await eventually(sourceLocation: sourceLocation, condition)
 }
 
 

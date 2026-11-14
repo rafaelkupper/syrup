@@ -118,6 +118,7 @@ struct FnKeyHotkeyTests {
         let monitor: FnKeyMonitor
         let controller: HotkeyController
         let pasteboard = SpyPasteboard()
+        let metrics = SpyPipelineMetrics()
 
         init(
             mode: HotkeyMode = .hold,
@@ -130,7 +131,7 @@ struct FnKeyHotkeyTests {
             let state = AppState.fixture(
                 settings: settings, audioRecorder: FakeRecorder(),
                 transcriber: FakeTranscriber(.success("fixture")), transformer: transformer,
-                pasteboard: pasteboard, feedback: SpyFeedback(), autoPaster: SpyAutoPaster(),
+                pasteboard: pasteboard, feedback: SpyFeedback(), metrics: metrics, autoPaster: SpyAutoPaster(),
                 maximumRecordingDurationNanoseconds: 0, recordingClock: clock
             )
             let keys = self.keys
@@ -203,13 +204,16 @@ struct FnKeyHotkeyTests {
         }
     }
 
-    /// A stop enters the release tail while the state still reads `.recording`, so run the tail out before checking.
+    /// Lets a second pass on the manual clock, as between real taps, then checks the run is still recording.
+    /// A stop enters the release tail while the state still reads `.recording`, but a stop request begins
+    /// the release-to-recorder-stopped stage at once and ends it when the recorder stops, so equal counts
+    /// mean no stop is pending.
     private func expectStillRecording(_ fixture: Fixture, _ clock: ManualRecordingClock, sourceLocation: SourceLocation = #_sourceLocation) async {
-        for _ in 0..<20 {
-            clock.advance(by: .milliseconds(50))
-            try? await Task.sleep(for: .milliseconds(2))
-        }
+        clock.advance(by: .seconds(1))
+        let stage = PipelineMetricStage.releaseToRecorderStopped
         #expect(fixture.state.pipelineState == .recording, sourceLocation: sourceLocation)
+        #expect(fixture.metrics.begunStages.filter { $0 == stage }.count
+            == fixture.metrics.endedStages.filter { $0 == stage }.count, sourceLocation: sourceLocation)
         #expect(fixture.pasteboard.writes.isEmpty, sourceLocation: sourceLocation)
     }
 

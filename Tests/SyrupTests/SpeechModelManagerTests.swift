@@ -8,7 +8,6 @@ struct SpeechModelManagerTests {
     @Test func loadIfDownloadedNeverDownloads() async throws {
         let fixture = try Fixture(onDisk: false)
         fixture.manager.loadIfDownloaded()
-        await settle()
         #expect(fixture.manager.state == .notDownloaded)
         #expect(fixture.log.calls == [])
     }
@@ -25,7 +24,10 @@ struct SpeechModelManagerTests {
         let fixture = try Fixture(onDisk: false, progress: [0.5, 0.2])
         fixture.manager.download()
         await waitFor(.downloading(0.5), in: fixture.manager)
-        await settle()
+        // Both reports are queued on the main actor once the download has made them; one more hop
+        // runs after them, so the lower 0.2 has been handled by the time it returns.
+        await eventually { fixture.progressLog.calls.isEmpty == false }
+        await Task { @MainActor in }.value
         #expect(fixture.manager.state == .downloading(0.5))
         await fixture.gate.open()
         await waitFor(.ready, in: fixture.manager)
@@ -91,7 +93,6 @@ struct SpeechModelManagerTests {
     @Test func withoutAParakeetV3DownloadNothingDownloads() async throws {
         let fixture = try Fixture(onDisk: false)
         SpeechModelCatalog(managers: [.parakeetUltra: fixture.manager], transcribers: [:]).replaceRetiredParakeetV3()
-        await settle()
         #expect(fixture.manager.state == .notDownloaded)
         #expect(fixture.log.calls == [])
     }
@@ -100,13 +101,8 @@ struct SpeechModelManagerTests {
         let fixture = try Fixture(onDisk: true, isSupported: false)
         fixture.manager.download()
         fixture.manager.loadIfDownloaded()
-        await settle()
         #expect(fixture.manager.state == .unsupported)
         #expect(fixture.log.calls == [])
-    }
-
-    private func settle() async {
-        for _ in 0..<50 { await Task.yield() }
     }
 
     private func waitFor(_ expected: SpeechModelState, in manager: SpeechModelManager) async {
@@ -143,6 +139,8 @@ private final class Fixture {
     let log: CallLog
     let gate: Gate
     let manager: SpeechModelManager
+    /// Records "reported" once the fake download has made all its progress reports.
+    let progressLog: CallLog
 
     init(onDisk: Bool, isSupported: Bool = true, progress: [Double] = [], failingDownloads: Int = 0) throws {
         let root = FileManager.default.temporaryDirectory.appending(path: testDomainName("SpeechModelManagerTests"), directoryHint: .isDirectory)
@@ -151,6 +149,8 @@ private final class Fixture {
         self.log = log
         self.gate = gate
         let onDiskFlag = Mutex(onDisk)
+        let progressLog = CallLog()
+        self.progressLog = progressLog
         let failures = Mutex(failingDownloads)
         manager = SpeechModelManager(
             engine: .parakeetUltra,
@@ -166,6 +166,7 @@ private final class Fixture {
                     }
                     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
                     progress.forEach(report)
+                    progressLog.record("reported")
                     await gate.wait()
                     onDiskFlag.withLock { $0 = true }
                 },

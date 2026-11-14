@@ -31,7 +31,6 @@ struct ReleaseTailPipelineTests {
         await fixture.startSpeaking()
 
         fixture.release()
-        await settle()
         #expect(fixture.state.pipelineState == .recording)
         #expect(fixture.recorder.finishCount == 0)
 
@@ -51,7 +50,6 @@ struct ReleaseTailPipelineTests {
         await fixture.startSpeaking()
 
         fixture.release()
-        await settle()
         fixture.clock.advance(by: .seconds(1.5))
         fixture.recorder.yield(dBFS: silence)
 
@@ -64,8 +62,7 @@ struct ReleaseTailPipelineTests {
         let fixture = RecordingFixture()
         await fixture.startSpeaking()
         fixture.recorder.yield(dBFS: silence)
-        await waitUntil { await fixture.transcriber.bufferCount == 2 }
-        await settle()
+        await fixture.levelsHandled(2)
 
         fixture.release()
 
@@ -80,11 +77,9 @@ struct ReleaseTailPipelineTests {
         await fixture.startSpeaking()
         fixture.recorder.yield(dBFS: silence)
         fixture.recorder.yield(dBFS: speech)
-        await waitUntil { await fixture.transcriber.bufferCount == 3 }
-        await settle()
+        await fixture.levelsHandled(3)
 
         fixture.release()
-        await settle()
 
         #expect(fixture.recorder.finishCount == 0)
         fixture.clock.advance(by: Self.bufferInterval)
@@ -103,9 +98,8 @@ struct ReleaseTailPipelineTests {
             fixture.clock.advance(by: Self.bufferInterval)
             fixture.recorder.yield(dBFS: speech)
         }
-        await waitUntil { await fixture.transcriber.bufferCount == 3 }
+        await fixture.levelsHandled(3)
         fixture.clock.advance(by: ReleaseTail.deadline - fixture.sinceRelease - .nanoseconds(1))
-        await settle()
         #expect(fixture.recorder.finishCount == 0)
         #expect(fixture.state.pipelineState == .recording)
 
@@ -123,7 +117,6 @@ struct ReleaseTailPipelineTests {
         await fixture.startSpeaking()
 
         fixture.release()
-        await settle()
         #expect(fixture.metrics.begunStages.contains(.releaseToRecorderStopped))
         #expect(fixture.metrics.endedStages.contains(.releaseToRecorderStopped) == false)
 
@@ -193,7 +186,7 @@ struct ReleaseTailPipelineTests {
 
         #expect(fixture.state.pipelineState == .idle)
         fixture.clock.advance(by: .seconds(1))
-        await settle()
+        await fixture.state.waitForPendingWork()
         #expect(fixture.recorder.finishCount == 0)
         #expect(fixture.pasteboard.writes.isEmpty)
         #expect(fixture.history.records.isEmpty)
@@ -216,12 +209,11 @@ struct ReleaseTailPipelineTests {
         fixture.state.triggerPressed()
         fixture.state.triggerReleased()
         fixture.state.triggerPressed()
-        await settle()
         #expect(fixture.state.pipelineState == .recording)
         fixture.recorder.yield(dBFS: silence)
 
         await waitUntil { fixture.pasteboard.writes == ["Good morning"] }
-        await settle()
+        await fixture.state.waitForPendingWork()
         #expect(fixture.recorder.startCount == 1)
         #expect(fixture.recorder.finishCount == 1)
         #expect(await fixture.transformer.callCount == 1)
@@ -249,7 +241,7 @@ struct ShortTapTests {
         #expect(fixture.state.menuBarSymbol == "waveform")
         #expect(cue.states.last == .hidden)
         await waitUntil { await archive.snapshot().discardedEntryIDs.count == 1 }
-        await settle()
+        await fixture.state.waitForPendingWork()
         #expect(fixture.recorder.finishCount == 0)
         #expect(await archive.snapshot().commits.isEmpty)
         #expect(fixture.feedback.successSoundCount == 0)
@@ -303,7 +295,7 @@ struct ShortTapTests {
         fixture.state.revisionTriggerReleased()
 
         #expect(fixture.state.pipelineState == .idle)
-        await settle()
+        await fixture.state.waitForPendingWork()
         #expect(fixture.recorder.finishCount == 0)
         #expect(fixture.history.records.count == 1)
         #expect(fixture.pasteboard.writes.isEmpty)
@@ -371,7 +363,6 @@ struct RunActivityTests {
 
         await waitUntil { await transformer.cancellationCount == 1 }
         await waitUntil { fixture.recorder.startCount == 2 }
-        await settle()
         #expect(activities.begun.count == 2)
         #expect(activities.ended == [activities.begun[0]])
         #expect(activities.reasons.count == 2 && Set(activities.reasons).count == 1)
@@ -402,12 +393,12 @@ struct OutputDuckingTests {
         fixture.release()
         fixture.recorder.yield(dBFS: speech)
         await waitUntil { await fixture.transcriber.bufferCount == 2 }
-        await settle()
+        await waitUntil { volume.writes == [Self.lowered] }
         #expect(volume.writes == [Self.lowered])
         fixture.recorder.yield(dBFS: silence)
 
         await waitUntil { fixture.state.pipelineState == .idle && fixture.pasteboard.writes == ["Good morning"] }
-        await settle()
+        await fixture.state.waitForPendingWork()
         #expect(volume.writes == [Self.lowered, Self.original])
         volume.cleanUp()
     }
@@ -424,7 +415,7 @@ struct OutputDuckingTests {
         fixture.state.cancelRequested()
 
         await waitUntil { volume.writes == [Self.lowered, Self.original] }
-        await settle()
+        await fixture.state.waitForPendingWork()
         #expect(volume.writes == [Self.lowered, Self.original])
         #expect(fixture.pasteboard.writes.isEmpty)
         volume.cleanUp()
@@ -457,7 +448,7 @@ struct OutputDuckingTests {
         fixture.recorder.yield(dBFS: silence)
 
         await waitUntil { fixture.state.pipelineState == .idle && fixture.pasteboard.writes == ["Good morning"] }
-        await settle()
+        await fixture.state.waitForPendingWork()
         #expect(volume.accessCount == 0)
         volume.cleanUp()
     }
@@ -918,7 +909,13 @@ private final class RecordingFixture {
         await waitUntil { self.recorder.startCount == 1 }
         recorder.yield(dBFS: speech)
         await waitUntil { await self.transcriber.bufferCount == 1 }
+        await levelsHandled(1)
         clock.advance(by: .seconds(1))
+    }
+
+    /// Waits until the run has handled the level of `count` buffers, which decides the release tail.
+    func levelsHandled(_ count: Int) async {
+        await waitUntil { self.metrics.bufferLevelCount == count }
     }
 
     func release() {
@@ -963,12 +960,6 @@ private func makeRecordingSettings() -> AppSettings {
     return settings
 }
 
-@MainActor
-private func settle() async {
-    for _ in 0..<100 {
-        await Task.yield()
-    }
-}
 
 @MainActor
 private func waitUntil(

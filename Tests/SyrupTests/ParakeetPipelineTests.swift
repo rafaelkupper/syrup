@@ -219,7 +219,7 @@ struct ParakeetPipelineTests {
         harness.state.triggerReleased()
         await harness.settle(until: .transcribing)
         await parakeet.fail(.transcriber)
-        for _ in 0..<100 { await Task.yield() }
+        await harness.wait { await parakeet.finishedCount == 1 }
 
         harness.state.cancelRequested()
         await harness.wait { await apple.cancellationCount == 1 }

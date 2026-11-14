@@ -173,7 +173,7 @@ struct PipelineSafeguardTests {
         await eventually { await gate.count == 2 }
         #expect(await gate.count == 2)
         await gate.finish("en-US")
-        for _ in 0..<50 { await Task.yield() }
+        await eventually { manager.assetState(forLocale: "en-US") == .installed("en-US") }
         #expect(manager.selectedLocaleAssetState == .checking)
         await gate.finish("pt-BR")
         await eventually { manager.selectedLocaleAssetState == .installed("pt-BR") }
@@ -208,7 +208,7 @@ struct PipelineSafeguardTests {
         state.cancelRequested()
         continuation.yield(" stale")
         continuation.finish()
-        for _ in 0..<100 { await Task.yield() }
+        await state.waitForPendingWork()
         #expect(state.pipelineState == .idle)
         #expect(pasteboard.writes.isEmpty)
         #expect(cue.outputs == ["Visible partial"])

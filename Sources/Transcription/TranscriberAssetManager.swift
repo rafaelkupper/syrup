@@ -129,6 +129,11 @@ final class TranscriberAssetManager {
         }
     }
 
+    /// The last known asset state of one locale, nil before it was ever prepared.
+    func assetState(forLocale localeID: String) -> AssetState? {
+        localeStates[Self.bcp47Identifier(for: Locale(identifier: localeID))]
+    }
+
     private func setState(_ state: AssetState, for localeID: String) {
         localeStates[localeID] = state
         if selectedLocaleID == localeID { selectedLocaleAssetState = state }

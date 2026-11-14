@@ -63,7 +63,13 @@ protocol PipelineMetricsRecording: AnyObject {
     func recordDuration(_ stage: PipelineMetricStage, duration: Duration, runID: UUID)
     func recordQuietBeforeRelease(_ duration: Duration, runID: UUID)
     func recordPauseTransformation(_ outcome: PauseTransformationOutcome, attemptCount: Int, runID: UUID)
+    /// One captured buffer's level reached the run. Production records nothing; tests wait on it.
+    func recordBufferLevel(runID: UUID)
     func discard(runID: UUID)
+}
+
+extension PipelineMetricsRecording {
+    func recordBufferLevel(runID: UUID) {}
 }
 
 @MainActor

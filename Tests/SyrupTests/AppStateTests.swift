@@ -993,9 +993,7 @@ struct AppStateTests {
 
         state.cancelRequested()
         await expectState(state, .idle)
-        for _ in 0..<10 {
-            await Task.yield()
-        }
+        await state.waitForPendingWork()
 
         let autoPasteDelayCallCount = await sleeper.observedCallCount()
         #expect(autoPasteDelayCallCount == 0)
@@ -2316,9 +2314,7 @@ struct AppStateTests {
         await expectState(state, .idle)
 
         await provider.resume()
-        for _ in 0..<20 {
-            await Task.yield()
-        }
+        await state.waitForPendingWork()
 
         let transformerCallCount = await transformer.callCount
         #expect(transformerCallCount == 0)

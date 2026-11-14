@@ -110,6 +110,8 @@ final class AppState {
     @ObservationIgnored var outputVolumeWork: Task<Void, Never>?
     /// Recordings still being filed or discarded after their run ended, keyed by recording ID.
     @ObservationIgnored var recordingWork: [UUID: Task<Void, Never>] = [:]
+    /// Run tasks that have not returned yet, keyed by run ID. See `launch`.
+    @ObservationIgnored private var runTasks: [UUID: Task<Void, Never>] = [:]
     @ObservationIgnored let streamingTypistFactory: () -> any StreamingTyping
     @ObservationIgnored var activeRun: PipelineRun?
     @ObservationIgnored var foregroundActivityChanged: ((Bool) -> Void)?
@@ -391,13 +393,12 @@ final class AppState {
     /// Called before the app quits, including Command-Q, logout, and an update relaunch. Ends any
     /// run, puts the output volume back, and writes pending history.
     func prepareForTermination() async {
-        let runTask = activeRun?.task
         if activeRun != nil || pipelineState != .idle {
             cancelActiveRun()
         }
         // A cancelled run discards its recording on the way out; a finished one may still be filing
         // its recording for learning. Both get a bounded wait so quitting never hangs.
-        let pending = [runTask].compactMap { $0 } + Array(recordingWork.values) + [outputVolumeWork].compactMap { $0 }
+        let pending = Array(runTasks.values) + Array(recordingWork.values) + [outputVolumeWork].compactMap { $0 }
         if pending.isEmpty == false {
             _ = try? await withOperationTimeout(.seconds(2), error: CancellationError()) {
                 for task in pending { await task.value }
@@ -596,13 +597,13 @@ final class AppState {
             let resolved = Task { [weak self] () -> RunConfiguration? in
                 await self?.resolveRunContext(run, context)
             }
-            run.task = Task { [weak self] in
-                await self?.runPipeline(runID: runID, resolvedConfiguration: resolved)
+            launch(run) { state in
+                await state.runPipeline(runID: runID, resolvedConfiguration: resolved)
             }
         case .selection:
-            run.task = Task { [weak self] in
-                guard let self, let configuration = await resolveRunContext(run, context) else { return }
-                await runSelectionPipeline(runID: runID, configuration: configuration)
+            launch(run) { state in
+                guard let configuration = await state.resolveRunContext(run, context) else { return }
+                await state.runSelectionPipeline(runID: runID, configuration: configuration)
             }
         }
     }
@@ -697,8 +698,38 @@ final class AppState {
             }
             return configuration
         }
-        run.task = Task { [weak self] in
-            await self?.runPipeline(runID: runID, resolvedConfiguration: resolved)
+        launch(run) { state in
+            await state.runPipeline(runID: runID, resolvedConfiguration: resolved)
+        }
+    }
+
+    /// Starts a run's task and tracks it until it returns, cancelled or not, so quitting and tests can
+    /// wait for a run's work to be over rather than guessing.
+    private func launch(_ run: PipelineRun, _ body: @escaping @MainActor (AppState) async -> Void) {
+        let id = run.id
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await body(self)
+            self.runTasks[id] = nil
+        }
+        run.task = task
+        runTasks[id] = task
+    }
+
+    /// Waits for every run task, recording filing, and output-volume change started so far, including
+    /// those of runs that were cancelled or superseded.
+    /// Finishing work can start more (a delivered run files its recording), so this repeats until
+    /// nothing new has appeared.
+    func waitForPendingWork() async {
+        var finished: Set<Task<Void, Never>> = []
+        while true {
+            let pending = (Array(runTasks.values) + Array(recordingWork.values) + [outputVolumeWork].compactMap { $0 })
+                .filter { finished.contains($0) == false }
+            guard pending.isEmpty == false else { return }
+            for task in pending {
+                await task.value
+                finished.insert(task)
+            }
         }
     }
 
@@ -770,11 +801,11 @@ final class AppState {
 
         prepareTransformer(for: run)
         let foregroundPID = frontmostApplication(false).processID
-        run.task = Task { [weak self, captureDeliveryTarget] in
+        launch(run) { [captureDeliveryTarget] state in
             if run.needsDeliveryTarget {
                 run.deliveryTarget = await captureDeliveryTarget(foregroundPID)
             }
-            await self?.retryPipeline(
+            await state.retryPipeline(
                 record: record,
                 inputText: inputText,
                 configuration: configuration,

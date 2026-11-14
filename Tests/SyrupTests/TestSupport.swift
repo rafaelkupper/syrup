@@ -162,6 +162,8 @@ actor FakeTranscriber: Transcriber {
     private var cancellationWaiter: CheckedContinuation<Void, Never>?
     private(set) var callCount = 0
     private(set) var cancellationCount = 0
+    /// Calls that have returned or thrown.
+    private(set) var finishedCount = 0
     private(set) var localeIdentifier: String?
     private(set) var vocabulary: [String] = []
 
@@ -170,6 +172,7 @@ actor FakeTranscriber: Transcriber {
     }
 
     func transcribe(_ audio: AudioBufferSequence, request: TranscriptionRequest) async throws -> String {
+        defer { finishedCount += 1 }
         let locale = request.locale
         let vocabulary = request.vocabulary
         let onPartialTranscript = request.onPartialTranscript
@@ -740,6 +743,9 @@ final class SpyPipelineMetrics: PipelineMetricsRecording {
     func recordPauseTransformation(_ outcome: PauseTransformationOutcome, attemptCount: Int, runID: UUID) {
         pauseOutcomes.append((outcome, attemptCount))
     }
+
+    private(set) var bufferLevelCount = 0
+    func recordBufferLevel(runID: UUID) { bufferLevelCount += 1 }
 
     func discard(runID: UUID) {
         discardedRunIDs.append(runID)

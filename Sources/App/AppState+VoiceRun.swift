@@ -446,6 +446,7 @@ extension AppState {
             }
         }
         receiveReleaseTail(.bufferLevel(dBFS: dBFS), runID: runID)
+        metrics.recordBufferLevel(runID: runID)
     }
 
     private func schedulePauseTransformation(for run: PipelineRun) {
