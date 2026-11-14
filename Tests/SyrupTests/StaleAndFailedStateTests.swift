@@ -43,7 +43,7 @@ struct StaleAndFailedStateTests {
     }
 
     @Test func pauseUnregistersShortcutsAndResumeUsesCurrentWorkflows() {
-        let suite = "SyrupHotkeyCorrection.\(UUID())"
+        let suite = testDomainName("SyrupHotkeyCorrection")
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
@@ -70,7 +70,7 @@ struct StaleAndFailedStateTests {
     }
 
     @Test func appPauseKeepsEditedWorkflowShortcutsDetached() {
-        let suite = "SyrupPauseCorrection.\(UUID())"
+        let suite = testDomainName("SyrupPauseCorrection")
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
@@ -107,7 +107,7 @@ struct StaleAndFailedStateTests {
     }
 
     @Test func unreadableSavedKeyDoesNotFallBackToEnvironment() async throws {
-        let directory = FileManager.default.temporaryDirectory.appending(path: "SyrupKeyReadCorrection.\(UUID())")
+        let directory = FileManager.default.temporaryDirectory.appending(path: testDomainName("SyrupKeyReadCorrection"))
         defer { try? FileManager.default.removeItem(at: directory) }
         let store = KeychainStore(service: "fixture", storageDirectory: directory)
         try store.save("fixture-value")
@@ -142,7 +142,7 @@ struct StaleAndFailedStateTests {
     }
 
     @Test func audioStagesPreserveUpstreamFailure() async throws {
-        let directory = FileManager.default.temporaryDirectory.appending(path: "SyrupAudioFailure.\(UUID())")
+        let directory = FileManager.default.temporaryDirectory.appending(path: testDomainName("SyrupAudioFailure"))
         defer { try? FileManager.default.removeItem(at: directory) }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let (source, continuation) = AudioBufferSequence.makeStream()
@@ -156,7 +156,7 @@ struct StaleAndFailedStateTests {
     }
 
     @Test func archiveCountsFollowCommitsDeletesAndNewSubscribers() async throws {
-        let directory = FileManager.default.temporaryDirectory.appending(path: "SyrupCountCorrection.\(UUID())")
+        let directory = FileManager.default.temporaryDirectory.appending(path: testDomainName("SyrupCountCorrection"))
         defer { try? FileManager.default.removeItem(at: directory) }
         let archive = RecordingArchive(storageDirectory: directory)
         let counts = await archive.pendingEntryCounts()
@@ -194,7 +194,7 @@ struct StaleAndFailedStateTests {
     }
 
     @Test func failedCredentialDeletionMustNotLookSuccessful() throws {
-        let directory = FileManager.default.temporaryDirectory.appending(path: "SyrupCredentialAudit.\(UUID())")
+        let directory = FileManager.default.temporaryDirectory.appending(path: testDomainName("SyrupCredentialAudit"))
         let secretDirectory = directory.appending(path: "audit")
         let secret = secretDirectory.appending(path: "apiKey.secret")
         defer {
@@ -213,7 +213,7 @@ struct StaleAndFailedStateTests {
     }
 
     @Test func productionLevelTapOverflowAfterReleaseMustPreventDelivery() async throws {
-        let suite = "SyrupAudioAudit.\(UUID())"
+        let suite = testDomainName("SyrupAudioAudit")
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
@@ -245,7 +245,7 @@ struct StaleAndFailedStateTests {
     }
 
     @Test func lateCaptureOverflowMustPreventDelivery() async throws {
-        let suite = "SyrupAudit.\(UUID())"
+        let suite = testDomainName("SyrupAudit")
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })

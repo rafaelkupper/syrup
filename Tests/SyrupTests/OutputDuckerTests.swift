@@ -190,7 +190,7 @@ struct OutputDuckerTests {
     }
 
     private struct Fixture {
-        let suite = "SyrupOutputDuckerTests.\(UUID().uuidString)"
+        let suite = testDomainName("SyrupOutputDuckerTests")
         let defaults: UserDefaults
         let controller: FakeOutputVolumeController
         let ducker: OutputDucker

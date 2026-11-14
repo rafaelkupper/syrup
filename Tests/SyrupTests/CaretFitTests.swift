@@ -219,7 +219,7 @@ struct CaretFitDeliveryTests {
 
 @MainActor
 private final class CaretFitFixture {
-    let suite = "CaretFit.\(UUID())"
+    let suite = testDomainName("CaretFit")
     let defaults: UserDefaults
     let settings: AppSettings
     let clipboard = SpyPasteboard()

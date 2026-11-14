@@ -136,7 +136,7 @@ struct HomeStatusTests {
 @MainActor
 struct OnboardingLogicTests {
     private func makeDefaults() throws -> (UserDefaults, String) {
-        let suite = "SyrupOnboardingTests.\(UUID().uuidString)"
+        let suite = testDomainName("SyrupOnboardingTests")
         return (try #require(UserDefaults(suiteName: suite)), suite)
     }
 

@@ -6,7 +6,7 @@ import Testing
 @MainActor
 struct PipelineSafeguardTests {
     @Test func historyDeletionFailurePreservesOptInAndRecords() async throws {
-        let directory = FileManager.default.temporaryDirectory.appending(path: "SyrupHistoryFailure.\(UUID())")
+        let directory = FileManager.default.temporaryDirectory.appending(path: testDomainName("SyrupHistoryFailure"))
         defer {
             try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)
             try? FileManager.default.removeItem(at: directory)
@@ -30,7 +30,7 @@ struct PipelineSafeguardTests {
     }
 
     @Test func historyDeletionWaitsForQueuedWrites() async throws {
-        let directory = FileManager.default.temporaryDirectory.appending(path: "SyrupHistoryBarrier.\(UUID())")
+        let directory = FileManager.default.temporaryDirectory.appending(path: testDomainName("SyrupHistoryBarrier"))
         defer { try? FileManager.default.removeItem(at: directory) }
         let store = HistoryStore(persistenceEnabled: true, storageDirectory: directory)
         for index in 0..<40 { store.append(record("\(index)")) }
@@ -100,7 +100,7 @@ struct PipelineSafeguardTests {
         let settings = fixtureSettings()
         settings.baseURL = "https://snapshot.invalid/v1"
         settings.modelName = "original-model"
-        let directory = FileManager.default.temporaryDirectory.appending(path: "SyrupSnapshot.\(UUID())")
+        let directory = FileManager.default.temporaryDirectory.appending(path: testDomainName("SyrupSnapshot"))
         defer { try? FileManager.default.removeItem(at: directory) }
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [SnapshotURLProtocol.self]
@@ -225,7 +225,7 @@ struct PipelineSafeguardTests {
     }
 
     private func fixtureSettings() -> AppSettings {
-        let defaults = UserDefaults(suiteName: "SyrupReviewTests.\(UUID())")!
+        let defaults = UserDefaults(suiteName: testDomainName("SyrupReviewTests"))!
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
         settings.showRecordingCue = false
         settings.playSounds = false

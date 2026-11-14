@@ -566,7 +566,7 @@ struct OpenAICompatibleTransformerTests {
     @Test
     @MainActor
     func appSettingsProviderFallsBackToEnvironmentWhenSavedAPIKeyIsEmpty() async throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         let (keychainStore, storageDirectory) = Self.temporaryKeychainStore()
         try? keychainStore.delete()
@@ -603,7 +603,7 @@ struct OpenAICompatibleTransformerTests {
     @Test
     @MainActor
     func appSettingsProviderIgnoresIncompleteEnvironmentWhenSavedAPIKeyIsEmpty() async throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         let (keychainStore, storageDirectory) = Self.temporaryKeychainStore()
         try? keychainStore.delete()
@@ -639,7 +639,7 @@ struct OpenAICompatibleTransformerTests {
     @Test
     @MainActor
     func appSettingsProviderUsesSavedSettingsAndLocalAPIKeyBeforeEnvironment() async throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         let (keychainStore, storageDirectory) = Self.temporaryKeychainStore()
         try? keychainStore.delete()
@@ -677,7 +677,7 @@ struct OpenAICompatibleTransformerTests {
     @Test
     @MainActor
     func runsAndConnectionTestTreatAWhitespaceSavedKeyTheSame() async throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         let (keychainStore, storageDirectory) = Self.temporaryKeychainStore()
         defer {
@@ -717,7 +717,7 @@ struct OpenAICompatibleTransformerTests {
 
     private static func temporaryKeychainStore() -> (KeychainStore, URL) {
         let storageDirectory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("SyrupTests.\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent(testDomainName("SyrupTests"), isDirectory: true)
         let store = KeychainStore(
             service: "org.syrup.SyrupTests",
             storageDirectory: storageDirectory

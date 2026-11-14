@@ -321,7 +321,7 @@ private final class Harness {
         clock: any RecordingClock = FastForwardClock(),
         recordingCue: (any RecordingCuePresenting)? = nil
     ) throws {
-        let suiteName = "ParakeetPipelineTests.\(UUID())"
+        let suiteName = testDomainName("ParakeetPipelineTests")
         let defaults = try #require(UserDefaults(suiteName: suiteName))
         let clipboard = SpyPasteboard(), feedback = SpyFeedback()
         self.suiteName = suiteName

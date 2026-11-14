@@ -91,7 +91,7 @@ struct GlossaryTests {
 
     @Test
     func unknownVersionRunsEmptyWithoutReplacingStoredBlob() throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
@@ -113,7 +113,7 @@ struct GlossaryTests {
 
     @Test
     func unknownProposalVersionSurvivesNewProposals() throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
@@ -150,7 +150,7 @@ struct GlossaryTests {
 
     @Test
     func corruptBlobRecoversWithEmptyGlossary() throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
@@ -175,7 +175,7 @@ struct GlossaryTests {
         ("workflowListV3", Data(#"{"version":3,"workflows":[{"kind":{"aNewerKind":{}}}],"activeWorkflowID":"x"}"#.utf8)),
     ])
     func unusableBlobsSurviveTheFirstEdit(key: String, blob: Data) throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer { userDefaults.removePersistentDomain(forName: suiteName) }
         userDefaults.set(blob, forKey: key)
@@ -207,7 +207,7 @@ struct GlossaryTests {
     /// A newer build's blob is not copied: it stays where it is and is never overwritten.
     @Test
     func aNewerBlobGetsNoBackup() throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer { userDefaults.removePersistentDomain(forName: suiteName) }
         let futureBlob = Data(#"{"version":2,"terms":"a newer shape"}"#.utf8)
@@ -221,7 +221,7 @@ struct GlossaryTests {
 
     @Test
     func appSettingsPersistsAndReloadsNormalizedGlossaryBlob() throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)

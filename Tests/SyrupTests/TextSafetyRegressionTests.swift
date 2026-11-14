@@ -11,7 +11,7 @@ struct TextSafetyRegressionTests {
         ("en-US", "Use the event hashtag on every post"),
     ])
     func defaultTranscribeKeepsOrdinaryWords(locale: String, spoken: String) async {
-        let suite = "ReviewRepro.\(UUID())"
+        let suite = testDomainName("ReviewRepro")
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })

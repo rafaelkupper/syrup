@@ -145,7 +145,7 @@ private final class Fixture {
     let manager: SpeechModelManager
 
     init(onDisk: Bool, isSupported: Bool = true, progress: [Double] = [], failingDownloads: Int = 0) throws {
-        let root = FileManager.default.temporaryDirectory.appending(path: "SpeechModelManagerTests.\(UUID())", directoryHint: .isDirectory)
+        let root = FileManager.default.temporaryDirectory.appending(path: testDomainName("SpeechModelManagerTests"), directoryHint: .isDirectory)
         let log = CallLog(), gate = Gate()
         self.root = root
         self.log = log

@@ -272,7 +272,7 @@ struct RecoveryReliabilityTests {
 
     @Test
     func failedSelectionDeliveryStaysVolatileUntilExplicitCopy() async throws {
-        let directory = FileManager.default.temporaryDirectory.appending(path: "SyrupRecoveryHistory.\(UUID())")
+        let directory = FileManager.default.temporaryDirectory.appending(path: testDomainName("SyrupRecoveryHistory"))
         defer { try? FileManager.default.removeItem(at: directory) }
         let settings = settings()
         settings.persistHistory = true
@@ -413,7 +413,7 @@ struct RecoveryReliabilityTests {
     }
 
     private func settings() -> AppSettings {
-        let name = "SyrupRecoveryTests.\(UUID())"
+        let name = testDomainName("SyrupRecoveryTests")
         let defaults = UserDefaults(suiteName: name)!
         // This suite never writes to the real app's defaults.
         defaults.removePersistentDomain(forName: name)

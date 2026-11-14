@@ -111,7 +111,7 @@ struct FnKeyHotkeyTests {
     }
 
     @MainActor private struct Fixture {
-        let suite = "SyrupFnKeyTests.\(UUID().uuidString)"
+        let suite = testDomainName("SyrupFnKeyTests")
         let keys = Keys()
         let settings: AppSettings
         let state: AppState
@@ -457,7 +457,7 @@ struct FnKeyHotkeyTests {
     }
 
     @Test func theOptionIsOffByDefaultAndPersists() {
-        let suite = "SyrupFnKeyTests.\(UUID().uuidString)"
+        let suite = testDomainName("SyrupFnKeyTests")
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })

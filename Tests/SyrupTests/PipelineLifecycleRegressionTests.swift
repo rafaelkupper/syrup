@@ -6,7 +6,7 @@ import Testing
 @MainActor
 struct PipelineLifecycleRegressionTests {
     private func settings(learning: Bool = false) -> (AppSettings, String) {
-        let name = "SyrupReview.\(UUID().uuidString)"
+        let name = testDomainName("SyrupReview")
         let settings = AppSettings(userDefaults: UserDefaults(suiteName: name)!, defaultMicrophoneIDProvider: { "" })
         settings.glossaryLearningEnabled = learning
         settings.showRecordingCue = false
@@ -15,7 +15,7 @@ struct PipelineLifecycleRegressionTests {
     }
 
     @Test func listingPendingMustPreserveActiveWAV() async throws {
-        let directory = FileManager.default.temporaryDirectory.appending(path: "SyrupReviewArchive.\(UUID())")
+        let directory = FileManager.default.temporaryDirectory.appending(path: testDomainName("SyrupReviewArchive"))
         defer { try? FileManager.default.removeItem(at: directory) }
         let archive = RecordingArchive(storageDirectory: directory)
         let url = try await archive.beginEntry(id: UUID())

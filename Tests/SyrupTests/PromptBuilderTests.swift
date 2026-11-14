@@ -342,13 +342,13 @@ struct DictationOptionsPromptTests {
 @MainActor
 struct DictationOptionsSettingsTests {
     private func settings() -> AppSettings {
-        let suite = "DictationOptionsSettingsTests.\(UUID())"
+        let suite = testDomainName("DictationOptionsSettingsTests")
         let defaults = UserDefaults(suiteName: suite)!
         return AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
     }
 
     @Test func bothDefaultOffAndPersistSeparately() {
-        let suite = "DictationOptionsSettingsTests.\(UUID())"
+        let suite = testDomainName("DictationOptionsSettingsTests")
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let first = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })

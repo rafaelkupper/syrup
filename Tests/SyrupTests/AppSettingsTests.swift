@@ -6,7 +6,7 @@ import Testing
 struct AppSettingsTests {
     @Test
     func defaultSettingsUseMilestone7Values() throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
@@ -48,7 +48,7 @@ struct AppSettingsTests {
 
     @Test
     func glossaryProposalsPersistAndReloadAsVersionedBlob() throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
@@ -91,7 +91,7 @@ struct AppSettingsTests {
 
     @Test
     func milestone7SettingsPersistRawValuesInUserDefaults() throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
@@ -167,7 +167,7 @@ struct AppSettingsTests {
 
     @Test
     func disablingGlossaryLearningDeletesPendingRecordings() async throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer { userDefaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(
@@ -195,7 +195,7 @@ struct AppSettingsTests {
 
     @Test
     func failedStartupCleanupNeverEnablesGlossaryLearning() async throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer { userDefaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(
@@ -218,7 +218,7 @@ struct AppSettingsTests {
 
     @Test
     func failedGlossaryLearningDeletionKeepsTheOptInEnabled() async throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer { userDefaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(
@@ -241,7 +241,7 @@ struct AppSettingsTests {
 
     @Test
     func invalidPersistedEnumValuesFallBackToSafeDefaults() throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
@@ -269,7 +269,7 @@ struct AppSettingsTests {
 
     @Test
     func workflowListMigratesFromFlatSettingsAndPersistsAsBlob() throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
@@ -296,7 +296,7 @@ struct AppSettingsTests {
 
     @Test
     func versionOneWorkflowBlobUpgradesWithoutLosingWorkflows() throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
@@ -341,7 +341,7 @@ struct AppSettingsTests {
 
     @Test
     func contextualRunSnapshotExcludesCapturedSelection() throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
@@ -391,7 +391,7 @@ struct AppSettingsTests {
 
     @Test
     func runConfigurationDefaultsToDictationWithoutCapturedContext() throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
@@ -412,7 +412,7 @@ struct AppSettingsTests {
 
     @Test
     func workflowMutationsPreserveLastWorkflowInvariant() throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
@@ -448,7 +448,7 @@ struct AppSettingsTests {
         "en_US",
     ])
     func accidentalEnglishDictationDefaultMigratesOnceToPortugueseBrazil(englishLocaleID: String) throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
@@ -475,7 +475,7 @@ struct AppSettingsTests {
 
     @Test
     func nonEnglishDictationLocaleSurvivesPortugueseDefaultMigration() throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
@@ -494,7 +494,7 @@ struct AppSettingsTests {
 
     @Test
     func toneInstructionBridgesPresetAndCustomStorage() throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
@@ -516,7 +516,7 @@ struct AppSettingsTests {
 
     @Test
     func selectedMicrophoneIDPersistsInUserDefaults() throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
@@ -539,7 +539,7 @@ struct AppSettingsTests {
 
     @Test
     func selectedMicrophoneIDDefaultsToBuiltInMicrophoneWhenAvailable() throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
@@ -556,7 +556,7 @@ struct AppSettingsTests {
 
     @Test
     func playSoundsPersistsInUserDefaults() throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
@@ -579,7 +579,7 @@ struct AppSettingsTests {
 
     @Test
     func successSoundPersistsAndFallsBackToDefault() throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)
@@ -608,7 +608,7 @@ struct AppSettingsTests {
 
     @Test
     func maximumRecordingDurationIsClampedAndPersisted() throws {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer {
             userDefaults.removePersistentDomain(forName: suiteName)

@@ -7,7 +7,7 @@ struct KeychainStoreTests {
     @Test
     func saveLoadUpdateAndDeleteRoundTripUsesLocalSecretFile() throws {
         let storageDirectory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("SyrupTests.\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent(testDomainName("SyrupTests"), isDirectory: true)
         let store = KeychainStore(
             service: "org.syrup.SyrupTests",
             storageDirectory: storageDirectory

@@ -3,6 +3,29 @@ import Foundation
 import Testing
 @testable import Syrup
 
+/// This test run's token. `script/test-isolated.sh` gives each run its own bundle identifier,
+/// `org.syrup.SyrupIsolatedTests.<token>`; a plain `xcodebuild test` uses "local".
+enum TestRun {
+    static let isolatedBundlePrefix = "org.syrup.SyrupIsolatedTests."
+
+    static var token: String {
+        token(bundleIdentifier: Bundle.main.bundleIdentifier)
+    }
+
+    static func token(bundleIdentifier: String?) -> String {
+        guard let bundleIdentifier, bundleIdentifier.hasPrefix(isolatedBundlePrefix) else { return "local" }
+        let token = String(bundleIdentifier.dropFirst(isolatedBundlePrefix.count))
+        return token.isEmpty ? "local" : token
+    }
+}
+
+/// A unique name for a test's preference domain or scratch item: `<prefix>.<run token>.<UUID>`.
+/// The run token lets `script/test-isolated.sh` remove only its own run's preference files, so
+/// concurrent runs never delete each other's.
+func testDomainName(_ prefix: String) -> String {
+    "\(prefix).\(TestRun.token).\(UUID().uuidString)"
+}
+
 /// Waits until `condition` holds. Between checks it yields, and every so often sleeps briefly so
 /// work on detached tasks and other actors can progress. It fails the test after `timeout` of real
 /// time, rather than after a fixed number of yields that may or may not cover the work under test.

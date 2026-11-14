@@ -76,7 +76,7 @@ struct PipelineTransitionsTests {
 @MainActor
 @Suite(.serialized)
 struct PipelineRunTests {
-    private let suite = "SyrupPipelineRunTests.\(UUID())"
+    private let suite = testDomainName("SyrupPipelineRunTests")
 
     private func settings() throws -> (AppSettings, UserDefaults) {
         let defaults = try #require(UserDefaults(suiteName: suite))

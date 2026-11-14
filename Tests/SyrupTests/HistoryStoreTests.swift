@@ -182,6 +182,6 @@ struct HistoryStoreTests {
 
     private func temporaryDirectory() -> URL {
         FileManager.default.temporaryDirectory
-            .appending(path: "SyrupHistoryTests.\(UUID().uuidString)", directoryHint: .isDirectory)
+            .appending(path: testDomainName("SyrupHistoryTests"), directoryHint: .isDirectory)
     }
 }

@@ -20,7 +20,7 @@ struct WhisperModelRemovalTests {
     @Test
     func removeModelWithoutFilesIsANoOpReset() {
         let storageDirectory = FileManager.default.temporaryDirectory
-            .appending(path: "SyrupWhisperModelTests.\(UUID().uuidString)", directoryHint: .isDirectory)
+            .appending(path: testDomainName("SyrupWhisperModelTests"), directoryHint: .isDirectory)
         let manager = WhisperModelManager(storageDirectory: storageDirectory)
         #expect(manager.state == .notDownloaded)
 
@@ -31,7 +31,7 @@ struct WhisperModelRemovalTests {
 
     private func makeInstalledModelDirectory() throws -> URL {
         let storageDirectory = FileManager.default.temporaryDirectory
-            .appending(path: "SyrupWhisperModelTests.\(UUID().uuidString)", directoryHint: .isDirectory)
+            .appending(path: testDomainName("SyrupWhisperModelTests"), directoryHint: .isDirectory)
         let modelDirectory = storageDirectory
             .appending(path: "models/argmaxinc/whisperkit-coreml", directoryHint: .isDirectory)
             .appending(path: WhisperModelManager.modelVariant, directoryHint: .isDirectory)

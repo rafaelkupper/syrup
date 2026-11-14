@@ -18,7 +18,7 @@ struct SmartSpacingTests {
 
     @Test(arguments: atomicCases)
     func atomicDeliveryKeepsClipboardExact(enabled: Bool, precedingWord: Bool, strategy: PasteStrategy) async {
-        let suite = "Spacing.\(UUID())", reads = Mutex(0)
+        let suite = testDomainName("Spacing"), reads = Mutex(0)
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
@@ -54,7 +54,7 @@ struct SmartSpacingTests {
 
     @Test(arguments: [true, false])
     func streamingPrefixesOnceAndCopyOnlyNeverReads(autoPaste: Bool) async {
-        let suite = "Spacing.\(UUID())", reads = Mutex(0)
+        let suite = testDomainName("Spacing"), reads = Mutex(0)
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })

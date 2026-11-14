@@ -552,7 +552,7 @@ final class VolumeControllerFake: OutputVolumeControlling {
     private let state: Mutex<State>
     private let firstWriteGate: DispatchSemaphore?
     private let failsReads: Bool
-    private let suiteName = "SyrupOutputDuckingTests.\(UUID().uuidString)"
+    private let suiteName = testDomainName("SyrupOutputDuckingTests")
     var writes: [[UInt32: Float32]] { state.withLock { $0.writes } }
     var accessCount: Int { state.withLock { $0.accessCount } }
 
@@ -955,7 +955,7 @@ private func historyWithResult() -> HistoryStore {
 
 @MainActor
 private func makeRecordingSettings() -> AppSettings {
-    let suiteName = "SyrupReleasePathTests.\(UUID().uuidString)"
+    let suiteName = testDomainName("SyrupReleasePathTests")
     let userDefaults = UserDefaults(suiteName: suiteName)!
     userDefaults.removePersistentDomain(forName: suiteName)
     let settings = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })

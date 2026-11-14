@@ -225,7 +225,7 @@ struct GlossaryLearningCoordinatorTests {
     }
 
     private func makeCoordinatorSettings(enabled: Bool) -> AppSettings {
-        let suiteName = "SyrupGlossaryLearningCoordinatorTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupGlossaryLearningCoordinatorTests")
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
@@ -290,7 +290,7 @@ struct WhisperModelManagerTests {
 
     private func temporaryModelDirectory() -> URL {
         FileManager.default.temporaryDirectory
-            .appending(path: "SyrupWhisperModelManagerTests.\(UUID().uuidString)")
+            .appending(path: testDomainName("SyrupWhisperModelManagerTests"))
     }
 
     private func modelDirectory(in storageDirectory: URL) -> URL {
@@ -466,7 +466,7 @@ extension GlossaryLearningCoordinatorTests {
     }
 
     @Test func judgeFailuresBackOffAndAllowNewerRecordingsToProgress() async throws {
-        let directory = FileManager.default.temporaryDirectory.appending(path: "SyrupBackoff.\(UUID())")
+        let directory = FileManager.default.temporaryDirectory.appending(path: testDomainName("SyrupBackoff"))
         defer { try? FileManager.default.removeItem(at: directory) }
         let timestamp = Date(timeIntervalSince1970: 1_000)
         let archive = RecordingArchive(storageDirectory: directory, now: { timestamp })

@@ -348,7 +348,7 @@ struct CodexCLITransformerTests {
     func processRunnerCancellationTerminatesRunningProcess() async throws {
         let runner = ProcessCommandRunner(killGraceNanoseconds: 50_000_000)
         let markerURL = FileManager.default.temporaryDirectory
-            .appending(path: "SyrupCancel.\(UUID().uuidString)")
+            .appending(path: testDomainName("SyrupCancel"))
         defer {
             try? FileManager.default.removeItem(at: markerURL)
         }
@@ -456,7 +456,7 @@ private struct CodexFixture {
 
     init() throws {
         root = FileManager.default.temporaryDirectory
-            .appending(path: "SyrupCodexTests.\(UUID().uuidString)", directoryHint: .isDirectory)
+            .appending(path: testDomainName("SyrupCodexTests"), directoryHint: .isDirectory)
         home = root.appending(path: "home", directoryHint: .isDirectory)
         executableURL = root.appending(path: "codex")
         try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)

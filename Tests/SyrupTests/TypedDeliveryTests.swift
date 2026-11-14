@@ -6,7 +6,7 @@ import Testing
 struct TypedDeliveryTests {
     @Test(arguments: [["result", " more"], ["x"], [String(repeating: "word ", count: 50), "end"]])
     func streamingSmartSpacingSurvivesTheRealTypist(deltas: [String]) async {
-        let suite = "FollowUpReview.\(UUID())"
+        let suite = testDomainName("FollowUpReview")
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
@@ -45,7 +45,7 @@ struct TypedDeliveryTests {
 
     @Test(arguments: [(ownProcess: true, expectedPastes: 0), (ownProcess: false, expectedPastes: 1)])
     func onboardingHoldsPasteOnlyWhileSyrupIsInFront(ownProcess: Bool, expectedPastes: Int) async {
-        let suite = "FollowUpReview.\(UUID())"
+        let suite = testDomainName("FollowUpReview")
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })

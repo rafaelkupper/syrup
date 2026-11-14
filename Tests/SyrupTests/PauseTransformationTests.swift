@@ -38,7 +38,7 @@ struct PauseTransformationPolicyTests {
     }
 
     @MainActor @Test func resolvedEndpointControlsEligibilityAndIsFrozen() {
-        let name = "SyrupPauseEndpoint.\(UUID())"
+        let name = testDomainName("SyrupPauseEndpoint")
         let defaults = UserDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
@@ -60,7 +60,7 @@ struct PauseTransformationPolicyTests {
     }
 
     @MainActor @Test func preferenceDefaultsOffAndPersistsAsBool() {
-        let name = "SyrupPauseSettings.\(UUID())"
+        let name = testDomainName("SyrupPauseSettings")
         let defaults = UserDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
@@ -516,7 +516,7 @@ private actor PauseProvider: TransformerSource {
 
 @MainActor
 private final class PauseFixture {
-    let name = "SyrupPauseTests.\(UUID())"
+    let name = testDomainName("SyrupPauseTests")
     let settings: AppSettings
     let recorder = LevelRecorder()
     let clock = ManualRecordingClock()

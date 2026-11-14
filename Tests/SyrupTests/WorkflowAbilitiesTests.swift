@@ -25,7 +25,7 @@ struct WorkflowAbilitiesTests {
     }
 
     @Test func primaryRoutesButDedicatedAndRevisionStayExplicit() async throws {
-        let suite = "WorkflowAbilities.\(UUID())"
+        let suite = testDomainName("WorkflowAbilities")
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
@@ -74,7 +74,7 @@ struct WorkflowAbilitiesTests {
 
     @Test(arguments: [true, false], [PasteStrategy.commandV(9), .typeText])
     func transcriptionBypassesBrokenProviderAndDeliversAtomically(cleanup: Bool, strategy: PasteStrategy) async throws {
-        let suite = "WorkflowAbilities.\(UUID())"
+        let suite = testDomainName("WorkflowAbilities")
         let defaults = UserDefaults(suiteName: suite)!
         let directory = FileManager.default.temporaryDirectory.appending(path: suite)
         defer {
@@ -143,7 +143,7 @@ struct WorkflowAbilitiesTests {
     }
 
     @Test func cancelTranscriptionNeverWrites() async {
-        let suite = "WorkflowAbilities.\(UUID())"
+        let suite = testDomainName("WorkflowAbilities")
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
@@ -162,7 +162,7 @@ struct WorkflowAbilitiesTests {
     }
 
     @Test func cleanupEmptyUsesExistingEmptyTranscriptOutcome() async {
-        let suite = "WorkflowAbilities.\(UUID())"
+        let suite = testDomainName("WorkflowAbilities")
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
@@ -180,7 +180,7 @@ struct WorkflowAbilitiesTests {
     }
 
     @Test func reviseTranscriptionUsesConfiguredProvider() async throws {
-        let suite = "WorkflowAbilities.\(UUID())"
+        let suite = testDomainName("WorkflowAbilities")
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
@@ -226,7 +226,7 @@ struct WorkflowAbilitiesTests {
     }
 
     @Test func migrationPreservesOldBlobAndFutureBlobIsReadOnly() throws {
-        let suite = "WorkflowAbilities.\(UUID())"
+        let suite = testDomainName("WorkflowAbilities")
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         var list = WorkflowList(workflows: [workflow("Legacy")])
@@ -252,7 +252,7 @@ struct WorkflowAbilitiesTests {
     }
 
     @Test func onlyConfiguredRoutesWarmInactiveLocales() async {
-        let suite = "WorkflowAbilities.\(UUID())"
+        let suite = testDomainName("WorkflowAbilities")
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })
@@ -279,7 +279,7 @@ struct WorkflowAbilitiesTests {
     @Test(arguments: [WorkflowKind.custom(instruction: "polish", enforceOutputContract: true),
                       .transcribeOnly(cleanup: true), .transcribeOnly(cleanup: false)])
     func correctionsAreCapturedBeforeTransformationAndCleanup(_ kind: WorkflowKind) async throws {
-        let suite = "Corrections.\(UUID())"
+        let suite = testDomainName("Corrections")
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })

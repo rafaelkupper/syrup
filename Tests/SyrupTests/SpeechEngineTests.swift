@@ -61,7 +61,7 @@ struct SpeechEngineTests {
     }
 
     @Test func runsAndDuplicatesCarryTheWorkflowEngine() throws {
-        let suite = "SpeechEngineTests.\(UUID())"
+        let suite = testDomainName("SpeechEngineTests")
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })

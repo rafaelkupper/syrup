@@ -239,7 +239,7 @@ struct AudioRecorderTests {
 
     @MainActor
     private func makeSettings() throws -> (AppSettings, String) {
-        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let suiteName = testDomainName("SyrupTests")
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         userDefaults.removePersistentDomain(forName: suiteName)
         return (AppSettings(userDefaults: userDefaults), suiteName)

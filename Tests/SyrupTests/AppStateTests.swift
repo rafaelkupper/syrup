@@ -2875,7 +2875,7 @@ private func makeState(
 
 private func temporaryKeychainStore() -> (KeychainStore, URL) {
     let storageDirectory = FileManager.default.temporaryDirectory
-        .appendingPathComponent("SyrupAppStateTests.\(UUID().uuidString)", isDirectory: true)
+        .appendingPathComponent(testDomainName("SyrupAppStateTests"), isDirectory: true)
     let store = KeychainStore(
         service: "org.syrup.SyrupAppStateTests",
         storageDirectory: storageDirectory
@@ -2907,7 +2907,7 @@ private func stateShowingAnError() -> AppState {
 
 @MainActor
 private func makeTestSettings() -> AppSettings {
-    let suiteName = "SyrupAppStateTests.\(UUID().uuidString)"
+    let suiteName = testDomainName("SyrupAppStateTests")
     guard let userDefaults = UserDefaults(suiteName: suiteName) else {
         preconditionFailure("Unable to create isolated AppState test defaults")
     }

@@ -6,7 +6,7 @@ import Testing
 struct LastSuccessfulResultTests {
     @Test(arguments: [true, false])
     func lastResultActionsIgnoreAFailedRetryOfAnOlderRevision(paste: Bool) async {
-        let suite = "FollowUpReview.\(UUID())"
+        let suite = testDomainName("FollowUpReview")
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = AppSettings(userDefaults: defaults, defaultMicrophoneIDProvider: { "" })

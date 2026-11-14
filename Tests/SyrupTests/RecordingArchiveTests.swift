@@ -419,7 +419,7 @@ struct RecordingArchiveTests {
 
     private func temporaryDirectory() -> URL {
         FileManager.default.temporaryDirectory
-            .appending(path: "SyrupRecordingArchiveTests.\(UUID().uuidString)", directoryHint: .isDirectory)
+            .appending(path: testDomainName("SyrupRecordingArchiveTests"), directoryHint: .isDirectory)
     }
 
     private func permissions(at url: URL) throws -> Int {
