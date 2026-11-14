@@ -1,7 +1,7 @@
 import Foundation
 
 /// The externally visible stage of the pipeline. Only `AppState` changes it.
-enum PipelineState: Equatable {
+enum PipelineState: Hashable {
     case idle
     case recording
     case transcribing

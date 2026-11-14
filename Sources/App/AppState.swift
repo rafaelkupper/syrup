@@ -227,8 +227,12 @@ final class AppState {
 
     func installHotkeys(registration: any HotkeyRegistering = SystemHotkeyRegistration()) {
         guard hotkeyController == nil else { return }
+        install(HotkeyController(appState: self, registration: registration))
+    }
 
-        let controller = HotkeyController(appState: self, registration: registration)
+    /// Installs a controller built elsewhere, so a test can supply its Fn monitor.
+    func install(_ controller: HotkeyController) {
+        guard hotkeyController == nil else { return }
         hotkeyController = controller
         controller.setCancelShortcutEnabled(pipelineState.allowsCancelShortcut)
         refreshWorkflowHotkeys()
