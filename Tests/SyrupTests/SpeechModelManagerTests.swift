@@ -392,10 +392,21 @@ private final class Fixture {
         self.progressLog = progressLog
         let failures = Mutex(failingDownloads)
         let loadFailures = Mutex(failingLoads)
+        if onDisk {
+            // Before the manager reads it, as a model left by an earlier launch would be.
+            let engine = SpeechEngine.parakeetUltra
+            try FileManager.default.createDirectory(
+                at: root.appending(path: engine.modelFolder ?? engine.rawValue, directoryHint: .isDirectory),
+                withIntermediateDirectories: true
+            )
+        }
         manager = SpeechModelManager(
             engine: .parakeetUltra,
             operations: .init(
-                modelsExist: { _ in onDiskFlag.withLock { $0 } },
+                // Like the real check, it reads the folder too, so a Delete that removed it is seen.
+                modelsExist: { directory in
+                    onDiskFlag.withLock { $0 } && FileManager.default.fileExists(atPath: directory.path(percentEncoded: false))
+                },
                 download: { [downloadsFoundAModel] directory, report in
                     downloadsFoundAModel.append(FileManager.default.fileExists(atPath: directory.path(percentEncoded: false)))
                     log.record("download")
@@ -437,9 +448,6 @@ private final class Fixture {
             isSupported: isSupported,
             storageDirectory: root
         )
-        if onDisk {
-            try FileManager.default.createDirectory(at: manager.directory, withIntermediateDirectories: true)
-        }
     }
 
     deinit {
