@@ -104,6 +104,18 @@ func userMessage(for error: Error) -> String {
             return "Codex failed (exit \(exitCode))"
         case .codexTimedOut:
             return "Codex timed out"
+        case .claudeCLINotFound:
+            return "Claude Code not found - install it or set its path in Settings"
+        case .claudeNotSignedIn:
+            return "Claude Code isn't signed in - run `claude` in Terminal, or set its account folder in Settings"
+        case .claudeUsageLimit:
+            return "Claude usage limit reached - try later or switch provider"
+        case .claudeEmptyOutput:
+            return "Claude Code returned no output"
+        case .claudeFailed(let exitCode):
+            return "Claude Code failed (exit \(exitCode))"
+        case .claudeTimedOut:
+            return "Claude Code timed out"
         case .onDeviceUnavailable(let reason):
             return reason
         case .onDeviceGuardrail:

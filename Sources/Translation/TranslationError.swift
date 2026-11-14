@@ -20,6 +20,12 @@ enum TranslationError: Error, Equatable, Sendable {
     case codexEmptyOutput
     case codexFailed(Int)
     case codexTimedOut
+    case claudeCLINotFound
+    case claudeNotSignedIn
+    case claudeUsageLimit
+    case claudeEmptyOutput
+    case claudeFailed(Int)
+    case claudeTimedOut
     case onDeviceUnavailable(String)
     case onDeviceGuardrail
     case onDeviceContextExceeded

@@ -174,6 +174,8 @@ enum HomeStatus {
             nil
         case .codexCLI:
             "OpenAI, through Codex CLI"
+        case .claudeCLI:
+            "Anthropic, through Claude Code"
         case .openAICompatible:
             URL(string: baseURL)?.host() ?? "Your OpenAI-compatible endpoint"
         }

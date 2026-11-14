@@ -226,7 +226,7 @@ struct WorkflowBindings {
 
     var providerChoices: [MenuChoice<String>] {
         [MenuChoice(value: "", title: "Default (\(settings.translationProvider.displayName))")]
-            + TranslationProvider.allCases.enumerated().map { index, provider in
+            + settings.offeredProviders().enumerated().map { index, provider in
                 MenuChoice(value: provider.rawValue, title: provider.displayName, startsGroup: index == 0)
             }
     }
@@ -236,7 +236,7 @@ struct WorkflowBindings {
         Text("Default (\(settings.translationProvider.displayName))")
             .tag("")
         Divider()
-        ForEach(TranslationProvider.allCases) { provider in
+        ForEach(settings.offeredProviders()) { provider in
             Text(provider.displayName)
                 .tag(provider.rawValue)
         }

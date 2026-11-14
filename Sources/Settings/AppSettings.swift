@@ -74,6 +74,17 @@ final class AppSettings {
             userDefaults.set(codexModel, forKey: Self.codexModelKey)
         }
     }
+    var claudePath: String {
+        didSet { userDefaults.set(claudePath, forKey: Self.claudePathKey) }
+    }
+    var claudeModel: String {
+        didSet { userDefaults.set(claudeModel, forKey: Self.claudeModelKey) }
+    }
+    /// Claude Code's config folder (`CLAUDE_CONFIG_DIR`). Empty means `~/.claude`. An app opened from
+    /// Finder never sees the shell's variable, so a non-default login needs this.
+    var claudeConfigDirectory: String {
+        didSet { userDefaults.set(claudeConfigDirectory, forKey: Self.claudeConfigDirectoryKey) }
+    }
     var playSounds: Bool {
         didSet {
             userDefaults.set(playSounds, forKey: Self.playSoundsKey)
@@ -206,6 +217,9 @@ final class AppSettings {
         ) ?? .openAICompatible
         self.codexPath = userDefaults.string(forKey: Self.codexPathKey) ?? ""
         self.codexModel = userDefaults.string(forKey: Self.codexModelKey) ?? Self.defaultCodexModel
+        self.claudePath = userDefaults.string(forKey: Self.claudePathKey) ?? ""
+        self.claudeModel = userDefaults.string(forKey: Self.claudeModelKey) ?? Self.defaultClaudeModel
+        self.claudeConfigDirectory = userDefaults.string(forKey: Self.claudeConfigDirectoryKey) ?? ""
         self.playSounds = userDefaults.object(forKey: Self.playSoundsKey) as? Bool ?? true
         self.successSound = SuccessSound(
             rawValue: userDefaults.string(forKey: Self.successSoundKey) ?? ""
@@ -278,7 +292,10 @@ final class AppSettings {
     static let defaultDictationLocaleID = "pt-BR"
     static let defaultBaseURL = "https://api.openai.com/v1"
     static let defaultModelName = "gpt-4o-mini"
-    static let defaultCodexModel = "gpt-5.4-mini"
+    /// Empty: the signed-in account's default model. Model names differ between plans, so a fixed
+    /// default can be rejected (`gpt-5.4-mini` is, for ChatGPT sign-ins).
+    static let defaultCodexModel = ""
+    static let defaultClaudeModel = "sonnet"
     static let defaultMaximumRecordingDurationSeconds = 120
     static let minimumRecordingDurationSeconds = 1
     static let maximumRecordingDurationSecondsLimit = 3600
@@ -293,6 +310,9 @@ final class AppSettings {
     private static let translationProviderKey = "translationProvider"
     private static let codexPathKey = "codexPath"
     private static let codexModelKey = "codexModel"
+    private static let claudePathKey = "claudePath"
+    private static let claudeModelKey = "claudeModel"
+    private static let claudeConfigDirectoryKey = "claudeConfigDirectory"
     private static let selectedMicrophoneIDKey = "selectedMicrophoneID"
     private static let playSoundsKey = "playSounds"
     private static let successSoundKey = "successSound"

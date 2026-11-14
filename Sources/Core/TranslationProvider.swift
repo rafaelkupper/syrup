@@ -3,6 +3,7 @@ import Foundation
 enum TranslationProvider: String, CaseIterable, Identifiable, Sendable, Codable {
     case openAICompatible = "openai_compatible"
     case codexCLI = "codex_cli"
+    case claudeCLI = "claude_cli"
     case appleOnDevice = "apple_on_device"
 
     var id: String { rawValue }
@@ -13,6 +14,8 @@ enum TranslationProvider: String, CaseIterable, Identifiable, Sendable, Codable 
             "OpenAI-compatible"
         case .codexCLI:
             "Codex CLI"
+        case .claudeCLI:
+            "Claude Code"
         case .appleOnDevice:
             "Apple On-Device"
         }
@@ -23,12 +26,17 @@ enum TranslationProvider: String, CaseIterable, Identifiable, Sendable, Codable 
     /// ask for them. Other providers depend on the chosen model, so the user opts in.
     var supportsSpokenEdits: Bool { self != .appleOnDevice }
 
+    /// Providers that launch a local command-line tool for each run.
+    var isCommandLine: Bool { self == .codexCLI || self == .claudeCLI }
+
     var latencyHint: String {
         switch self {
         case .openAICompatible:
             "Low latency: direct API request."
         case .codexCLI:
             "Slower: launches the Codex CLI for each translation."
+        case .claudeCLI:
+            "Slower: launches Claude Code for each translation."
         case .appleOnDevice:
             "Fast and private: runs entirely on this Mac."
         }

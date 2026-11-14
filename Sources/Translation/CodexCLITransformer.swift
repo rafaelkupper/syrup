@@ -17,6 +17,32 @@ protocol CommandRunning: Sendable {
         environment: [String: String],
         timeout: TimeInterval
     ) async throws -> CommandResult
+
+    /// Runs in `currentDirectory` when given. Fakes that don't care inherit the default below.
+    func run(
+        executableURL: URL,
+        arguments: [String],
+        stdin: Data,
+        environment: [String: String],
+        currentDirectory: URL?,
+        timeout: TimeInterval
+    ) async throws -> CommandResult
+}
+
+extension CommandRunning {
+    func run(
+        executableURL: URL,
+        arguments: [String],
+        stdin: Data,
+        environment: [String: String],
+        currentDirectory: URL?,
+        timeout: TimeInterval
+    ) async throws -> CommandResult {
+        try await run(
+            executableURL: executableURL, arguments: arguments, stdin: stdin,
+            environment: environment, timeout: timeout
+        )
+    }
 }
 
 enum CommandRunnerError: Error, Equatable, Sendable {
@@ -37,6 +63,20 @@ struct ProcessCommandRunner: CommandRunning {
         environment: [String: String],
         timeout: TimeInterval
     ) async throws -> CommandResult {
+        try await run(
+            executableURL: executableURL, arguments: arguments, stdin: stdin,
+            environment: environment, currentDirectory: nil, timeout: timeout
+        )
+    }
+
+    func run(
+        executableURL: URL,
+        arguments: [String],
+        stdin: Data,
+        environment: [String: String],
+        currentDirectory: URL?,
+        timeout: TimeInterval
+    ) async throws -> CommandResult {
         let processBox = RunningProcessBox()
 
         return try await withTaskCancellationHandler {
@@ -47,6 +87,7 @@ struct ProcessCommandRunner: CommandRunning {
                         arguments: arguments,
                         stdin: stdin,
                         environment: environment,
+                        currentDirectory: currentDirectory,
                         processBox: processBox,
                         killGraceNanoseconds: killGraceNanoseconds
                     )
@@ -76,6 +117,7 @@ private func runProcess(
     arguments: [String],
     stdin: Data,
     environment: [String: String],
+    currentDirectory: URL?,
     processBox: RunningProcessBox,
     killGraceNanoseconds: UInt64
 ) async throws -> CommandResult {
@@ -94,6 +136,7 @@ private func runProcess(
     process.executableURL = executableURL
     process.arguments = arguments
     process.environment = environment
+    if let currentDirectory { process.currentDirectoryURL = currentDirectory }
     process.standardInput = stdinPipe
     process.standardOutput = stdoutPipe
     process.standardError = stderrPipe
@@ -407,6 +450,7 @@ private actor RunningProcessBox {
 
 struct CodexCLIConfiguration: Equatable, Sendable {
     let executableURL: URL
+    /// Empty means the account's default model: `--model` is left out.
     let model: String
     let homeDirectory: URL
     let codexHomeDirectory: URL?
@@ -446,14 +490,9 @@ struct CodexCLIConfigurationResolver: Sendable {
             fileManager: fileManager,
             candidatePaths: candidatePaths
         )
-        let trimmedModelName = modelName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmedModelName.isEmpty == false else {
-            throw TranslationError.missingConfiguration("codexModel")
-        }
-
         return CodexCLIConfiguration(
             executableURL: executableURL,
-            model: trimmedModelName,
+            model: modelName.trimmingCharacters(in: .whitespacesAndNewlines),
             homeDirectory: homeDirectory,
             codexHomeDirectory: codexHomeDirectory
         )
@@ -477,17 +516,12 @@ struct CodexCLIConfigurationResolver: Sendable {
             return configuredURL
         }
 
-        let candidates = candidatePaths ?? [
-            homeDirectory.appending(path: ".local/bin/codex").path(percentEncoded: false),
-            "/opt/homebrew/bin/codex",
-            "/usr/local/bin/codex",
-        ]
-
-        for path in candidates where fileManager.isExecutableFile(atPath: path) {
-            return URL(filePath: path)
+        guard let found = CommandLocator.find(
+            "codex", homeDirectory: homeDirectory, fileManager: fileManager, candidatePaths: candidatePaths
+        ) else {
+            throw TranslationError.codexCLINotFound
         }
-
-        throw TranslationError.codexCLINotFound
+        return found
     }
 }
 
@@ -530,13 +564,14 @@ struct CodexCLITransformer: TextTransformer, @unchecked Sendable {
         "-c", "features.hooks=false",
     ]
 
-    /// The full `codex exec` invocation. The prompt goes on stdin (`-`), never in argv.
+    /// The full `codex exec` invocation. The prompt goes on stdin (`-`), never in argv. An empty model
+    /// leaves `--model` out, so Codex uses the account's default.
     static func arguments(workingDirectory: URL, model: String, outputFile: URL) -> [String] {
         ["exec", "--ephemeral", "--skip-git-repo-check", "--ignore-user-config"]
             + restrictions
+            + ["--cd", workingDirectory.path(percentEncoded: false)]
+            + (model.isEmpty ? [] : ["--model", model])
             + [
-                "--cd", workingDirectory.path(percentEncoded: false),
-                "--model", model,
                 "--output-last-message", outputFile.path(percentEncoded: false),
                 "-",
             ]
@@ -555,7 +590,7 @@ struct CodexCLITransformer: TextTransformer, @unchecked Sendable {
         }
 
         let outputURL = temporaryDirectory.appending(path: "last-message.txt")
-        let prompt = PromptBuilder.codexPrompt(
+        let prompt = PromptBuilder.fencedPrompt(
             instruction: instruction,
             transcript: text
         )
@@ -678,5 +713,71 @@ struct CodexCLIStatusChecker: Sendable {
         } catch {
             return CodexCLIStatus(kind: .failed, message: "status unavailable")
         }
+    }
+}
+
+/// Finds a command-line tool where installers put it. A GUI app gets no shell PATH, so the common
+/// install locations are checked directly.
+enum CommandLocator {
+    static func find(
+        _ name: String,
+        homeDirectory: URL,
+        fileManager: FileManager = .default,
+        candidatePaths: [String]? = nil
+    ) -> URL? {
+        let candidates = candidatePaths ?? [
+            homeDirectory.appending(path: ".local/bin/\(name)").path(percentEncoded: false),
+            "/opt/homebrew/bin/\(name)",
+            "/usr/local/bin/\(name)",
+        ]
+        return candidates.first { fileManager.isExecutableFile(atPath: $0) }.map { URL(filePath: $0) }
+    }
+}
+
+/// A model the signed-in Codex account offers.
+struct CodexModel: Equatable, Sendable, Identifiable {
+    let slug: String
+    let displayName: String
+    var id: String { slug }
+}
+
+/// Reads the account's model catalog with `codex debug models`, the list Codex's own picker uses.
+/// Hidden models are left out. Any failure returns nil, and Settings falls back to a text field.
+struct CodexModelCatalog: Sendable {
+    private let commandRunner: any CommandRunning
+    private let timeoutInterval: TimeInterval
+
+    init(commandRunner: any CommandRunning = ProcessCommandRunner(), timeoutInterval: TimeInterval = 10) {
+        self.commandRunner = commandRunner
+        self.timeoutInterval = timeoutInterval
+    }
+
+    func models(configuration: CodexCLIConfiguration) async -> [CodexModel]? {
+        guard let result = try? await commandRunner.run(
+            executableURL: configuration.executableURL,
+            arguments: ["debug", "models"],
+            stdin: Data(),
+            environment: configuration.processEnvironment,
+            timeout: timeoutInterval
+        ), result.exitCode == 0 else { return nil }
+        return Self.parse(result.stdout)
+    }
+
+    static func parse(_ data: Data) -> [CodexModel]? {
+        struct Catalog: Decodable {
+            struct Entry: Decodable {
+                let slug: String
+                let display_name: String?
+                let visibility: String?
+                let priority: Int?
+            }
+            let models: [Entry]
+        }
+        guard let catalog = try? JSONDecoder().decode(Catalog.self, from: data) else { return nil }
+        let listed = catalog.models
+            .filter { ($0.visibility ?? "list") == "list" && $0.slug.isEmpty == false }
+            .sorted { ($0.priority ?? .max) < ($1.priority ?? .max) }
+            .map { CodexModel(slug: $0.slug, displayName: $0.display_name ?? $0.slug) }
+        return listed.isEmpty ? nil : listed
     }
 }

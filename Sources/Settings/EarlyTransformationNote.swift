@@ -44,7 +44,7 @@ struct EarlyTransformationNote: Equatable {
         switch provider {
         case .appleOnDevice:
             true
-        case .codexCLI:
+        case .codexCLI, .claudeCLI:
             false
         case .openAICompatible:
             URL(string: baseURL.trimmingCharacters(in: .whitespacesAndNewlines))

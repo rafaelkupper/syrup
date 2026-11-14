@@ -7,12 +7,17 @@ struct ProviderSections: View {
     let keychainStore: KeychainStore
     let endpointTester = OpenAICompatibleEndpointTester()
     let codexStatusChecker = CodexCLIStatusChecker()
+    let codexModelCatalog = CodexModelCatalog()
+    let claudeStatusChecker = ClaudeCLIStatusChecker()
     @State private var apiKeyInput = ""
     @State private var hasStoredAPIKey = false
     @State private var isEditingAPIKey = false
     @State private var connectionTest = EndpointConnectionTest()
     @State private var codexStatus: CodexCLIStatus?
     @State private var isCheckingCodexStatus = false
+    @State private var codexModels: [CodexModel]?
+    @State private var claudeStatus: ClaudeCLIStatus?
+    @State private var isCheckingClaudeStatus = false
 
     var body: some View {
         Group {
@@ -23,6 +28,8 @@ struct ProviderSections: View {
                 endpointSection
             case .codexCLI:
                 codexSection
+            case .claudeCLI:
+                claudeSection
             case .appleOnDevice:
                 appleSection
             }
@@ -34,7 +41,9 @@ struct ProviderSections: View {
         .onAppear {
             loadAPIKeyState()
             refreshCodexStatusIfNeeded()
+            refreshClaudeStatusIfNeeded()
         }
+        .onChange(of: settings.claudeConfigDirectory) { claudeStatus = nil }
     }
 
     // MARK: - Provider choice
@@ -56,6 +65,13 @@ struct ProviderSections: View {
                 tag: TagBadge(text: "Slower", color: .orange),
                 description: "Uses your ChatGPT plan through the Codex CLI, with no API key."
             )
+            if settings.isClaudeCodeOffered {
+                providerRow(
+                    .claudeCLI,
+                    tag: TagBadge(text: "Slower", color: .orange),
+                    description: "Uses your Claude plan through Claude Code, with no API key."
+                )
+            }
         } header: {
             HStack {
                 Text("Writing")
@@ -76,6 +92,7 @@ struct ProviderSections: View {
         return Button {
             settings.translationProvider = provider
             refreshCodexStatusIfNeeded()
+            refreshClaudeStatusIfNeeded()
         } label: {
             HStack(alignment: .top, spacing: 11) {
                 Image(systemName: isSelected ? "inset.filled.circle" : "circle")
@@ -210,12 +227,18 @@ struct ProviderSections: View {
                 }
             }
 
-            LabeledContent("Model") {
-                TextField("Model", text: $settings.codexModel)
-                    .labelsHidden()
-                    .textFieldStyle(.roundedBorder)
-                    .multilineTextAlignment(.leading)
-                    .frame(width: 260)
+            CLIModelPicker(
+                defaultTitle: "Codex default",
+                choices: codexModelChoices,
+                model: $settings.codexModel
+            )
+            if let codexModelChoices, CLIModelChoice.isCustom(settings.codexModel, in: codexModelChoices) {
+                Label(
+                    "Your Codex account doesn't list this model, so Codex may reject it. Pick one from the list or use Codex default.",
+                    systemImage: "exclamationmark.triangle"
+                )
+                .font(.caption)
+                .foregroundStyle(.orange)
             }
 
             LabeledContent {
@@ -226,6 +249,10 @@ struct ProviderSections: View {
                 codexStatusText
             }
         }
+    }
+
+    private var codexModelChoices: [CLIModelPicker.Choice]? {
+        codexModels?.map { CLIModelPicker.Choice(id: $0.slug, title: $0.displayName) }
     }
 
     @ViewBuilder
@@ -239,6 +266,66 @@ struct ProviderSections: View {
                     .foregroundStyle(.green)
             case .notFound, .notSignedIn, .failed:
                 Label(codexStatus.message, systemImage: "xmark")
+                    .foregroundStyle(.red)
+            }
+        } else {
+            Text("Not checked yet")
+        }
+    }
+
+    // MARK: - Claude Code
+
+    private var claudeSection: some View {
+        Section("Claude Code") {
+            LabeledContent("Executable") {
+                HStack(spacing: 8) {
+                    TextField("Claude path", text: $settings.claudePath, prompt: Text("Detected automatically"))
+                        .labelsHidden()
+                        .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(.leading)
+                        .frame(width: 260)
+                    Button("Detect", action: detectClaudeCLI)
+                }
+            }
+
+            CLIModelPicker(
+                defaultTitle: "Claude default",
+                choices: ClaudeCLIStatusChecker.modelAliases.map { CLIModelPicker.Choice(id: $0.alias, title: $0.name) },
+                model: $settings.claudeModel
+            )
+
+            LabeledContent {
+                TextField("Account folder", text: $settings.claudeConfigDirectory, prompt: Text("~/.claude"))
+                    .labelsHidden()
+                    .textFieldStyle(.roundedBorder)
+                    .multilineTextAlignment(.leading)
+                    .frame(width: 260)
+            } label: {
+                Text("Account folder")
+                Text("Only if you sign in with CLAUDE_CONFIG_DIR")
+            }
+
+            LabeledContent {
+                Button("Check Status", action: refreshClaudeStatus)
+                    .disabled(isCheckingClaudeStatus)
+            } label: {
+                Text("Status")
+                claudeStatusText
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var claudeStatusText: some View {
+        if isCheckingClaudeStatus {
+            Text("Checking Claude Code…")
+        } else if let claudeStatus {
+            switch claudeStatus.kind {
+            case .ready:
+                Label(claudeStatus.message, systemImage: "checkmark")
+                    .foregroundStyle(.green)
+            case .notFound, .notSignedIn, .failed:
+                Label(claudeStatus.message, systemImage: "xmark")
                     .foregroundStyle(.red)
             }
         } else {
@@ -345,6 +432,32 @@ struct ProviderSections: View {
         }
     }
 
+    private func detectClaudeCLI() {
+        let home = URL(filePath: ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory(), directoryHint: .isDirectory)
+        if let url = try? ClaudeCLIConfigurationResolver.executableURL(configuredPath: "", homeDirectory: home) {
+            settings.claudePath = url.path(percentEncoded: false)
+            refreshClaudeStatus()
+        } else {
+            claudeStatus = ClaudeCLIStatus(kind: .notFound, message: "not found")
+        }
+    }
+
+    private func refreshClaudeStatusIfNeeded() {
+        guard settings.translationProvider == .claudeCLI else { return }
+        refreshClaudeStatus()
+    }
+
+    private func refreshClaudeStatus() {
+        guard isCheckingClaudeStatus == false else { return }
+        let path = settings.claudePath
+        let folder = settings.claudeConfigDirectory
+        isCheckingClaudeStatus = true
+        Task { @MainActor in
+            claudeStatus = await claudeStatusChecker.status(configuredPath: path, configDirectory: folder)
+            isCheckingClaudeStatus = false
+        }
+    }
+
     private func refreshCodexStatusIfNeeded() {
         guard settings.translationProvider == .codexCLI else { return }
         refreshCodexStatus()
@@ -363,6 +476,11 @@ struct ProviderSections: View {
                 modelName: codexModel
             )
             isCheckingCodexStatus = false
+            if let configuration = try? CodexCLIConfigurationResolver.configuration(
+                configuredPath: codexPath, modelName: ""
+            ) {
+                codexModels = await codexModelCatalog.models(configuration: configuration)
+            }
         }
     }
 

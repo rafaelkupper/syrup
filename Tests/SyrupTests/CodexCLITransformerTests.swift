@@ -81,13 +81,12 @@ struct CodexCLITransformerTests {
         }
 
         let codex = try fixture.executable("codex")
-        #expect(throws: TranslationError.missingConfiguration("codexModel")) {
-            try CodexCLIConfigurationResolver.configuration(
-                configuredPath: codex.path(percentEncoded: false),
-                modelName: " ",
-                environment: ["HOME": fixture.home.path(percentEncoded: false)]
-            )
-        }
+        let accountDefault = try CodexCLIConfigurationResolver.configuration(
+            configuredPath: codex.path(percentEncoded: false),
+            modelName: " ",
+            environment: ["HOME": fixture.home.path(percentEncoded: false)]
+        )
+        #expect(accountDefault.model.isEmpty)
     }
 
     @Test

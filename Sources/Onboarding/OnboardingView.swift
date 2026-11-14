@@ -21,6 +21,7 @@ struct OnboardingView: View {
     @State private var isReplacingAPIKey = false
     @State private var connectionTest = EndpointConnectionTest()
     @State private var codexProblem: String?
+    @State private var claudeProblem: String?
 
     @State private var tasteStartedAt = Date.now
     @State private var isShowingShortcutPopover = false
@@ -29,6 +30,7 @@ struct OnboardingView: View {
     private let focusController = SettingsWindowFocusController()
     private let endpointTester = OpenAICompatibleEndpointTester()
     private let codexStatusChecker = CodexCLIStatusChecker()
+    private let claudeStatusChecker = ClaudeCLIStatusChecker()
 
     private var palette: OnboardingPalette { .forScheme(colorScheme) }
     private var workflow: Workflow { settings.activeWorkflow }
@@ -506,6 +508,9 @@ struct OnboardingView: View {
                 flavorRow(.appleOnDevice, detail: appleDetail)
                 flavorRow(.openAICompatible, detail: openAIDetail, detailIsProblem: isConnectionFailure)
                 flavorRow(.codexCLI, detail: codexProblem ?? "Uses your ChatGPT plan. A little slower.", detailIsProblem: codexProblem != nil)
+                if settings.isClaudeCodeOffered {
+                    flavorRow(.claudeCLI, detail: claudeProblem ?? "Uses your Claude plan. A little slower.", detailIsProblem: claudeProblem != nil)
+                }
             }
             .frame(width: 420)
             .padding(.top, 12)
@@ -678,6 +683,7 @@ struct OnboardingView: View {
     }
 
     private func checkCodexIfNeeded() {
+        checkClaudeIfNeeded()
         guard settings.translationProvider == .codexCLI else {
             codexProblem = nil
             return
@@ -687,6 +693,19 @@ struct OnboardingView: View {
         Task {
             let status = await codexStatusChecker.status(configuredPath: path, modelName: model)
             codexProblem = status.kind == .ready ? nil : status.message
+        }
+    }
+
+    private func checkClaudeIfNeeded() {
+        guard settings.translationProvider == .claudeCLI else {
+            claudeProblem = nil
+            return
+        }
+        let path = settings.claudePath
+        let folder = settings.claudeConfigDirectory
+        Task {
+            let status = await claudeStatusChecker.status(configuredPath: path, configDirectory: folder)
+            claudeProblem = status.kind == .ready ? nil : status.message
         }
     }
 

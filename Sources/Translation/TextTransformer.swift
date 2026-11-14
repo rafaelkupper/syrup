@@ -97,6 +97,7 @@ final class AppSettingsTransformerProvider: TransformerSnapshotting {
     private let keychainStore: KeychainStore
     private let injectedOpenAI: (any TextTransformer)?
     private let injectedCodex: (any TextTransformer)?
+    private let injectedClaude: (any TextTransformer)?
     private let appleOnDeviceFactory: @Sendable (String) -> any TextTransformer
 
     init(
@@ -106,6 +107,7 @@ final class AppSettingsTransformerProvider: TransformerSnapshotting {
         environment: [String: String] = ProcessInfo.processInfo.environment,
         openAICompatibleTransformer: (any TextTransformer)? = nil,
         codexCLITransformer: (any TextTransformer)? = nil,
+        claudeCLITransformer: (any TextTransformer)? = nil,
         appleOnDeviceFactory: @escaping @Sendable (String) -> any TextTransformer = {
             AppleOnDeviceTransformer(instruction: $0, shouldPrewarm: true)
         }
@@ -116,6 +118,7 @@ final class AppSettingsTransformerProvider: TransformerSnapshotting {
         self.keychainStore = keychainStore
         injectedOpenAI = openAICompatibleTransformer
         injectedCodex = codexCLITransformer
+        injectedClaude = claudeCLITransformer
         self.appleOnDeviceFactory = appleOnDeviceFactory
     }
 
@@ -140,6 +143,13 @@ final class AppSettingsTransformerProvider: TransformerSnapshotting {
                     configuredPath: settings.codexPath, modelName: settings.codexModel, environment: environment
                 )
                 return .fixed(CodexCLITransformer(configuration: configuration))
+            case .claudeCLI:
+                if let injectedClaude { return .fixed(injectedClaude) }
+                let configuration = try ClaudeCLIConfigurationResolver.configuration(
+                    configuredPath: settings.claudePath, modelName: settings.claudeModel,
+                    configDirectory: settings.claudeConfigDirectory, environment: environment
+                )
+                return .fixed(ClaudeCLITransformer(configuration: configuration))
             }
         } catch {
             return .failed(error)

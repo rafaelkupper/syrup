@@ -47,7 +47,7 @@ struct SpokenEditsNote: Equatable {
                 message: "Advanced: these need a capable model, or they can change what you said. \(recommendation)",
                 detail: nil
             )
-        case .codexCLI:
+        case .codexCLI, .claudeCLI:
             nil
         }
     }

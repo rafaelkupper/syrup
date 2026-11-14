@@ -69,7 +69,7 @@ struct MenuBarView: View {
                         .disabled(state.pipelineState.isActive)
                     }
                     Menu(record.provider == nil ? "Retry with provider" : "Retry with another provider") {
-                        ForEach(TranslationProvider.allCases.filter { $0 != record.provider }) { provider in
+                        ForEach(state.settings.offeredProviders().filter { $0 != record.provider }) { provider in
                             Button(provider.displayName) {
                                 state.retryTranslation(recordID: record.id, using: provider)
                             }

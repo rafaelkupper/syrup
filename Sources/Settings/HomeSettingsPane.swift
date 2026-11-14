@@ -304,7 +304,7 @@ struct HomeSettingsPane: View {
                                 state.retryTranslation(recordID: record.id)
                             }
                         }
-                        ForEach(TranslationProvider.allCases.filter { $0 != record.provider }) { provider in
+                        ForEach(state.settings.offeredProviders().filter { $0 != record.provider }) { provider in
                             Button("Use \(provider.displayName)") {
                                 state.retryTranslation(recordID: record.id, using: provider)
                             }
@@ -445,7 +445,7 @@ struct HomeSettingsPane: View {
         case .appleOnDevice:
             let message = AppleOnDeviceTransformer.availabilityMessage()
             return message == "Ready" ? nil : message
-        case .codexCLI, nil:
+        case .codexCLI, .claudeCLI, nil:
             return nil
         }
     }

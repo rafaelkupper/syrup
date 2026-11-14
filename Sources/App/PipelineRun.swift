@@ -99,7 +99,7 @@ final class PipelineRun {
         self.speechModel = speechModel
         pauseTransformationEligible = transformsOnPause && isVoiceInput
             && configuration.purpose == .dictation && speechModel.transcriber == nil
-            && configuration.provider != .codexCLI && providerSnapshot?.permitsUnfinalizedInput == true
+            && configuration.provider.isCommandLine == false && providerSnapshot?.permitsUnfinalizedInput == true
         pauseAudio = pauseTransformationEligible ? PauseAudioCapture() : nil
         lastLoudAt = triggeredAt
         transformationInstruction = configuration.instruction

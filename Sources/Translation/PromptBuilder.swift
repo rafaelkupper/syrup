@@ -177,9 +177,9 @@ enum PromptBuilder {
         """
     }
 
-    /// Codex reads one prompt, so the transcript or selected text is fenced as data between markers
+    /// A command-line provider reads one prompt, so the transcript or selected text is fenced as data between markers
     /// carrying a fresh random boundary. Text inside cannot close the fence without knowing it.
-    static func codexPrompt(
+    static func fencedPrompt(
         instruction: String,
         transcript: String,
         boundary: String = UUID().uuidString
