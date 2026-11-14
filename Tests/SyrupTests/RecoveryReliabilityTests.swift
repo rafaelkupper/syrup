@@ -484,10 +484,10 @@ struct RecoveryReliabilityTests {
     var gate: RecoveryCaptureGate?
     private(set) var captureCount = 0
     init(_ selection: SelectionCapture) { self.selection = selection }
-    func capture() -> SelectionCapture { captureCount += 1; return selection }
     func captureForRun(processID: pid_t?) async -> RunSelectionCapture {
         if let gate { await gate.wait() }
-        return RunSelectionCapture(selection: capture(), source: source)
+        captureCount += 1
+        return RunSelectionCapture(selection: selection, source: source)
     }
 }
 

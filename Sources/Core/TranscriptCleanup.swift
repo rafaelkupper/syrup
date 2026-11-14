@@ -96,9 +96,11 @@ enum TranscriptCleanup {
         var cursor = normalized.startIndex
         var protectedBytes = 0
         for match in matcher.matches(in: normalized, range: NSRange(normalized.startIndex..., in: normalized)) {
-            let range = Range(match.range, in: normalized)!
+            guard let range = Range(match.range, in: normalized), range.lowerBound >= cursor,
+                  let group = (1..<match.numberOfRanges).first(where: { match.range(at: $0).location != NSNotFound })
+            else { continue }
             result += normalized[cursor..<range.lowerBound]
-            let rule = formatting[(1..<match.numberOfRanges).first { match.range(at: $0).location != NSNotFound }! - 1].1
+            let rule = formatting[group - 1].1
             cursor = range.upperBound
             while cursor < normalized.endIndex, isPadding(normalized[cursor]) {
                 cursor = normalized.index(after: cursor)
@@ -131,7 +133,7 @@ enum TranscriptCleanup {
         var result = text.precomposedStringWithCanonicalMapping
         for (regex, formatting) in compiled.phraseRules {
             for match in regex.matches(in: result, range: NSRange(result.startIndex..., in: result)).reversed() {
-                let range = Range(match.range, in: result)!
+                guard let range = Range(match.range, in: result) else { continue }
                 let replacement: String
                 switch formatting {
                 case .symbol: continue
@@ -149,8 +151,8 @@ enum TranscriptCleanup {
         }
         let regex = compiled.filler
         while let match = regex.firstMatch(in: result, range: NSRange(result.startIndex..., in: result)) {
-            let range = Range(match.range, in: result)!
-            let token = Range(match.range(at: 1), in: result)!
+            guard let range = Range(match.range, in: result),
+                  let token = Range(match.range(at: 1), in: result) else { break }
             let prefix = result[..<range.lowerBound].trimmingCharacters(in: .whitespaces)
             let sentenceStart = prefix.isEmpty || prefix.last == "\n" || prefix.last.map { ".!?".contains($0) } == true
             let capitalizesNext = result[token].first?.isUppercase == true && sentenceStart

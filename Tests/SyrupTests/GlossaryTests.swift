@@ -166,6 +166,59 @@ struct GlossaryTests {
         #expect(settings.glossaryList.terms.isEmpty)
     }
 
+    /// A blob this build cannot use is copied to a backup key before the first edit replaces it:
+    /// data that does not decode, an older version, for the glossary, proposals, and workflows alike.
+    @Test(arguments: [
+        ("glossaryV1", Data([0xFF])),
+        ("glossaryV1", Data(#"{"version":0,"terms":[{"id":"00000000-0000-0000-0000-000000000001","term":"Old","mishearings":[]}]}"#.utf8)),
+        ("glossaryProposalsV1", Data(#"{"version":1,"proposals":"not a list"}"#.utf8)),
+        ("workflowListV3", Data(#"{"version":3,"workflows":[{"kind":{"aNewerKind":{}}}],"activeWorkflowID":"x"}"#.utf8)),
+    ])
+    func unusableBlobsSurviveTheFirstEdit(key: String, blob: Data) throws {
+        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { userDefaults.removePersistentDomain(forName: suiteName) }
+        userDefaults.set(blob, forKey: key)
+        let backupKey = AppSettings.unusableBlobBackupKey(for: blob, key: key)
+
+        let settings = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
+        #expect(userDefaults.data(forKey: backupKey) == blob)
+        switch key {
+        case "glossaryV1":
+            #expect(settings.glossaryList.terms.isEmpty)
+            settings.addGlossaryTerm(GlossaryTerm(term: "Syrup"))
+        case "glossaryProposalsV1":
+            #expect(settings.glossaryProposals.proposals.isEmpty)
+            settings.addGlossaryProposal(GlossaryProposal(
+                id: UUID(), term: "Syrup", mishearings: ["sirup"], confidence: 0.9, createdAt: .now
+            ))
+        default:
+            settings.updateWorkflow(id: settings.activeWorkflow.id) { $0.name = "Edited" }
+        }
+
+        #expect(userDefaults.data(forKey: key) != blob)
+        #expect(userDefaults.data(forKey: backupKey) == blob)
+        let backups = userDefaults.dictionaryRepresentation().keys.filter { $0.hasPrefix("\(key).unreadable.") }
+        _ = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
+        #expect(userDefaults.dictionaryRepresentation().keys.filter { $0.hasPrefix("\(key).unreadable.") } == backups)
+        #expect(backups.count == 1)
+    }
+
+    /// A newer build's blob is not copied: it stays where it is and is never overwritten.
+    @Test
+    func aNewerBlobGetsNoBackup() throws {
+        let suiteName = "SyrupTests.\(UUID().uuidString)"
+        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { userDefaults.removePersistentDomain(forName: suiteName) }
+        let futureBlob = Data(#"{"version":2,"terms":"a newer shape"}"#.utf8)
+        userDefaults.set(futureBlob, forKey: "glossaryV1")
+
+        _ = AppSettings(userDefaults: userDefaults, defaultMicrophoneIDProvider: { "" })
+
+        #expect(userDefaults.dictionaryRepresentation().keys.contains { $0.hasPrefix("glossaryV1.unreadable.") } == false)
+        #expect(userDefaults.data(forKey: "glossaryV1") == futureBlob)
+    }
+
     @Test
     func appSettingsPersistsAndReloadsNormalizedGlossaryBlob() throws {
         let suiteName = "SyrupTests.\(UUID().uuidString)"

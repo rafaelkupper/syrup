@@ -1,16 +1,27 @@
 import Foundation
 
 /// The single precedence rule for OpenAI-compatible settings, shared by runs, the onboarding check,
-/// and Settings' connection test: a typed key, then the saved key, then a complete environment
-/// configuration, then the saved endpoint with no key. Keys are compared after trimming. A saved
-/// key that cannot be read is an error and never falls back to the environment.
+/// and Settings' connection test: a typed key, then the saved key, then (Debug builds only) a complete
+/// `OPENAI_COMPATIBLE_*` environment configuration, then the saved endpoint with no key. Keys are
+/// compared after trimming. A saved key that cannot be read is an error and never falls back.
 enum OpenAICompatibleSettingsConfigurationResolver {
+    /// The environment fallback is a development aid for `script/launch_syrup_with_env.sh`. A Release
+    /// build ignores it, so what Settings shows is always what a run uses.
+    static var allowsEnvironmentFallback: Bool {
+        #if DEBUG
+        true
+        #else
+        false
+        #endif
+    }
+
     static func configuration(
         baseURLString: String,
         modelName: String,
         typedAPIKey: String = "",
         savedAPIKey: String,
-        environment: [String: String] = ProcessInfo.processInfo.environment
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        allowsEnvironmentFallback: Bool = Self.allowsEnvironmentFallback
     ) throws -> OpenAICompatibleConfiguration {
         for key in [typedAPIKey, savedAPIKey] {
             let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -23,7 +34,8 @@ enum OpenAICompatibleSettingsConfigurationResolver {
             }
         }
 
-        if let environmentConfiguration = try? OpenAICompatibleConfiguration.environment(environment) {
+        if allowsEnvironmentFallback,
+           let environmentConfiguration = try? OpenAICompatibleConfiguration.environment(environment) {
             return environmentConfiguration
         }
 

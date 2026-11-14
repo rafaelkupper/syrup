@@ -685,9 +685,9 @@ final class FakeSelectionReader: SelectionReading {
         self.result = result
     }
 
-    func capture() -> SelectionCapture {
+    func captureForRun(processID: pid_t?) async -> RunSelectionCapture {
         captureCallCount += 1
-        return result
+        return RunSelectionCapture(selection: result)
     }
 }
 

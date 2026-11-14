@@ -37,9 +37,7 @@ struct OpenAICompatibleConfiguration: Equatable, Sendable {
         )
     }
 
-    static func environment(
-        _ environment: [String: String] = ProcessInfo.processInfo.environment
-    ) throws -> OpenAICompatibleConfiguration {
+    static func environment(_ environment: [String: String]) throws -> OpenAICompatibleConfiguration {
         guard let rawURL = environment["OPENAI_COMPATIBLE_URL"],
               rawURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
         else {
@@ -66,24 +64,6 @@ struct OpenAICompatibleConfiguration: Equatable, Sendable {
     }
 }
 
-protocol OpenAICompatibleConfigurationProviding: Sendable {
-    func configuration() async throws -> OpenAICompatibleConfiguration
-}
-
-struct StaticOpenAICompatibleConfigurationProvider: OpenAICompatibleConfigurationProviding {
-    let endpoint: OpenAICompatibleConfiguration
-
-    func configuration() async throws -> OpenAICompatibleConfiguration {
-        endpoint
-    }
-}
-
-struct EnvironmentOpenAICompatibleConfigurationProvider: OpenAICompatibleConfigurationProviding {
-    func configuration() async throws -> OpenAICompatibleConfiguration {
-        try OpenAICompatibleConfiguration.environment()
-    }
-}
-
 struct OpenAICompatibleTokenUsage: Decodable, Equatable, Sendable {
     let promptTokens: Int?
     let completionTokens: Int?
@@ -102,38 +82,20 @@ struct OpenAICompatibleTranslationResult: Equatable, Sendable {
 }
 
 struct OpenAICompatibleTransformer: StreamingTextTransformer {
-    private let configurationProvider: any OpenAICompatibleConfigurationProviding
+    private let configuration: OpenAICompatibleConfiguration
     private let session: URLSession
     private let timeoutInterval: TimeInterval
     private let inactivitySleeper: StreamingInactivitySleeper
 
     init(
-        configuration: OpenAICompatibleConfiguration? = nil,
+        configuration: OpenAICompatibleConfiguration,
         session: URLSession = .shared,
         timeoutInterval: TimeInterval = 30,
         inactivitySleeper: @escaping StreamingInactivitySleeper = { duration in
             try await Task.sleep(for: duration)
         }
     ) {
-        self.configurationProvider = if let configuration {
-            StaticOpenAICompatibleConfigurationProvider(endpoint: configuration)
-        } else {
-            EnvironmentOpenAICompatibleConfigurationProvider()
-        }
-        self.session = session
-        self.timeoutInterval = timeoutInterval
-        self.inactivitySleeper = inactivitySleeper
-    }
-
-    init(
-        configurationProvider: any OpenAICompatibleConfigurationProviding,
-        session: URLSession = .shared,
-        timeoutInterval: TimeInterval = 30,
-        inactivitySleeper: @escaping StreamingInactivitySleeper = { duration in
-            try await Task.sleep(for: duration)
-        }
-    ) {
-        self.configurationProvider = configurationProvider
+        self.configuration = configuration
         self.session = session
         self.timeoutInterval = timeoutInterval
         self.inactivitySleeper = inactivitySleeper
@@ -151,7 +113,6 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
         let task = Task {
             var endpointHost = "endpoint"
             do {
-                let configuration = try await configurationProvider.configuration()
                 endpointHost = configuration.baseURL.host() ?? endpointHost
                 let request = try makeRequest(
                     text: text,
@@ -207,7 +168,6 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
         _ text: String,
         instruction: String
     ) async throws -> OpenAICompatibleTranslationResult {
-        let configuration = try await configurationProvider.configuration()
         let request = try makeRequest(
             text: text,
             instruction: instruction,

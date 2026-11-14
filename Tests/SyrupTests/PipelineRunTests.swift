@@ -320,8 +320,6 @@ private final class SuspendedSelectionReader: SelectionReading {
     private var continuation: CheckedContinuation<RunSelectionCapture, Never>?
     var isWaiting: Bool { continuation != nil }
 
-    func capture() -> SelectionCapture { .empty }
-
     func captureForRun(processID: pid_t?) async -> RunSelectionCapture {
         await withCheckedContinuation { continuation = $0 }
     }

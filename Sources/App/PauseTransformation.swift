@@ -134,9 +134,10 @@ final class PauseAudioCapture: @unchecked Sendable {
         let origin = UnsafeMutableAudioBufferListPointer(source.mutableAudioBufferList)
         let target = UnsafeMutableAudioBufferListPointer(destination.mutableAudioBufferList)
         let stride = Int(source.format.streamDescription.pointee.mBytesPerFrame)
-        for channel in 0..<origin.count {
-            target[channel].mData!.advanced(by: frameOffset * stride).copyMemory(
-                from: origin[channel].mData!, byteCount: Int(source.frameLength) * stride)
+        for channel in 0..<min(origin.count, target.count) {
+            guard let destination = target[channel].mData, let samples = origin[channel].mData else { continue }
+            destination.advanced(by: frameOffset * stride).copyMemory(
+                from: samples, byteCount: Int(source.frameLength) * stride)
         }
     }
 }

@@ -506,6 +506,37 @@ struct OpenAICompatibleTransformerTests {
         #expect(configuration.model == "env-model")
     }
 
+    /// A Release build ignores `OPENAI_COMPATIBLE_*`, so a run uses exactly what Settings shows.
+    @Test
+    func releaseBuildsIgnoreTheEnvironmentFallback() throws {
+        let environment = [
+            "OPENAI_COMPATIBLE_URL": "https://env.example/v1",
+            "OPENAI_COMPATIBLE_API_KEY": "env-key",
+            "OPENAI_COMPATIBLE_MODEL": "env-model",
+        ]
+        let release = try OpenAICompatibleSettingsConfigurationResolver.configuration(
+            baseURLString: "https://settings.example/v1", modelName: "settings-model",
+            savedAPIKey: "", environment: environment, allowsEnvironmentFallback: false
+        )
+        #expect(release == OpenAICompatibleConfiguration(
+            baseURL: try #require(URL(string: "https://settings.example/v1")), apiKey: "", model: "settings-model"
+        ))
+        let debug = try OpenAICompatibleSettingsConfigurationResolver.configuration(
+            baseURLString: "https://settings.example/v1", modelName: "settings-model",
+            savedAPIKey: "", environment: environment, allowsEnvironmentFallback: true
+        )
+        #expect(debug.model == "env-model")
+        #expect(OpenAICompatibleSettingsConfigurationResolver.allowsEnvironmentFallback == Self.isDebugBuild)
+    }
+
+    private static var isDebugBuild: Bool {
+        #if DEBUG
+        true
+        #else
+        false
+        #endif
+    }
+
     @Test
     @MainActor
     func settingsResolverKeepsManualNoKeySettingsWhenEnvironmentIsIncomplete() async throws {

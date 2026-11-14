@@ -16,14 +16,7 @@ struct RunSelectionCapture: Sendable {
 
 @MainActor
 protocol SelectionReading: AnyObject {
-    func capture() -> SelectionCapture
     func captureForRun(processID: pid_t?) async -> RunSelectionCapture
-}
-
-extension SelectionReading {
-    func captureForRun(processID: pid_t?) async -> RunSelectionCapture {
-        RunSelectionCapture(selection: capture())
-    }
 }
 
 @MainActor
@@ -31,45 +24,36 @@ final class SelectionReader: SelectionReading {
     nonisolated static let maximumCharacterCount = 20_000
 
     private let trustStatus: () -> Bool
-    private let usesSystemCapture: Bool
-    private let rawCapture: () -> String?
     private let frontmostProcessID: () -> pid_t?
+    private let readSelection: @Sendable (pid_t) -> RunSelectionCapture
 
     init(
         trustStatus: @escaping () -> Bool = { AXIsProcessTrusted() },
-        rawCapture: (() -> String?)? = nil,
         frontmostProcessID: @escaping () -> pid_t? = {
             NSWorkspace.shared.frontmostApplication?.processIdentifier
+        },
+        readSelection: @escaping @Sendable (pid_t) -> RunSelectionCapture = { processID in
+            SelectionReader.captureSelection(
+                from: AXUIElementCreateApplication(processID),
+                processID: processID,
+                copyAttribute: SelectionReader.copyAttribute
+            )
         }
     ) {
-        self.usesSystemCapture = rawCapture == nil
         self.trustStatus = trustStatus
-        self.rawCapture = rawCapture ?? Self.captureSelectedText
         self.frontmostProcessID = frontmostProcessID
+        self.readSelection = readSelection
     }
 
-    func capture() -> SelectionCapture {
-        guard trustStatus() else { return .notTrusted }
-        guard let rawText = rawCapture() else { return .empty }
-
-        let trimmedText = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmedText.isEmpty == false else { return .empty }
-
-        return .text(String(trimmedText.prefix(Self.maximumCharacterCount)))
-    }
-
+    /// Reads the triggering app's selection off the main actor, only while that app stays in front.
     func captureForRun(processID: pid_t?) async -> RunSelectionCapture {
         guard trustStatus() else { return RunSelectionCapture(selection: .notTrusted) }
         guard let processID, frontmostProcessID() == processID else {
             return RunSelectionCapture(selection: .sourceChanged)
         }
-        guard usesSystemCapture else { return RunSelectionCapture(selection: capture()) }
+        let readSelection = readSelection
         let result = await Task.detached(priority: .userInitiated) {
-            Self.captureSelection(
-                from: AXUIElementCreateApplication(processID),
-                processID: processID,
-                copyAttribute: Self.copyAttribute
-            )
+            readSelection(processID)
         }.value
         guard frontmostProcessID() == processID else {
             return RunSelectionCapture(selection: .sourceChanged)
@@ -100,23 +84,6 @@ final class SelectionReader: SelectionReading {
             selection: selection,
             source: DeliveryTarget(processID: processID, element: element)
         )
-    }
-
-    nonisolated private static func captureSelectedText() -> String? {
-        captureSelectedText(
-            from: AXUIElementCreateSystemWide(),
-            copyAttribute: Self.copyAttribute
-        )
-    }
-
-    nonisolated static func captureSelectedText(
-        from systemWideElement: AXUIElement,
-        copyAttribute: (CFString, AXUIElement) -> CFTypeRef?
-    ) -> String? {
-        guard let element = focusedElement(from: systemWideElement, copyAttribute: copyAttribute) else {
-            return nil
-        }
-        return selectedText(from: element, copyAttribute: copyAttribute)
     }
 
     nonisolated private static func focusedElement(
@@ -163,7 +130,7 @@ final class SelectionReader: SelectionReading {
         return selectedTextValue as? String
     }
 
-    nonisolated private static func copyAttribute(
+    nonisolated static func copyAttribute(
         _ attribute: CFString,
         from element: AXUIElement
     ) -> CFTypeRef? {

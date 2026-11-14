@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import Observation
 import OSLog
@@ -538,14 +539,13 @@ final class AppSettings {
 
         do {
             let decoded = try JSONDecoder().decode(GlossaryList.self, from: data)
-            guard decoded.version == GlossaryList.currentVersion else {
-                return GlossaryList()
-            }
-            return decoded
+            if decoded.version == GlossaryList.currentVersion { return decoded }
         } catch {
             logger.error("glossary_load_failed code=\((error as NSError).code, privacy: .public)")
-            return GlossaryList()
         }
+        preserveUnusableBlob(data, forKey: glossaryListKey, currentVersion: GlossaryList.currentVersion,
+                             name: "glossary", in: userDefaults)
+        return GlossaryList()
     }
 
     private static func resolvedGlossaryProposals(
@@ -557,14 +557,33 @@ final class AppSettings {
 
         do {
             let decoded = try JSONDecoder().decode(GlossaryProposalList.self, from: data)
-            guard decoded.version == GlossaryProposalList.currentVersion else {
-                return GlossaryProposalList()
-            }
-            return decoded
+            if decoded.version == GlossaryProposalList.currentVersion { return decoded }
         } catch {
             logger.error("glossary_proposals_load_failed code=\((error as NSError).code, privacy: .public)")
-            return GlossaryProposalList()
         }
+        preserveUnusableBlob(data, forKey: glossaryProposalsKey, currentVersion: GlossaryProposalList.currentVersion,
+                             name: "glossary_proposals", in: userDefaults)
+        return GlossaryProposalList()
+    }
+
+    /// Copies a blob this build cannot use (an older version, or data that does not decode) to a backup
+    /// key named by its digest, before the first edit replaces it. The copy is idempotent across launches.
+    /// A newer build's blob is left alone: it stays in place, and `persistVersioned` never overwrites it.
+    static func preserveUnusableBlob(
+        _ data: Data, forKey key: String, currentVersion: Int, name: String, in userDefaults: UserDefaults
+    ) {
+        if let header = try? JSONDecoder().decode(BlobVersion.self, from: data), header.version > currentVersion {
+            return
+        }
+        let backupKey = unusableBlobBackupKey(for: data, key: key)
+        guard userDefaults.data(forKey: backupKey) == nil else { return }
+        userDefaults.set(data, forKey: backupKey)
+        logger.notice("settings_blob_preserved blob=\(name, privacy: .public)")
+    }
+
+    static func unusableBlobBackupKey(for data: Data, key: String) -> String {
+        let digest = SHA256.hash(data: data).prefix(8).map { String(format: "%02x", $0) }.joined()
+        return "\(key).unreadable.\(digest)"
     }
 
     private struct BlobVersion: Decodable {
@@ -587,6 +606,10 @@ final class AppSettings {
             return upgraded
         }
 
+        if let current {
+            preserveUnusableBlob(current, forKey: workflowListKey, currentVersion: WorkflowList.currentVersion,
+                                 name: "workflow_list", in: userDefaults)
+        }
         let migrated = migratedWorkflowList(in: userDefaults)
         if data == nil {
             if let data = try? JSONEncoder().encode(migrated) {

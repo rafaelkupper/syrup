@@ -1,3 +1,4 @@
+import Foundation
 import ApplicationServices
 import Testing
 @testable import Syrup
@@ -6,14 +7,25 @@ import Testing
 struct SelectionReaderTests {
     @Test
     func changedForegroundProcessDoesNotReadSelection() async {
-        var reads = 0
+        let reads = ReadCounter()
         let reader = SelectionReader(
-            trustStatus: { true }, rawCapture: { reads += 1; return "Unrelated selection" },
-            frontmostProcessID: { 102 }
+            trustStatus: { true }, frontmostProcessID: { 102 },
+            readSelection: { _ in reads.increment(); return RunSelectionCapture(selection: .text("Unrelated selection")) }
         )
         let result = await reader.captureForRun(processID: 101)
         #expect(result.selection == .sourceChanged)
-        #expect(reads == 0)
+        #expect(reads.count == 0)
+    }
+
+    @Test
+    func untrustedReaderReturnsNotTrustedWithoutReading() async {
+        let reads = ReadCounter()
+        let reader = SelectionReader(
+            trustStatus: { false }, frontmostProcessID: { 101 },
+            readSelection: { _ in reads.increment(); return RunSelectionCapture(selection: .text("private text")) }
+        )
+        #expect(await reader.captureForRun(processID: 101).selection == .notTrusted)
+        #expect(reads.count == 0)
     }
 
     @Test
@@ -54,63 +66,29 @@ struct SelectionReaderTests {
         #expect(result.selection == .text(String(repeating: "a", count: 20_000)))
         #expect(result.source?.processID == 101)
     }
-    @Test
-    func captureTrimsSelectedText() {
-        let reader = SelectionReader(
-            trustStatus: { true },
-            rawCapture: { "  selected text\n" }
-        )
-
-        #expect(reader.capture() == .text("selected text"))
-    }
-
-    @Test
-    func captureTreatsMissingAndWhitespaceTextAsEmpty() {
-        let missingReader = SelectionReader(
-            trustStatus: { true },
-            rawCapture: { nil }
-        )
-        let whitespaceReader = SelectionReader(
-            trustStatus: { true },
-            rawCapture: { " \n\t " }
-        )
-
-        #expect(missingReader.capture() == .empty)
-        #expect(whitespaceReader.capture() == .empty)
-    }
-
-    @Test
-    func captureCapsSelectedTextAtTwentyThousandCharacters() {
-        let reader = SelectionReader(
-            trustStatus: { true },
-            rawCapture: { String(repeating: "a", count: 20_001) }
-        )
-
-        #expect(reader.capture() == .text(String(repeating: "a", count: 20_000)))
-    }
-
-    @Test
-    func captureReturnsNotTrustedWithoutReadingSelection() {
-        var rawCaptureCallCount = 0
-        let reader = SelectionReader(
-            trustStatus: { false },
-            rawCapture: {
-                rawCaptureCallCount += 1
-                return "private text"
+    @Test(arguments: [nil, " \n\t "] as [String?])
+    func missingOrWhitespaceSelectionIsEmpty(selected: String?) {
+        let application = AXUIElementCreateApplication(101)
+        let result = SelectionReader.captureSelection(
+            from: application, processID: 101,
+            copyAttribute: { attribute, _ in
+                switch attribute as String {
+                case kAXFocusedUIElementAttribute: return application
+                case kAXSelectedTextAttribute: return selected.map { $0 as CFString }
+                default: return nil
+                }
             }
         )
-
-        #expect(reader.capture() == .notTrusted)
-        #expect(rawCaptureCallCount == 0)
+        #expect(result.selection == .empty)
     }
 
     @Test
     func captureDoesNotReadSelectedTextFromSecureField() {
-        let focusedElement = AXUIElementCreateSystemWide()
+        let focusedElement = AXUIElementCreateApplication(101)
         var requestedAttributes: [String] = []
 
-        let capturedText = SelectionReader.captureSelectedText(
-            from: focusedElement,
+        let captured = SelectionReader.captureSelection(
+            from: focusedElement, processID: 101,
             copyAttribute: { attribute, _ in
                 let attributeName = attribute as String
                 requestedAttributes.append(attributeName)
@@ -128,7 +106,14 @@ struct SelectionReaderTests {
             }
         )
 
-        #expect(capturedText == nil)
+        #expect(captured.selection == .empty)
         #expect(requestedAttributes.contains(kAXSelectedTextAttribute) == false)
     }
+}
+
+private final class ReadCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+    var count: Int { lock.withLock { value } }
+    func increment() { lock.withLock { value += 1 } }
 }

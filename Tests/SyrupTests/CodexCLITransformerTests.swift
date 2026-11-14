@@ -112,24 +112,38 @@ struct CodexCLITransformerTests {
         let calls = await runner.calls
         let call = try #require(calls.first)
         #expect(call.executableURL == configuration.executableURL)
-        #expect(call.arguments.first == "exec")
-        #expect(call.arguments.contains("--skip-git-repo-check"))
-        #expect(call.arguments.contains("--ignore-user-config"))
-        #expect(call.arguments.contains("--ephemeral"))
-        #expect(call.arguments.contains("--sandbox"))
-        #expect(call.arguments.contains("read-only"))
-        #expect(call.arguments.contains("--cd"))
-        #expect(call.arguments.contains("--model"))
-        #expect(call.arguments.contains("gpt-5.4-mini"))
-        #expect(call.arguments.contains("--output-last-message"))
-        #expect(call.arguments.last == "-")
-        #expect(call.arguments.contains("bom dia") == false)
+        let directory = try #require(call.arguments.firstIndex(of: "--cd").map { call.arguments[$0 + 1] })
+        let output = try #require(call.arguments.firstIndex(of: "--output-last-message").map { call.arguments[$0 + 1] })
+        #expect(directory.contains("SyrupCodex."))
+        #expect(output == URL(filePath: directory).appending(path: "last-message.txt").path(percentEncoded: false))
+        // Pinned in full: Codex gets no tools, no approvals, no web, and the prompt only on stdin.
+        #expect(call.arguments == [
+            "exec", "--ephemeral", "--skip-git-repo-check", "--ignore-user-config",
+            "--sandbox", "read-only",
+            "-c", #"approval_policy="never""#,
+            "-c", #"web_search="disabled""#,
+            "-c", "features.shell_tool=false",
+            "-c", "features.unified_exec=false",
+            "-c", "features.apps=false",
+            "-c", "features.plugins=false",
+            "-c", "features.browser_use=false",
+            "-c", "features.computer_use=false",
+            "-c", "features.image_generation=false",
+            "-c", "features.view_image=false",
+            "-c", "features.multi_agent=false",
+            "-c", "features.memories=false",
+            "-c", "features.hooks=false",
+            "--cd", directory,
+            "--model", "gpt-5.4-mini",
+            "--output-last-message", output,
+            "-",
+        ])
         #expect(call.environment == ["HOME": fixture.home.path(percentEncoded: false)])
         #expect(call.timeout == 60)
 
         let stdin = String(decoding: call.stdin, as: UTF8.self)
         #expect(stdin.contains("Do not use tools or commands."))
-        #expect(stdin.contains("Input:\nbom dia"))
+        #expect(stdin.contains("bom dia\nEND INPUT "))
     }
 
     @Test
@@ -274,6 +288,60 @@ struct CodexCLITransformerTests {
                 timeout: 0.05
             )
         }
+    }
+
+    /// A CLI that never reads a prompt bigger than the pipe buffer must not hold a thread. With a
+    /// blocking write, more such runs than cores starved the pool, and even the timeouts could not fire:
+    /// 28 runs with a 1 s timeout took 10 s on the measuring Mac. Each run must end at its timeout.
+    @Test
+    func runsThatNeverReadTheirPromptStillEndAtTheTimeout() async throws {
+        let runner = ProcessCommandRunner(killGraceNanoseconds: 50_000_000)
+        let prompt = Data(repeating: 0x61, count: 1 << 20)
+        let clock = ContinuousClock()
+        let started = clock.now
+        let outcomes = await withTaskGroup(of: Bool.self) { group in
+            for _ in 0..<(ProcessInfo.processInfo.activeProcessorCount + 2) {
+                group.addTask {
+                    do {
+                        _ = try await runner.run(executableURL: URL(filePath: "/bin/sleep"), arguments: ["5"],
+                                                 stdin: prompt, environment: [:], timeout: 0.3)
+                        return false
+                    } catch CommandRunnerError.timedOut {
+                        return true
+                    } catch {
+                        return false
+                    }
+                }
+            }
+            return await group.reduce(into: [Bool]()) { $0.append($1) }
+        }
+        #expect(outcomes.allSatisfy { $0 })
+        #expect(started.duration(to: clock.now) < .seconds(3))
+    }
+
+    @Test
+    func stdinFeederNeverWaitsOnAReaderThatDoesNotRead() throws {
+        let pipe = Pipe()
+        defer { try? pipe.fileHandleForReading.close() }
+        let feeder = StdinFeeder(handle: pipe.fileHandleForWriting, data: Data(repeating: 0x61, count: 1 << 20))
+        let clock = ContinuousClock()
+        let elapsed = clock.measure {
+            feeder.start()
+            feeder.close()
+        }
+        #expect(elapsed < .milliseconds(100))
+    }
+
+    @Test
+    func stdinFeederDeliversEverythingThenEndOfFile() async throws {
+        let pipe = Pipe()
+        let payload = Data((0..<(300 * 1_024)).map { UInt8($0 % 251) })
+        let feeder = StdinFeeder(handle: pipe.fileHandleForWriting, data: payload)
+        feeder.start()
+        let reader = pipe.fileHandleForReading
+        let received = try await Task.detached { try reader.readToEnd() ?? Data() }.value
+        #expect(received == payload)
+        feeder.close()
     }
 
     @Test

@@ -127,20 +127,14 @@ private func runProcess(
         throw CommandRunnerError.timedOut
     }
 
-    // Codex may exit before reading all of stdin (a bad flag, a crash). The write then fails with
-    // EPIPE instead of raising SIGPIPE, and the exit status below reports what happened.
-    let stdinHandle = stdinPipe.fileHandleForWriting
-    _ = fcntl(stdinHandle.fileDescriptor, F_SETNOSIGPIPE, 1)
-    do {
-        try stdinHandle.write(contentsOf: stdin)
-    } catch {
-        Logger(subsystem: "org.syrup.SyrupApp", category: "CodexCLI")
-            .notice("codex_stdin_write_failed code=\((error as NSError).code, privacy: .public)")
-    }
-    try? stdinHandle.close()
+    // The prompt is written without blocking a thread, so a CLI that stops reading cannot hold one
+    // until the timeout. Exit, timeout, or cancellation closes the pipe.
+    let feeder = StdinFeeder(handle: stdinPipe.fileHandleForWriting, data: stdin)
+    feeder.start()
 
     // Suspends instead of blocking a cooperative thread for the length of the run.
     await exit.wait()
+    feeder.close()
 
     let stdout = stdoutCollector.finish()
     let stderr = stderrCollector.finish()
@@ -161,6 +155,72 @@ private func runProcess(
         stdout: stdout,
         stderr: stderr
     )
+}
+
+/// Writes a child's stdin without blocking a thread. The descriptor is non-blocking, and each chunk
+/// waits for the pipe to accept more. Codex may exit before reading all of stdin (a bad flag, a crash):
+/// the write then fails with EPIPE instead of raising SIGPIPE, and the exit status reports what happened.
+final class StdinFeeder: @unchecked Sendable {
+    private let handle: FileHandle
+    private let data: Data
+    private let lock = NSLock()
+    private var offset = 0
+    private var isClosed = false
+
+    init(handle: FileHandle, data: Data) {
+        self.handle = handle
+        self.data = data
+    }
+
+    /// Writes what the pipe takes now and returns at once; the rest follows as the reader drains it.
+    func start() {
+        let descriptor = handle.fileDescriptor
+        _ = fcntl(descriptor, F_SETNOSIGPIPE, 1)
+        _ = fcntl(descriptor, F_SETFL, fcntl(descriptor, F_GETFL) | O_NONBLOCK)
+        guard pump() == false else { return }
+        handle.writeabilityHandler = { [weak self] _ in
+            _ = self?.pump()
+        }
+    }
+
+    /// Stops writing and closes the pipe. Safe to call more than once.
+    func close() {
+        lock.withLock { closeLocked() }
+    }
+
+    /// Returns true once everything is written or writing has stopped, and the pipe is closed.
+    private func pump() -> Bool {
+        lock.withLock {
+            guard isClosed == false else { return true }
+            let descriptor = handle.fileDescriptor
+            while offset < data.count {
+                let written = data.withUnsafeBytes { buffer -> Int in
+                    guard let base = buffer.baseAddress else { return 0 }
+                    return Darwin.write(descriptor, base + offset, buffer.count - offset)
+                }
+                if written > 0 {
+                    offset += written
+                } else if written < 0, errno == EINTR {
+                    continue
+                } else if written < 0, errno == EAGAIN {
+                    return false
+                } else {
+                    Logger(subsystem: "org.syrup.SyrupApp", category: "CodexCLI")
+                        .notice("codex_stdin_write_failed code=\(errno, privacy: .public)")
+                    break
+                }
+            }
+            closeLocked()
+            return true
+        }
+    }
+
+    private func closeLocked() {
+        guard isClosed == false else { return }
+        isClosed = true
+        handle.writeabilityHandler = nil
+        try? handle.close()
+    }
 }
 
 /// Resumes one waiter when the process exits, whether it exited before or after the wait began.
@@ -431,20 +491,8 @@ struct CodexCLIConfigurationResolver: Sendable {
     }
 }
 
-protocol CodexCLIConfigurationProviding: Sendable {
-    func configuration() async throws -> CodexCLIConfiguration
-}
-
-struct StaticCodexCLIConfigurationProvider: CodexCLIConfigurationProviding {
-    let configuration: CodexCLIConfiguration
-
-    func configuration() async throws -> CodexCLIConfiguration {
-        configuration
-    }
-}
-
 struct CodexCLITransformer: TextTransformer, @unchecked Sendable {
-    private let configurationProvider: any CodexCLIConfigurationProviding
+    private let configuration: CodexCLIConfiguration
     private let commandRunner: any CommandRunning
     private let fileManager: FileManager
     private let timeoutInterval: TimeInterval
@@ -455,26 +503,46 @@ struct CodexCLITransformer: TextTransformer, @unchecked Sendable {
         fileManager: FileManager = .default,
         timeoutInterval: TimeInterval = 60
     ) {
-        self.configurationProvider = StaticCodexCLIConfigurationProvider(configuration: configuration)
+        self.configuration = configuration
         self.commandRunner = commandRunner
         self.fileManager = fileManager
         self.timeoutInterval = timeoutInterval
     }
 
-    init(
-        configurationProvider: any CodexCLIConfigurationProviding,
-        commandRunner: any CommandRunning = ProcessCommandRunner(),
-        fileManager: FileManager = .default,
-        timeoutInterval: TimeInterval = 60
-    ) {
-        self.configurationProvider = configurationProvider
-        self.commandRunner = commandRunner
-        self.fileManager = fileManager
-        self.timeoutInterval = timeoutInterval
+    /// Codex only rewrites text here, so it gets no way to act: no shell or exec tool, no web search,
+    /// apps, plugins, browser, computer use, image tools, sub-agents, memories, or hooks, and approvals
+    /// are never requested. The read-only sandbox stays as a second fence. `-c` overrides are used rather
+    /// than `--disable`, which exits on a feature an older CLI does not know; an unknown `-c` key only warns.
+    static let restrictions: [String] = [
+        "--sandbox", "read-only",
+        "-c", #"approval_policy="never""#,
+        "-c", #"web_search="disabled""#,
+        "-c", "features.shell_tool=false",
+        "-c", "features.unified_exec=false",
+        "-c", "features.apps=false",
+        "-c", "features.plugins=false",
+        "-c", "features.browser_use=false",
+        "-c", "features.computer_use=false",
+        "-c", "features.image_generation=false",
+        "-c", "features.view_image=false",
+        "-c", "features.multi_agent=false",
+        "-c", "features.memories=false",
+        "-c", "features.hooks=false",
+    ]
+
+    /// The full `codex exec` invocation. The prompt goes on stdin (`-`), never in argv.
+    static func arguments(workingDirectory: URL, model: String, outputFile: URL) -> [String] {
+        ["exec", "--ephemeral", "--skip-git-repo-check", "--ignore-user-config"]
+            + restrictions
+            + [
+                "--cd", workingDirectory.path(percentEncoded: false),
+                "--model", model,
+                "--output-last-message", outputFile.path(percentEncoded: false),
+                "-",
+            ]
     }
 
     func transform(_ text: String, instruction: String) async throws -> String {
-        let configuration = try await configurationProvider.configuration()
         guard fileManager.isReadableFile(atPath: configuration.authFileURL.path(percentEncoded: false)) else {
             throw TranslationError.codexNotSignedIn
         }
@@ -491,21 +559,9 @@ struct CodexCLITransformer: TextTransformer, @unchecked Sendable {
             instruction: instruction,
             transcript: text
         )
-        let arguments = [
-            "exec",
-            "--ephemeral",
-            "--skip-git-repo-check",
-            "--sandbox",
-            "read-only",
-            "--ignore-user-config",
-            "--cd",
-            temporaryDirectory.path(percentEncoded: false),
-            "--model",
-            configuration.model,
-            "--output-last-message",
-            outputURL.path(percentEncoded: false),
-            "-",
-        ]
+        let arguments = Self.arguments(
+            workingDirectory: temporaryDirectory, model: configuration.model, outputFile: outputURL
+        )
 
         let result: CommandResult
         do {
