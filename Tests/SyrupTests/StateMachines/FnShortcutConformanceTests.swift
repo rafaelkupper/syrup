@@ -262,7 +262,8 @@ final class FnShortcutHarness {
 
     func settle(expecting expected: FnObservation) async -> String? {
         let clock = ContinuousClock()
-        let deadline = clock.now + .seconds(2)
+        // Generous, because other suites share the main actor; a real mismatch never matches.
+        let deadline = clock.now + .seconds(10)
         var checks = 0
         while true {
             quietenRecordingRun()

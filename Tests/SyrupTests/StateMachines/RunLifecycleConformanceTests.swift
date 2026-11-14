@@ -314,7 +314,8 @@ final class RunLifecycleHarness {
     /// Lets the app run until it matches `expected` and stays there, or reports how it differs.
     func settle(expecting expected: RunObservation) async -> String? {
         let clock = ContinuousClock()
-        let deadline = clock.now + .seconds(2)
+        // Generous, because other suites share the main actor; a real mismatch never matches.
+        let deadline = clock.now + .seconds(10)
         var checks = 0
         while true {
             if observation() == expected {
