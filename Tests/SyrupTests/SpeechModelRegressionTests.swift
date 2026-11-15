@@ -138,8 +138,11 @@ struct SpeechModelRegressionTests {
     /// reports them, at once and at the next launch, so Settings can offer to delete them, and Delete
     /// removes them.
     @Test func aPartialDownloadIsReportedAndDeleteRemovesIt() async throws {
-        let root = FileManager.default.temporaryDirectory.appending(path: testDomainName("SpeechModelPartial"), directoryHint: .isDirectory)
-        defer { try? FileManager.default.removeItem(at: root) }
+        // Laid out as the real storage folder is, under "Application Support": a check that used a
+        // percent-encoded path would look for "Application%20Support" and never find the files.
+        let base = FileManager.default.temporaryDirectory.appending(path: testDomainName("SpeechModelPartial"), directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: base) }
+        let root = base.appending(path: "Application Support/Syrup/SpeechModels", directoryHint: .isDirectory)
         let started = Signal()
         let operations = SpeechModelManager.Operations(
             modelsExist: { RegressionFixture.isComplete($0) },
