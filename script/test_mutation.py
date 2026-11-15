@@ -2,16 +2,22 @@
 
     python3 -I script/test_mutation.py
 """
+import ast
 import json
+import os
 from pathlib import Path
+import signal
+import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import mutation  # noqa: E402
 
 FIXTURES = Path(__file__).resolve().parent / "mutation-fixtures"
+SCRIPT = Path(__file__).resolve().parent / "mutation.py"
 
 
 def mutated(line: str) -> list[tuple[str, str]]:
@@ -34,13 +40,35 @@ class ChangedLinesTests(unittest.TestCase):
             "+    new()",
             "@@ -20,3 +21,0 @@",
             "-    gone()",
-            "diff --git a/Sources/B.swift b/Sources/B.swift",
-            "--- a/Sources/B.swift",
-            "+++ /dev/null",
-            "@@ -1,2 +0,0 @@",
-            "-x",
         ])
-        self.assertEqual(mutation.changed_lines(diff), {"Sources/A.swift": {4, 5, 12}})
+        self.assertEqual(mutation.changed_lines(diff), {4, 5, 12})
+
+
+class BranchTests(unittest.TestCase):
+    """A throwaway repository, with the diff settings and file names that once hid changed lines."""
+
+    def git(self, root, *args):
+        subprocess.run(["git", "-C", str(root), "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+                        "-c", "commit.gpgsign=false", *args], check=True, capture_output=True)
+
+    def test_changed_lines_are_found_whatever_the_diff_settings_and_file_names(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "Sources").mkdir()
+            names = ["Sources/A.swift", "Sources/B with space.swift", "Sources/Café.swift"]
+            for name in names:
+                (root / name).write_text("func f() -> Bool {\n    return false\n}\n", encoding="utf-8")
+            self.git(root, "init", "-q")
+            self.git(root, "add", ".")
+            self.git(root, "commit", "-q", "--no-verify", "-m", "base")
+            for name in names:
+                (root / name).write_text("func f() -> Bool {\n    return true\n}\n", encoding="utf-8")
+            (root / "Sources/New.swift").write_text("let ready = false\n", encoding="utf-8")
+            (root / "Sources/icon.png").write_bytes(b"\x89PNG\r\n\x1a\n\xff\xfe")
+            for setting in ("diff.noprefix", "diff.mnemonicPrefix"):
+                self.git(root, "config", setting, "true")
+            found = {(m.path, m.line) for m in mutation.branch_mutants("HEAD", root)[0]}
+            self.assertEqual(found, {(name, 2) for name in names} | {("Sources/New.swift", 1)})
 
 
 class MaskTests(unittest.TestCase):
@@ -58,6 +86,11 @@ class MaskTests(unittest.TestCase):
         self.assertTrue(masked[0].rstrip().endswith("== c"))
         self.assertEqual(masked[2].strip(), "")
         self.assertTrue(masked[3].rstrip().endswith("== f"))
+
+    def test_a_raw_string_holding_one_quote_is_one_line(self):
+        # `#"""#` is a one-line raw string holding a quote, not the start of a multi-line string.
+        masked = mutation.mask('let q = #"""# == x\nlet y = a == b\n')
+        self.assertEqual(masked.count("=="), 2)
 
     def test_interpolation_is_code_and_its_strings_are_not(self):
         masked = mutation.mask('let s = "\\(f("x == y") == z) == w"')
@@ -78,8 +111,21 @@ class OperatorTests(unittest.TestCase):
                          [("< to <=", "if a <= b, c <= d, e > f, g >= h {"), ("<= to <", "if a < b, c < d, e > f, g >= h {"),
                           ("> to >=", "if a < b, c <= d, e >= f, g >= h {"), (">= to >", "if a < b, c <= d, e > f, g > h {")])
 
+    def test_a_prefix_negation_is_removed(self):
+        self.assertEqual(mutated("if !ready {"), [("! removed", "if ready {")])
+        self.assertEqual(mutated("guard !items.isEmpty, (!a) else {"),
+                         [("! removed", "guard items.isEmpty, (!a) else {"), ("! removed", "guard !items.isEmpty, (a) else {")])
+        for line in ["let y = x!.count", "if a != b {", "let s = \"!a\""]:
+            self.assertNotIn("! removed", [operator for operator, _ in mutated(line)], line)
+
+    def test_a_bool_literal_that_is_assigned_is_flipped(self):
+        self.assertEqual(mutated("let enabled = true"), [("true to false", "let enabled = false")])
+        self.assertEqual(mutated("var enabled: Bool = false"), [("false to true", "var enabled: Bool = true")])
+        self.assertEqual(mutated("enabled = false"), [("false to true", "enabled = true"), ("statement deleted", "")])
+
     def test_a_comparison_with_a_bool_literal_is_one_mutant(self):
         self.assertEqual(mutated("if a.isEmpty == false {"), [("compared Bool flipped", "if a.isEmpty == true {")])
+        self.assertEqual(mutated("if a ==  true {"), [("compared Bool flipped", "if a ==  false {")])
         self.assertEqual(mutated("if a != true {"), [("compared Bool flipped", "if a != false {")])
 
     def test_types_arrows_identity_comments_and_strings_are_left_alone(self):
@@ -94,6 +140,30 @@ class OperatorTests(unittest.TestCase):
         for line in ["    let x = f()", "    return f()", "    x == y", "    foo(a,", "    super.init()",
                      "    try fileManager.createDirectory(at: parent) {", "    case .a = b"]:
             self.assertNotIn("statement deleted", [operator for operator, _ in mutated(line)], line)
+        # Deleting the first line of a statement that goes on below cannot compile, so it is not made.
+        for line in ["    outputVolumeWork = Task {", "    items.append(contentsOf: [", "    send(event) {"]:
+            self.assertNotIn("statement deleted", [operator for operator, _ in mutated(line)], line)
+
+    def test_view_bodies_are_not_mutated(self):
+        source = "\n".join([
+            "struct Row: View, Equatable {",           # 1
+            "    var body: some View {",               # 2
+            "        if a == b { Text(\"x\") }",       # 3
+            "    }",                                    # 4
+            "}",                                        # 5
+            "extension Row: View {",                   # 6
+            "    func f() { send(a == b) }",            # 7
+            "}",                                        # 8
+            "struct Box<Content: View> {",             # 9
+            "    func g() -> Bool { a == b }",          # 10
+            "}",                                        # 11
+            "final class Model: ObservableObject {",    # 12
+            "    func h() -> Bool { a == b }",          # 13
+            "}",                                        # 14
+        ])
+        found = mutation.mutants_for_file("A.swift", source, set(range(1, 15)))
+        self.assertEqual(sorted({m.line for m in found}), [10, 13])
+        self.assertEqual(mutation.view_lines(mutation.mask(source)), {1, 2, 3, 4, 5, 6, 7, 8})
 
     def test_only_changed_lines(self):
         source = "a = b == c\nd = e == f\ng = h == i\n"
@@ -103,7 +173,7 @@ class OperatorTests(unittest.TestCase):
 
 class SelectionTests(unittest.TestCase):
     def mutants(self, count):
-        return [mutation.Mutant("A.swift", n, "a == b", "a != b", "== to !=") for n in range(1, count + 1)]
+        return [mutation.Mutant("A.swift", n, "a%d == b" % n, "a%d != b" % n, "== to !=") for n in range(1, count + 1)]
 
     def test_the_limit_is_kept_and_the_choice_repeats(self):
         picked = mutation.select(self.mutants(30), 7)
@@ -118,31 +188,163 @@ class SelectionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "equivalent.json"
             path.write_text(json.dumps({"equivalent": [{"file": "A.swift", "original": "remember(key)", "mutated": "",
-                                                        "occurrence": 2, "reason": "b never runs"}]}))
+                                                        "occurrence": 2, "before": "func b() {", "after": "}",
+                                                        "reason": "b never runs"}]}))
             self.assertEqual(mutation.load_equivalent(path), {second.key})
+
+    def test_an_entry_does_not_move_to_another_line_when_an_identical_line_is_inserted(self):
+        source = "func a() {\n    remember(key)\n}\nfunc b() {\n    remember(key)\n}\n"
+        listed = mutation.mutants_for_file("A.swift", source, {5})[0]
+        changed = "func z() {\n    remember(key)\n}\n" + source
+        keys = {m.key for m in mutation.mutants_for_file("A.swift", changed, {2, 5, 8})}
+        # Each line now has another occurrence number; none may take over the entry for func b.
+        self.assertNotIn(listed.key, keys)
+
+    def test_selection_does_not_change_when_unrelated_lines_move(self):
+        source = "".join("func f%d() -> Bool {\n    return a%d == b\n}\n" % (n, n) for n in range(12))
+        before = {(m.original, m.mutated) for m in mutation.select(mutation.mutants_for_file("A.swift", source, set(range(1, 40))), 5)}
+        moved = "// a new first line\n" + source
+        after = {(m.original, m.mutated) for m in mutation.select(mutation.mutants_for_file("A.swift", moved, set(range(1, 41))), 5)}
+        self.assertEqual(before, after)
+
+    def test_entries_that_match_no_line_are_reported(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "A.swift").write_text("func f() {\n    remember(key)\n}\n", encoding="utf-8")
+            good = {"file": "A.swift", "original": "remember(key)", "mutated": "", "occurrence": 1,
+                    "before": "func f() {", "after": "}", "reason": "r"}
+            moved = dict(good, before="func g() {")
+            gone = dict(good, file="Gone.swift")
+            path = root / "equivalent.json"
+            path.write_text(json.dumps({"equivalent": [good, moved, gone]}), encoding="utf-8")
+            self.assertEqual(mutation.stale_entries(path, root), [moved, gone])
 
     def test_equivalent_entries_need_a_reason_and_match_by_text(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "equivalent.json"
             path.write_text(json.dumps({"equivalent": [
                 {"file": "A.swift", "original": "  a == b ", "mutated": "a != b", "reason": "a and b are always equal"}]}))
-            self.assertEqual(mutation.load_equivalent(path), {("A.swift", "a == b", "a != b", 1)})
+            self.assertEqual(mutation.load_equivalent(path), {("A.swift", "a == b", "a != b", 1, "", "")})
             path.write_text(json.dumps({"equivalent": [{"file": "A.swift", "original": "a", "mutated": "b", "reason": " "}]}))
             with self.assertRaises(SystemExit):
                 mutation.load_equivalent(path)
         self.assertEqual(mutation.load_equivalent(Path("/nonexistent/equivalent.json")), set())
 
 
+class RunTests(unittest.TestCase):
+    def test_a_time_out_stops_the_whole_process_group(self):
+        # A fake test script whose child ignores SIGTERM, as a hung build tool might.
+        with tempfile.TemporaryDirectory() as directory:
+            scratch = Path(directory)
+            (scratch / "script").mkdir()
+            fake = scratch / "script" / "test-isolated.sh"
+            fake.write_text("#!/bin/sh\necho $$ > \"$(dirname \"$0\")/pid\"\n(trap '' TERM; sleep 300) &\nexec sleep 300\n")
+            fake.chmod(0o755)
+            grace = mutation.STOP_GRACE
+            mutation.STOP_GRACE = 1
+            self.addCleanup(setattr, mutation, "STOP_GRACE", grace)
+            result, _ = mutation.run_suite(scratch, scratch / "root", scratch / "run.log", timeout=1)
+            self.assertEqual(result, "timed out")
+            group = int((scratch / "script" / "pid").read_text())
+            time.sleep(0.2)
+            with self.assertRaises(ProcessLookupError):
+                os.killpg(group, 0)
+
+    def test_a_time_out_stops_build_processes_outside_the_group(self):
+        # Xcode's build service starts each compiler in its own process group; a compiler names the
+        # run's build folder in its arguments. This fake one leaves the group and ignores SIGTERM.
+        with tempfile.TemporaryDirectory() as directory:
+            scratch = Path(directory)
+            (scratch / "script").mkdir()
+            fake = scratch / "script" / "test-isolated.sh"
+            fake.write_text("#!/bin/sh\n"
+                            "perl -e 'setpgrp(0, 0); $SIG{TERM} = \"IGNORE\"; sleep 300' \"$SYRUP_TEST_ROOT/build\" &\n"
+                            "exec sleep 300\n")
+            fake.chmod(0o755)
+            grace = mutation.STOP_GRACE
+            mutation.STOP_GRACE = 1
+            self.addCleanup(setattr, mutation, "STOP_GRACE", grace)
+            root = scratch / "root"
+            self.addCleanup(self.kill_naming, str(root))  # never leave the probe behind
+            result, _ = mutation.run_suite(scratch, root, scratch / "run.log", timeout=2)
+            self.assertEqual(result, "timed out")
+            self.assertEqual(self.kill_naming(str(root)), [])
+
+    @staticmethod
+    def kill_naming(text):
+        """Kills the processes whose arguments contain `text`, and returns their PIDs."""
+        listing = subprocess.run(["ps", "-axww", "-o", "pid=,args="], capture_output=True, text=True).stdout
+        pids = [int(line.split()[0]) for line in listing.splitlines() if text in line]
+        for pid in pids:
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        return pids
+
+    def test_the_run_removes_the_lock_files_swiftpm_left_for_it(self):
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            mine = ["_private_var_T_syrup-mutation.abcd1234_test-root_build_SourcePackages_Package.resolved.lock",
+                    "_private_var_T_syrup-mutation.abcd1234_test-root_build_SourcePackages_artifacts_sparkle_Sparkle.lock"]
+            other = ["_private_var_T_syrup-mutation.zzzz9999_test-root_build_SourcePackages_Package.resolved.lock",
+                     "_Users_x_DerivedData_Syrup-abc_SourcePackages_Package.resolved.lock"]
+            for name in mine + other:
+                (folder / name).touch()
+            mutation.remove_lock_files(folder, "syrup-mutation.abcd1234")
+            self.assertEqual(sorted(p.name for p in folder.iterdir()), sorted(other))
+
+    def test_files_are_read_and_written_as_utf8_whatever_the_locale(self):
+        # The fault fb5f1c6 fixed in generate.py: open(), read_text(), and write_text() otherwise use
+        # the locale's encoding, which crashes on non-ASCII Swift under US-ASCII.
+        tree = ast.parse(SCRIPT.read_text(encoding="utf-8"))
+        missing = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                name = node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, "id", "")
+                modes = [arg.value for arg in node.args[1:2] if isinstance(arg, ast.Constant)]
+                if name in ("open", "read_text", "write_text") and not any("b" in str(m) for m in modes) \
+                        and "encoding" not in [keyword.arg for keyword in node.keywords]:
+                    missing.append(node.lineno)
+        self.assertEqual(missing, [])
+
+    def test_an_empty_or_bad_limit_from_the_environment(self):
+        env = dict(os.environ, SYRUP_MUTANTS="")
+        self.assertEqual(subprocess.run([sys.executable, "-I", str(SCRIPT), "--base", "HEAD", "--list"], env=env,
+                                        capture_output=True).returncode, 0)
+        env["SYRUP_MUTANTS"] = "many"
+        self.assertEqual(subprocess.run([sys.executable, "-I", str(SCRIPT), "--base", "HEAD", "--list"], env=env,
+                                        capture_output=True).returncode, 2)
+
+    def run_script(self, *args):
+        return subprocess.run([sys.executable, "-I", str(SCRIPT), "--base", "HEAD", "--list", *args],
+                              capture_output=True, text=True)
+
+    def test_a_limit_below_one_is_refused(self):
+        for limit in ("0", "-1"):
+            self.assertEqual(self.run_script("--limit", limit).returncode, 2, limit)
+
+    def test_only_naming_a_line_without_mutants_is_refused(self):
+        # A typo or a moved line would otherwise pass as fixed.
+        self.assertEqual(self.run_script("--only", "Sources/Nope.swift:1").returncode, 2)
+
+    def test_a_logs_path_that_is_a_file_is_refused_before_anything_runs(self):
+        with tempfile.NamedTemporaryFile() as file:
+            self.assertEqual(self.run_script("--logs", file.name).returncode, 2)
+
+
 class ClassifyTests(unittest.TestCase):
     """Each fixture is the end of a real run's output, with local paths removed."""
 
     def classify(self, name, exit_code):
-        return mutation.classify(exit_code, (FIXTURES / name).read_text())
+        return mutation.classify(exit_code, (FIXTURES / name).read_text(encoding="utf-8"))
 
     def test_real_runs(self):
         self.assertEqual(self.classify("passed.log", 0), "survived")
         self.assertEqual(self.classify("test-failed.log", 65), "killed")
         self.assertEqual(self.classify("build-failed.log", 65), "did not compile")
+        self.assertEqual(mutation.classify(65, (FIXTURES / "build-failed.log").read_text(encoding="utf-8"),
+                                           "Sources/Translation/OpenAISSEParser.swift"), "did not compile")
         self.assertEqual(self.classify("crashed.log", 65), "killed")
         self.assertEqual(self.classify("no-tests.log", 0), "unclassified")
 
@@ -154,6 +356,11 @@ class ClassifyTests(unittest.TestCase):
         # Hand-built: the runner stopping before any test, which reads as no catch either way.
         log = "Testing failed:\n\tTest runner exited before starting test execution.\n\n** TEST FAILED **\n"
         self.assertEqual(mutation.classify(65, log), "unclassified")
+
+    def test_a_build_that_fails_outside_the_mutated_file_is_unclassified(self):
+        # A disk, signing, or package failure is no evidence about the mutant.
+        log = (FIXTURES / "build-failed.log").read_text(encoding="utf-8")
+        self.assertEqual(mutation.classify(65, log, "Sources/Core/Other.swift"), "unclassified")
 
     def test_no_output_is_unclassified(self):
         self.assertEqual(mutation.classify(0, ""), "unclassified")

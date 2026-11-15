@@ -29,12 +29,13 @@ runs_dir="$HOME/Library/Caches/$domain_prefix/runs"
 tmp_root=${TMPDIR:-/tmp}
 tmp_root=${tmp_root%/}
 
-# remove_run_temp <token> <temporary copy>: the host's temporary folder, and the lock file SwiftPM
-# leaves beside it, named after the temporary copy.
+# remove_run_temp <token> <temporary copy>: the host's temporary folder, and the lock files SwiftPM
+# leaves beside it, named after the temporary copy (Package.resolved, workspace state, and one per
+# binary artifact).
 remove_run_temp() {
     rm -rf "$tmp_root/$host_prefix.$1"
     case $2 in */syrup-tests.??????)
-        find "$tmp_root" -maxdepth 1 -type f -name "*_$(basename "$2")_build_SourcePackages_Package.resolved.lock" -delete ;;
+        find "$tmp_root" -maxdepth 1 -type f -name "*_$(basename "$2")_build_SourcePackages_*.lock" -delete ;;
     esac
 }
 
@@ -64,15 +65,23 @@ remove_finished_runs() {
         rm -f "$marker"
     done
     find "$preferences" -maxdepth 1 -type f -mmin +60 -name "$domain_prefix.local.*.plist" -delete
+    # A host domain cfprefsd saved after the next run had already removed its run's marker, as
+    # back-to-back runs do: gone once ten minutes old, far past cfprefsd's delay, unless its run is live.
+    for plist in "$preferences/$host_prefix".*.plist; do
+        [ -f "$plist" ] || continue
+        token=${plist##*/"$host_prefix".}
+        token=${token%.plist}
+        run_is_live "$token" || find "$plist" -mmin +10 -delete
+    done
     # Left by runs from before markers covered them: host folders of runs no longer going, and
     # SwiftPM lock files whose temporary copy is gone.
     for folder in "$tmp_root/$host_prefix".*; do
         [ -d "$folder" ] || continue
         run_is_live "${folder##*.}" || rm -rf "$folder"
     done
-    for lock in "$tmp_root"/*syrup-tests.??????_build_SourcePackages_Package.resolved.lock; do
+    for lock in "$tmp_root"/*syrup-tests.??????_build_SourcePackages_*.lock; do
         [ -f "$lock" ] || continue
-        copy=$(printf '%s' "$lock" | sed -E 's/.*(syrup-tests\.[A-Za-z0-9]{6})_build_SourcePackages_Package\.resolved\.lock$/\1/')
+        copy=$(printf '%s' "$lock" | sed -E 's/.*(syrup-tests\.[A-Za-z0-9]{6})_build_SourcePackages_.*\.lock$/\1/')
         [ -d "$tmp_root/$copy" ] || rm -f "$lock"
     done
 }

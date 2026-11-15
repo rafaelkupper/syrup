@@ -1,3 +1,20 @@
+$TMPDIR/syrup-capture.d_wmrebw/test-root/Sources/Translation/OpenAISSEParser.swift:8:36: error: Expected 'func' keyword in instance method declaration (in target 'Syrup' from project 'Syrup')
+$TMPDIR/syrup-capture.d_wmrebw/test-root/Sources/Translation/OpenAISSEParser.swift:8:40: error: Found an unexpected second identifier in function declaration; is there an accidental break? (in target 'Syrup' from project 'Syrup')
+    note: Join the identifiers together
+    note: Join the identifiers together with camel-case
+$TMPDIR/syrup-capture.d_wmrebw/test-root/Sources/Translation/OpenAISSEParser.swift:8:45: error: Expected '(' in argument list of function declaration (in target 'Syrup' from project 'Syrup')
+$TMPDIR/syrup-capture.d_wmrebw/test-root/Sources/Translation/OpenAISSEParser.swift:8:40: note: Join the identifiers together
+struct OpenAISSEParser: Sendable { not swift
+                                   ~~~~^~~~~
+                                   notswift (in target 'Syrup' from project 'Syrup')
+$TMPDIR/syrup-capture.d_wmrebw/test-root/Sources/Translation/OpenAISSEParser.swift:8:40: note: Join the identifiers together with camel-case
+struct OpenAISSEParser: Sendable { not swift
+                                   ~~~~^~~~~
+                                   notSwift (in target 'Syrup' from project 'Syrup')
+
+PruneExplicitPrecompiledModules $TMPDIR/syrup-capture.d_wmrebw/test-root/build/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+
+PruneExplicitPrecompiledModules $TMPDIR/syrup-capture.d_wmrebw/test-root/build/SDKExplicitPrecompiledModules
 
 PruneExplicitPrecompiledModules $TMPDIR/syrup-capture.d_wmrebw/test-root/build/Build/Intermediates.noindex/ExplicitPrecompiledModules
 
