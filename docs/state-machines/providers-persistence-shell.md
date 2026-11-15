@@ -1,8 +1,8 @@
 # Providers, persistence, settings, and shell state machines
 
-This area has 54 state machines: 46 have a statechart below and 8 are small enough for the [closing table](#small-machines). Nineteen are High importance because an AGENTS.md hard rule or a visible failure depends on them. The history and learning opt-outs must delete their files or stay on, and never claim an opt-out while data remains (M16, M17, M22, M23, M24). A newer build's settings blob must never be overwritten (M25). Private input may reach only the provider frozen at the trigger, and the two CLIs get no tools and no saved session (M11, M12, M15). Every provider request must end, by its deadlines, by cancellation, or by stopping the CLI's process group, without accepting a cut-off answer (M01, M03 to M06). The API key must stay in the local file store and never read as missing after a read failure (M32, M33), and an update must not relaunch the app during dictation (M51, M52). One machine is formally validated: the learning opt-out (M23), model-checked by `LearningOptOutModel` (commit `cf9e1a4`) and replayed against the real `PrivacyOptIns` and recording archive; this review did not rerun it. The other 53 are not formally validated. Nine suspected defects remain unverified ([SH1 to SH9](#suspected-defects)). As read, none lets data persist without an opt-in or lets an opt-out claim success while data remains; they are stale or misleading UI and stats state.
+This area has 51 state machines: 43 have a statechart below and 8 are small enough for the [closing table](#small-machines). Seventeen are High importance because an AGENTS.md hard rule or a visible failure depends on them. The history opt-out must delete its file or stay on, and never claim an opt-out while data remains (M16, M17, M22). A newer build's settings blob must never be overwritten (M25). Private input may reach only the provider frozen at the trigger, and the two CLIs get no tools and no saved session (M11, M12, M15). Every provider request must end, by its deadlines, by cancellation, or by stopping the CLI's process group, without accepting a cut-off answer (M01, M03 to M06). The API key must stay in the local file store and never read as missing after a read failure (M32, M33), and an update must not relaunch the app during dictation (M51, M52). None is formally validated. The one machine here that was, the learning opt-out (M23, model-checked by `LearningOptOutModel`), was removed with glossary learning in `a3dec87`, together with the startup recording cleanup (M24) and the Glossary learning controls (M41); the cleanup of the files learning left is charted as [M38 in the speech and glossary check inventory](speech-learning.md#m38-retired-learning-cleanup). Nine suspected defects remain unverified ([SH1 to SH9](#suspected-defects)). As read, none lets data persist without an opt-in or lets an opt-out claim success while data remains; they are stale or misleading UI and stats state.
 
-Checked on 2026-11-14 against commit `42b82ba` (no source file changed since `c339c8b`). Every High machine's states, events, and guards were compared with its source lines; Medium and Low machines were spot-checked for their state variables and line numbers. Line anchors refer to that commit. UserDefaults keys and files on disk count as state. Charts write guards in words. M24, M27, and M42 overlap the [speech and learning](speech-learning.md) inventory, and the cleanup that M52 waits for is charted in [run-pipeline.md](run-pipeline.md#quitting).
+Checked again on 2026-11-15 against commit `5386bbc`, after glossary learning was removed and reasoning in content parts counted as stream progress again (`a3dec87`), and after the OpenAI-compatible provider changed which chunks count as progress and how it remembers a temperature rejection (`a3c29a1` to `fb5f1c6`). M01 to M03, M21, M22, M27, M28, M39, M47, and M51 to M53 were compared with their source lines again, and every other line link was checked and moved where its lines moved. Line anchors refer to `5386bbc`. M23, M24, and M41 were removed with the code they charted, and their numbers are not reused. The first check, on 2026-11-14 against `42b82ba`, compared every High machine's states, events, and guards with its source lines and spot-checked Medium and Low machines for their state variables and line numbers. UserDefaults keys and files on disk count as state. Charts write guards in words. M27 and M42 overlap the [speech and glossary check](speech-learning.md) inventory (its M35 and M30), and the cleanup that M52 waits for is charted in [run-pipeline.md](run-pipeline.md#quitting).
 
 | Machine | Owner | Kind | Importance | Validation |
 | --- | --- | --- | --- | --- |
@@ -28,8 +28,6 @@ Checked on 2026-11-14 against commit `42b82ba` (no source file changed since `c3
 | [M20 Usage accumulator](#small-machines) | `UsageStats` | Implicit | Low | Not formally validated |
 | [M21 Privacy store attachment](#m21-privacy-store-attachment) | `PrivacyOptIns`, `AppSettings` | Implicit | High | Not formally validated |
 | [M22 Persist-history opt-in transaction](#m22-persist-history-opt-in-transaction) | `PrivacyOptIns`, `HistoryStore` | Implicit | High | Not formally validated |
-| [M23 Learning opt-in transaction and supersession](#m23-learning-opt-in-transaction-and-supersession) | `PrivacyOptIns` | Implicit | High | Model-checked (`LearningOptOutModel`) |
-| [M24 Startup recording cleanup](#m24-startup-recording-cleanup) | `deleteLeftoverRecordingsIfLearningIsOff`, `SyrupApp` | Implicit | High | Not formally validated |
 | [M25 Versioned settings blobs and backups](#m25-versioned-settings-blobs-and-backups) | `AppSettings` | Mixed | High | Not formally validated |
 | [M26 Saved workflow lifecycle and normalization](#m26-saved-workflow-lifecycle-and-normalization) | `Workflow`, `WorkflowList`, `WorkflowBindings` | Mixed | Medium | Not formally validated |
 | [M27 Glossary and proposal memory](#m27-glossary-and-proposal-memory) | `GlossaryList`, `GlossaryProposalList` | Mixed | Medium | Not formally validated |
@@ -46,7 +44,6 @@ Checked on 2026-11-14 against commit `42b82ba` (no source file changed since `c3
 | [M38 Home projection, provider diagnosis, and seen-results clock](#m38-home-projection-provider-diagnosis-and-seen-results-clock) | `HomeStatus`, `HomeSettingsPane` | Mixed | Medium | Not formally validated |
 | [M39 Privacy-pane disk and destination observations](#m39-privacy-pane-disk-and-destination-observations) | `PrivacySettingsPane` | Implicit | Medium | Not formally validated |
 | [M40 Glossary editor drafts, selection, and export](#m40-glossary-editor-drafts-selection-and-export) | `GlossarySettingsView` | Implicit | Medium | Not formally validated |
-| [M41 Learning controls and deletion display](#m41-learning-controls-and-deletion-display) | `GlossarySettingsView` | Mixed | Medium | Not formally validated |
 | [M42 Mishearing checks and their UI projection](#m42-mishearing-checks-and-their-ui-projection) | `MishearingSuggestionModel`, `MishearingCheckCopy` | Mixed | Medium | Not formally validated |
 | [M43 Delayed settings refocus](#small-machines) | `SettingsWindowFocusController` | Implicit | Low | Not formally validated |
 | [M44 Microphone list snapshot](#small-machines) | `DictationSettingsPane` | Implicit | Low | Not formally validated |
@@ -81,7 +78,7 @@ All nine come from reading the code. None was reproduced, so each stays unverifi
 
 One OpenAI-compatible run streams its request, retries once without `temperature` when the server rejects that parameter, and falls back to one non-streamed request only when the server says it cannot stream. It returns a normalized answer only if the stream completed and the caller was not cancelled. Three deadlines bound it: the request's 30 s idle timeout until headers, a first-answer limit (ten times the timeout, 5 minutes by default) that covers everything until the first answer text, and the inactivity deadline of M04 once a stream is open; the fallback request has one fixed 30 s deadline for headers, body, and its own temperature retry.
 
-State: [configuration and limits](../../Sources/Translation/OpenAICompatibleTransformer.swift#L86-L91), [`transform` output](../../Sources/Translation/OpenAICompatibleTransformer.swift#L120), the [stream and continuation](../../Sources/Translation/OpenAICompatibleTransformer.swift#L146) with its [producer task](../../Sources/Translation/OpenAICompatibleTransformer.swift#L148) cancelled from [`onTermination`](../../Sources/Translation/OpenAICompatibleTransformer.swift#L170-L172), [`firstAnswerDeadline`](../../Sources/Translation/OpenAICompatibleTransformer.swift#L153-L157) cancelled by [`answerStarted`](../../Sources/Translation/OpenAICompatibleTransformer.swift#L181-L184), and the per-request `sendsTemperature` flags in the [stream](../../Sources/Translation/OpenAICompatibleTransformer.swift#L185) and the [fallback](../../Sources/Translation/OpenAICompatibleTransformer.swift#L256-L258).
+State: [configuration and limits](../../Sources/Translation/OpenAICompatibleTransformer.swift#L86-L91), [`transform` output](../../Sources/Translation/OpenAICompatibleTransformer.swift#L120), the [stream and continuation](../../Sources/Translation/OpenAICompatibleTransformer.swift#L146) with its [producer task](../../Sources/Translation/OpenAICompatibleTransformer.swift#L148) cancelled from [`onTermination`](../../Sources/Translation/OpenAICompatibleTransformer.swift#L170-L172), [`firstAnswerDeadline`](../../Sources/Translation/OpenAICompatibleTransformer.swift#L153-L157) cancelled by [`answerStarted`](../../Sources/Translation/OpenAICompatibleTransformer.swift#L181-L184), and the per-request `sendsTemperature` and `rejectionNamedTemperature` flags in the [stream](../../Sources/Translation/OpenAICompatibleTransformer.swift#L185-L186) and the [fallback](../../Sources/Translation/OpenAICompatibleTransformer.swift#L269-L270).
 
 ```mermaid
 stateDiagram-v2
@@ -90,7 +87,7 @@ stateDiagram-v2
     state "Stream ended normally" as Collected
     state "Fallback request, one fixed deadline" as Atomic
     [*] --> BeforeAnswer: start producer and first-answer timer
-    BeforeAnswer --> BeforeAnswer: 400, 422, or 501 naming temperature, retry once without it
+    BeforeAnswer --> BeforeAnswer: 400, 422, or 501 mentioning temperature, retry once without it
     BeforeAnswer --> Atomic: 400, 422, or 501 saying stream is unsupported
     BeforeAnswer --> Answering: first nonempty delta or JSON content, timer cancelled
     BeforeAnswer --> Failed: first-answer limit, idle timeout, HTTP error, inactivity, cap, or bad body
@@ -101,7 +98,7 @@ stateDiagram-v2
     Answering --> Cancelled: caller cancelled or consumer stopped
     Collected --> Succeeded: normalized answer not empty
     Collected --> Failed: empty answer
-    Atomic --> Atomic: temperature rejected, retry once without it
+    Atomic --> Atomic: 400, 422, or 501 mentioning temperature, retry once without it
     Atomic --> Succeeded: valid bounded answer
     Atomic --> Failed: fixed deadline, HTTP error, bad finish reason, or empty answer
     Succeeded --> [*]
@@ -111,11 +108,11 @@ stateDiagram-v2
 
 Invariants:
 
-- The fallback runs only for a 400, 422, or 501 whose JSON names `stream` with a known unsupported code; an interrupted or malformed stream never retries. Enforced at [L198-L205](../../Sources/Translation/OpenAICompatibleTransformer.swift#L198-L205) and [L355-L362](../../Sources/Translation/OpenAICompatibleTransformer.swift#L355-L362).
-- At most one temperature retry per request path. Enforced at [L201-L204](../../Sources/Translation/OpenAICompatibleTransformer.swift#L201-L204) and [L265-L269](../../Sources/Translation/OpenAICompatibleTransformer.swift#L265-L269).
+- The fallback runs only for a 400, 422, or 501 whose JSON names `stream` with a known unsupported code; an interrupted or malformed stream never retries. Enforced at [L199-L201](../../Sources/Translation/OpenAICompatibleTransformer.swift#L199-L201) and [L373-L378](../../Sources/Translation/OpenAICompatibleTransformer.swift#L373-L378).
+- At most one temperature retry per request path, and only while that path still sends the parameter. Enforced at [L202-L206](../../Sources/Translation/OpenAICompatibleTransformer.swift#L202-L206) and [L277-L282](../../Sources/Translation/OpenAICompatibleTransformer.swift#L277-L282).
 - A cancelled caller gets `CancellationError`, never the prefix that arrived. Enforced at [L128-L129](../../Sources/Translation/OpenAICompatibleTransformer.swift#L128-L129).
 - The first nonempty text ends the first-answer limit, so a slow model writing a long answer is bounded only by inactivity and the 8 MB cap. Enforced at [L149-L157](../../Sources/Translation/OpenAICompatibleTransformer.swift#L149-L157).
-- Every body goes through the 8 MB bounded reader, and only the instruction and the input become messages. Enforced at [L333-L352](../../Sources/Translation/OpenAICompatibleTransformer.swift#L333-L352) and [L403-L406](../../Sources/Translation/OpenAICompatibleTransformer.swift#L403-L406).
+- Every body goes through the 8 MB bounded reader, and only the instruction and the input become messages. Enforced at [L349-L368](../../Sources/Translation/OpenAICompatibleTransformer.swift#L349-L368) and [L440-L443](../../Sources/Translation/OpenAICompatibleTransformer.swift#L440-L443).
 - Assumed: URLSession treats `timeoutInterval` as an idle timeout and stops byte iteration on cancellation; M03's cleanup waits for that.
 - Assumed: a streaming consumer other than `transform` treats yielded text as provisional and calls `transformAfterStreamingFallback` on the fallback error.
 
@@ -125,28 +122,40 @@ Open questions: none from reading the code.
 
 ### M02. Temperature capability memory
 
-Decides whether a request sends `temperature`. A model that rejects it is asked once more without it; when that retry gets a 2xx status, the endpoint and model are remembered for the rest of the process, so later requests leave the parameter out from the start.
+Decides whether a request sends `temperature`. Any 400, 422, or 501 rejection body that mentions the parameter earns one retry without it. When the rejection blamed `temperature` and the retry then answered (a streamed retry once its answer text starts, a fallback retry once its answer decodes and is not empty), the endpoint and model are remembered for the rest of the process, so later requests leave the parameter out from the start. A rejection whose `param` names another parameter is retried but never remembered.
 
-State: [`modelsWithoutTemperature`](../../Sources/Translation/OpenAICompatibleTransformer.swift#L374) (process-wide, not persisted), keyed by [base URL and model](../../Sources/Translation/OpenAICompatibleTransformer.swift#L376), read by [`sendsTemperatureFirst`](../../Sources/Translation/OpenAICompatibleTransformer.swift#L378-L380), written by [`rememberTemperatureRejection`](../../Sources/Translation/OpenAICompatibleTransformer.swift#L382-L385).
+State: [`modelsWithoutTemperature`](../../Sources/Translation/OpenAICompatibleTransformer.swift#L412) (process-wide, not persisted), keyed by [base URL and model](../../Sources/Translation/OpenAICompatibleTransformer.swift#L414), read by [`sendsTemperatureFirst`](../../Sources/Translation/OpenAICompatibleTransformer.swift#L416-L418), written by [`rememberTemperatureRejection(for:)`](../../Sources/Translation/OpenAICompatibleTransformer.swift#L420-L422), and the per-request `rejectionNamedTemperature` flag in the [stream](../../Sources/Translation/OpenAICompatibleTransformer.swift#L186) and the [fallback](../../Sources/Translation/OpenAICompatibleTransformer.swift#L270), set by [`namesTemperatureAsRejected`](../../Sources/Translation/OpenAICompatibleTransformer.swift#L388-L408).
 
 ```mermaid
 stateDiagram-v2
+    state "Not remembered, requests send temperature first" as Unknown
+    state "Remembered, requests omit temperature" as Remembered
+    state "Retry without temperature, rejection blamed it" as RetryBlamed
+    state "Retry without temperature, rejection blamed another parameter" as RetryOther
+    state Blame <<choice>>
     [*] --> Unknown
     Unknown --> Unknown: request accepted with temperature
-    Unknown --> RetryWithout: 400, 422, or 501 body mentions temperature
-    RetryWithout --> Remembered: retry gets a 2xx status
-    RetryWithout --> Unknown: retry rejected or transport error
+    Unknown --> Blame: 400, 422, or 501 body mentions temperature
+    Blame --> RetryBlamed: param is temperature, or no param is named
+    Blame --> RetryOther: param names another parameter
+    RetryBlamed --> Remembered: streamed answer text that is not only whitespace, or a fallback answer that is not empty
+    RetryBlamed --> Unknown: retry fails before answering, or its answer is empty
+    RetryOther --> Unknown: retry answers or fails, nothing remembered
     Remembered --> Remembered: later requests omit temperature
+    note right of RetryBlamed
+        A streamed retry stays remembered even if its stream fails after the answer started.
+    end note
 ```
 
 Invariants:
 
-- One retry per request, and only a 2xx after the retry teaches the cache. Enforced at [L201-L209](../../Sources/Translation/OpenAICompatibleTransformer.swift#L201-L209) and [L265-L271](../../Sources/Translation/OpenAICompatibleTransformer.swift#L265-L271).
-- Cache access is mutex-protected. Enforced at [L374](../../Sources/Translation/OpenAICompatibleTransformer.swift#L374).
+- One retry per request path. Only a rejection whose `error.param` or top-level `param` is `temperature` (trimmed, in any case, or as the last part of a dotted path), or that names no parameter (empty, `None`, or `null` count as none), is remembered. Enforced at [L202-L206](../../Sources/Translation/OpenAICompatibleTransformer.swift#L202-L206), [L277-L282](../../Sources/Translation/OpenAICompatibleTransformer.swift#L277-L282), and [L397-L408](../../Sources/Translation/OpenAICompatibleTransformer.swift#L397-L408).
+- A streamed retry is remembered on its first answer text that is not only whitespace; a fallback retry only after its answer decodes and normalizes to something. Enforced at [L209-L219](../../Sources/Translation/OpenAICompatibleTransformer.swift#L209-L219) and [L283-L287](../../Sources/Translation/OpenAICompatibleTransformer.swift#L283-L287).
+- Cache access is mutex-protected. Enforced at [L412](../../Sources/Translation/OpenAICompatibleTransformer.swift#L412) and [L416-L422](../../Sources/Translation/OpenAICompatibleTransformer.swift#L416-L422).
 - Assumed: a URL and model keep the same capability for the process lifetime and for every key; the key is not part of the identity.
-- Assumed: learning before the body is decoded is fine; a 2xx with a malformed body still teaches the cache ([L206-L215](../../Sources/Translation/OpenAICompatibleTransformer.swift#L206-L215)). Concurrent first requests may each pay one rejected attempt.
+- Assumed, as the code documents: a rejection that names no parameter and mentions temperature for another reason, followed by a retry that answers, is remembered wrongly, which costs the provider's default temperature for that model until relaunch ([L393-L396](../../Sources/Translation/OpenAICompatibleTransformer.swift#L393-L396)). Concurrent first requests may each pay one rejected attempt.
 
-Tests: `aModelThatRejectsTemperatureIsAskedAgainWithoutIt`, `aTemperatureRejectionIsRememberedForTheModel`, `aTemperatureRejectionInAnotherShapeIsRetried`, `anotherRejectedParameterIsNotRetried`.
+Tests: `OpenAICompatibleTransformerTests.aModelThatRejectsTemperatureIsAskedAgainWithoutIt`, `OpenAICompatibleTransformerTests.aTemperatureRejectionIsRememberedForTheModel`, `OpenAICompatibleTransformerTests.aTemperatureRejectionInAnotherShapeIsRetried`, `OpenAICompatibleTransformerTests.aRejectionIsRememberedByTheParameterItBlames`, `OpenAICompatibleTransformerTests.aMentionOfTemperatureForAnotherReasonIsNotRemembered`, `OpenAICompatibleTransformerTests.aMentionOfTemperatureWhoseRetryFailsIsNotRemembered`, `OpenAICompatibleTransformerTests.aStreamedRetryRemembersTheRejectionOnlyOnceItsAnswerStarts`, `OpenAICompatibleTransformerTests.aStreamedRetryIsRememberedOnceItsAnswerTextStarts`, `OpenAICompatibleTransformerTests.aStreamedRetryWithOnlyWhitespaceDoesNotRememberTheRejection`, `OpenAICompatibleTransformerTests.aRetryWithAnEmptyAnswerDoesNotRememberTheRejection`, `OpenAICompatibleTransformerTests.anotherRejectedParameterIsNotRetried`, `ProviderCorpusTests.noDocumentedErrorReadsAsATemperatureOrStreamingRejection`.
 
 Open questions: none.
 
@@ -154,7 +163,7 @@ Open questions: none.
 
 Turns the streamed body into answer text and decides whether its end is a complete answer. A `[DONE]` line, or a `stop` finish reason followed by the end of the stream, completes it; an end with neither is a dropped connection; an error chunk or a forbidden finish reason fails it even after a stop. Only chunks that carry something reset the inactivity deadline, so keepalives cannot hold a run open.
 
-State: [`OpenAISSEParser`](../../Sources/Translation/OpenAISSEParser.swift#L9-L21) (`buffer`, `endedWithCarriageReturn`, `didReceiveDone`, `didReceiveStop`, `dataChunks`, `progressChunks`) and the [`consumeSSE` locals](../../Sources/Translation/OpenAICompatibleTransformer.swift#L433-L451) (event stream, watchdog, parser task, `lineBytes`, `byteCount`, `bodyBeforeEvents`).
+State: [`OpenAISSEParser`](../../Sources/Translation/OpenAISSEParser.swift#L9-L21) (`buffer`, `endedWithCarriageReturn`, `didReceiveDone`, `didReceiveStop`, `dataChunks`, `progressChunks`) and the [`consumeSSE` locals](../../Sources/Translation/OpenAICompatibleTransformer.swift#L470-L488) (event stream, watchdog, parser task, `lineBytes`, `byteCount`, `bodyBeforeEvents`).
 
 ```mermaid
 stateDiagram-v2
@@ -162,8 +171,8 @@ stateDiagram-v2
     state "Stop seen, waiting for DONE or end" as StopSeen
     state EofKind <<choice>>
     [*] --> Reading: watchdog armed
-    Reading --> Reading: comment, empty, or role-only chunk, no progress
-    Reading --> Reading: chunk with text, reasoning, or a tool call, watchdog reset
+    Reading --> Reading: comment, or a chunk carrying nothing, such as role only, empty text, numbers, or labels, no progress
+    Reading --> Reading: chunk with text, reasoning in any field or content part, or a tool call, watchdog reset
     Reading --> StopSeen: first choice finishes with stop
     StopSeen --> StopSeen: further chunks
     Reading --> Complete: DONE line
@@ -186,13 +195,13 @@ stateDiagram-v2
 Invariants:
 
 - A CRLF split across chunks makes one line break. Enforced at [parser L28-L33](../../Sources/Translation/OpenAISSEParser.swift#L28-L33).
-- After `[DONE]` the parser ignores input and `consumeSSE` returns. Enforced at [parser L24](../../Sources/Translation/OpenAISSEParser.swift#L24) and [L529-L532](../../Sources/Translation/OpenAICompatibleTransformer.swift#L529-L532).
-- Progress counts any choice whose delta carries a field other than `role`; answer text and finish reasons come from the first choice. Enforced at [parser L75-L82](../../Sources/Translation/OpenAISSEParser.swift#L75-L82) and [L119-L127](../../Sources/Translation/OpenAISSEParser.swift#L119-L127).
-- Every byte counts toward the 8 MB cap, including a line that never ends. Enforced at [L456-L457](../../Sources/Translation/OpenAICompatibleTransformer.swift#L456-L457).
-- Assumed: byte iteration stops on cancellation, because every exit awaits the parser task ([L536-L545](../../Sources/Translation/OpenAICompatibleTransformer.swift#L536-L545)).
+- After `[DONE]` the parser ignores input and `consumeSSE` returns. Enforced at [parser L24](../../Sources/Translation/OpenAISSEParser.swift#L24) and [L566-L569](../../Sources/Translation/OpenAICompatibleTransformer.swift#L566-L569).
+- A chunk is progress when any choice's delta carries generated text: `content` text that is not empty, a content part without a `text` string that carries something (such as Mistral's thinking part), or another field other than `role` holding a non-empty string. Numbers, flags, and the `type` and `index` labels inside an object carry nothing. Answer text, read from a string or joined from the parts' `text`, and finish reasons come from the first choice. Enforced at [parser L75-L82](../../Sources/Translation/OpenAISSEParser.swift#L75-L82), [L119-L129](../../Sources/Translation/OpenAISSEParser.swift#L119-L129), and [L160-L197](../../Sources/Translation/OpenAISSEParser.swift#L160-L197).
+- Every byte counts toward the 8 MB cap, including a line that never ends. Enforced at [L493-L494](../../Sources/Translation/OpenAICompatibleTransformer.swift#L493-L494).
+- Assumed: byte iteration stops on cancellation, because every exit awaits the parser task ([L573-L582](../../Sources/Translation/OpenAICompatibleTransformer.swift#L573-L582)).
 - Assumed: servers stream one choice; a second choice's text is ignored.
 
-Tests: `OpenAISSEParsingTests.sseAcceptsLineEndingsSplitAcrossChunks`, `OpenAISSEParsingTests.aStreamThatEndsOnStopWithoutDoneSucceeds`, `OpenAISSEParsingTests.aStreamThatEndsWithoutStopOrDoneIsADroppedConnection`, `OpenAISSEParsingTests.anErrorPartwayThroughIsAFailureEvenWhenDoneFollows`, `OpenAISSEParsingTests.aReplyWithoutOneEventGoesBackToTheCallerUnlessItIsEmpty`, `OpenAISSEParsingTests.manySmallDeltasStopAtTheByteLimit`, `OpenAISSEParsingTests.aLineThatNeverEndsStopsAtTheByteLimit`, `StreamingTransformerTests.sseParserReassemblesLinesSplitAcrossChunks`, `StreamingTransformerTests.sseParserSkipsEmptyAndRoleOnlyDeltas`, `StreamingTransformerTests.doneStopsConsumptionBeforeBufferedTransportFailure`.
+Tests: `OpenAISSEParsingTests.sseAcceptsLineEndingsSplitAcrossChunks`, `OpenAISSEParsingTests.aStreamThatEndsOnStopWithoutDoneSucceeds`, `OpenAISSEParsingTests.aStreamThatEndsWithoutStopOrDoneIsADroppedConnection`, `OpenAISSEParsingTests.anErrorPartwayThroughIsAFailureEvenWhenDoneFollows`, `OpenAISSEParsingTests.aReplyWithoutOneEventGoesBackToTheCallerUnlessItIsEmpty`, `OpenAISSEParsingTests.manySmallDeltasStopAtTheByteLimit`, `OpenAISSEParsingTests.aLineThatNeverEndsStopsAtTheByteLimit`, `StreamingTransformerTests.sseParserReassemblesLinesSplitAcrossChunks`, `StreamingTransformerTests.sseParserSkipsEmptyAndRoleOnlyDeltas`, `StreamingTransformerTests.doneStopsConsumptionBeforeBufferedTransportFailure`, `OpenAISSEParsingTests.mistralThinkingChunksAreProgressButNotAnswerText`, `OpenAISSEParsingTests.chunksCarryingNothingAreNotProgress`, `OpenAISSEPropertyTests.generatedDeltasFollowTheRule`, `ProviderCorpusTests.documentedStreamsParseAsDocumented`, `OpenAICompatibleTransformerTests.answerContentGivenAsAListOfPartsIsRead`.
 
 Open questions: none.
 
@@ -225,7 +234,7 @@ Invariants:
 - An older generation can never call the timeout. Enforced at [L55-L57](../../Sources/Translation/StreamingInactivityWatchdog.swift#L55-L57).
 - Reset and cancel are serialized by the actor.
 - Assumed: the production sleeper throws only on cancellation ([L98-L100](../../Sources/Translation/OpenAICompatibleTransformer.swift#L98-L100)).
-- Assumed: the owner does not rearm after the timeout; `consumeSSE` cancels the watchdog on every exit ([L530](../../Sources/Translation/OpenAICompatibleTransformer.swift#L530), [L538](../../Sources/Translation/OpenAICompatibleTransformer.swift#L538), [L543](../../Sources/Translation/OpenAICompatibleTransformer.swift#L543)).
+- Assumed: the owner does not rearm after the timeout; `consumeSSE` cancels the watchdog on every exit ([L567](../../Sources/Translation/OpenAICompatibleTransformer.swift#L567), [L575](../../Sources/Translation/OpenAICompatibleTransformer.swift#L575), [L580](../../Sources/Translation/OpenAICompatibleTransformer.swift#L580)).
 
 Tests: `inactivityDeadlineIgnoresNonDeltaTrafficAndInterruptsAnOpenStream`, `aChunkWithoutAnswerTextStillResetsTheInactivityDeadline`, `chunksWithoutTextDoNotResetTheInactivityDeadline`.
 
@@ -260,7 +269,7 @@ Invariants:
 - The caller never waits past the timeout for the operation. Enforced at [L18-L26](../../Sources/Core/OperationTimeout.swift#L18-L26).
 - A cancelled caller does not accept a value. Enforced at [L27](../../Sources/Core/OperationTimeout.swift#L27).
 - `awaitCancellableValue` cancels the underlying task on caller cancellation; `runWhileMonitoring` is a structured race that joins both children ([L33-L46](../../Sources/Core/OperationTimeout.swift#L33-L46)).
-- Assumed: owners stop the underlying resource themselves when cancellation is not enough ([L3-L6](../../Sources/Core/OperationTimeout.swift#L3-L6)); the quit path accepts losing unfinished writes ([AppState.swift#L380-L384](../../Sources/App/AppState.swift#L380-L384)).
+- Assumed: owners stop the underlying resource themselves when cancellation is not enough ([L3-L6](../../Sources/Core/OperationTimeout.swift#L3-L6)); the quit path accepts losing unfinished writes ([AppState.swift#L375-L379](../../Sources/App/AppState.swift#L375-L379)).
 
 Tests: `OperationTimeoutTests.timeoutReturnsEvenWhenOperationIgnoresCancellation`, `OperationTimeoutTests.frameworkMonitorCannotHoldTimeoutCleanupOpen`.
 
@@ -645,7 +654,7 @@ Open questions: the queued-write test checks the final file order; no test appen
 
 At launch with Keep history off, a `history.json` left from an earlier session, for example after the preferences were reset, is deleted. If that fails, Privacy shows the failure with Try Again, so Syrup never implies that no history remains.
 
-State: [`leftoverFileRemains`](../../Sources/History/HistoryStore.swift#L21) and [`persistenceError`](../../Sources/History/HistoryStore.swift#L18); false means no failure was seen, not that the disk was checked. Entry: [`deleteLeftoverFileIfPersistenceIsOff`](../../Sources/History/HistoryStore.swift#L88-L101), called by the [launch task](../../Sources/App/SyrupApp.swift#L139-L140) and by [Try Again](../../Sources/Settings/PrivacySettingsPane.swift#L116-L126). File: `history.json`.
+State: [`leftoverFileRemains`](../../Sources/History/HistoryStore.swift#L21) and [`persistenceError`](../../Sources/History/HistoryStore.swift#L18); false means no failure was seen, not that the disk was checked. Entry: [`deleteLeftoverFileIfPersistenceIsOff`](../../Sources/History/HistoryStore.swift#L88-L101), called by the [launch task](../../Sources/App/SyrupApp.swift#L115-L117) and by [Try Again](../../Sources/Settings/PrivacySettingsPane.swift#L116-L126). File: `history.json`.
 
 ```mermaid
 stateDiagram-v2
@@ -709,7 +718,7 @@ Open questions: none.
 
 Keeps the content-free usage numbers in memory and writes each new snapshot after the previous disk operation. Delete Stats clears memory at once and deletes the file after any queued write; if the file survives, the numbers still on disk come back on screen with an error, instead of returning silently at the next launch.
 
-State: [`stats`](../../Sources/Stats/UsageStatsStore.swift#L8), [`deletionError`](../../Sources/Stats/UsageStatsStore.swift#L10), [`disk` and `fileURL`](../../Sources/Stats/UsageStatsStore.swift#L11-L12) (nil means memory only), [`lastDiskWork`](../../Sources/Stats/UsageStatsStore.swift#L15), and the [deletion task](../../Sources/Stats/UsageStatsStore.swift#L51-L57). File: `Application Support/Syrup/usage-stats.json`, written by [`UsageStatsDisk`](../../Sources/Stats/UsageStatsStore.swift#L87-L116). Collection is gated upstream by [`keepsUsageStats`](../../Sources/App/AppState+VoiceRun.swift#L320).
+State: [`stats`](../../Sources/Stats/UsageStatsStore.swift#L8), [`deletionError`](../../Sources/Stats/UsageStatsStore.swift#L10), [`disk` and `fileURL`](../../Sources/Stats/UsageStatsStore.swift#L11-L12) (nil means memory only), [`lastDiskWork`](../../Sources/Stats/UsageStatsStore.swift#L15), and the [deletion task](../../Sources/Stats/UsageStatsStore.swift#L51-L57). File: `Application Support/Syrup/usage-stats.json`, written by [`UsageStatsDisk`](../../Sources/Stats/UsageStatsStore.swift#L87-L116). Collection is gated upstream by [`keepsUsageStats`](../../Sources/App/AppState+VoiceRun.swift#L288).
 
 ```mermaid
 stateDiagram-v2
@@ -735,7 +744,7 @@ Invariants:
 - A write queued before Delete Stats cannot land after it. Enforced at [L51-L56](../../Sources/Stats/UsageStatsStore.swift#L51-L56) and [L70-L76](../../Sources/Stats/UsageStatsStore.swift#L70-L76).
 - A delete that leaves the file returns false and shows an error. Enforced at [L58-L61](../../Sources/Stats/UsageStatsStore.swift#L58-L61) and [L108-L115](../../Sources/Stats/UsageStatsStore.swift#L108-L115).
 - The stats hold numbers, day keys, and app bundle IDs only, never text. Enforced by the type at [UsageStats.swift#L3-L22](../../Sources/Stats/UsageStats.swift#L3-L22).
-- A run records only when its trigger-time flag and the current Keep usage stats setting are both on. Enforced at [AppState+VoiceRun.swift#L320](../../Sources/App/AppState+VoiceRun.swift#L320).
+- A run records only when its trigger-time flag and the current Keep usage stats setting are both on. Enforced at [AppState+VoiceRun.swift#L288](../../Sources/App/AppState+VoiceRun.swift#L288).
 - Assumed: no sample arrives while a failing delete is in flight; the restore has no guard ([SH1](#suspected-defects)).
 - Assumed: losing a failed write is acceptable, because the next sample rewrites the whole file ([L102-L104](../../Sources/Stats/UsageStatsStore.swift#L102-L104)).
 
@@ -747,28 +756,28 @@ Open questions: [SH1](#suspected-defects).
 
 ### M21. Privacy store attachment
 
-Gives the two privacy opt-ins exactly one owner, bound once to the stores an opt-out must empty: the app's history store and recording archive. Until it is attached, turning either opt-in off is refused, because files from an earlier launch may be on disk with nothing to delete them.
+Gives the history opt-in exactly one owner, bound once to the store an opt-out must empty: the app's history store. Until it is attached, turning Keep history off is refused, because a file from an earlier launch may be on disk with nothing to delete it.
 
-State: [`AppSettings.privacyOptIns`](../../Sources/Settings/AppSettings.swift#L27) (one lazy owner), [`PrivacyOptIns.settings`](../../Sources/Settings/AppSettings.swift#L713) (unowned), [`PrivacyOptIns.stores`](../../Sources/Settings/AppSettings.swift#L714), [`attach`](../../Sources/Settings/AppSettings.swift#L724-L727), [`detachForTesting`](../../Sources/Settings/AppSettings.swift#L732-L734), and the one production [attach call](../../Sources/App/AppState.swift#L218).
+State: [`AppSettings.privacyOptIns`](../../Sources/Settings/AppSettings.swift#L27) (one lazy owner), [`PrivacyOptIns.settings`](../../Sources/Settings/AppSettings.swift#L697) (unowned), [`PrivacyOptIns.history`](../../Sources/Settings/AppSettings.swift#L698), [`attach(history:)`](../../Sources/Settings/AppSettings.swift#L705-L709), [`detachForTesting`](../../Sources/Settings/AppSettings.swift#L711-L717), and the one production [attach call](../../Sources/App/AppState.swift#L214).
 
 ```mermaid
 stateDiagram-v2
     [*] --> NoOwner
     NoOwner --> Unattached: first access creates the one owner
-    Unattached --> Attached: AppState init attaches history and archive
-    Unattached --> Unattached: opt-out while on, refused and logged
+    Unattached --> Attached: AppState init attaches the history store
+    Unattached --> Unattached: Keep history off while on, refused and logged
     Attached --> Trapped: attach again, precondition fails
     Attached --> Unattached: DEBUG detach, tests only
 ```
 
 Invariants:
 
-- Only AppSettings.swift can create the owner or set the two settings. Enforced at [L162-L183](../../Sources/Settings/AppSettings.swift#L162-L183) and [L719-L721](../../Sources/Settings/AppSettings.swift#L719-L721).
-- A second attach traps. Enforced at [L725](../../Sources/Settings/AppSettings.swift#L725).
+- Only AppSettings.swift can create the owner or set the preference. Enforced at [L162-L167](../../Sources/Settings/AppSettings.swift#L162-L167) and [L701-L703](../../Sources/Settings/AppSettings.swift#L701-L703).
+- A second attach traps. Enforced at [L707](../../Sources/Settings/AppSettings.swift#L707).
 - Assumed: AppSettings outlives the unowned reference.
-- Assumed: the attached history store starts aligned with the preference; production builds it from `settings.persistHistory` ([SyrupApp.swift#L214](../../Sources/App/SyrupApp.swift#L214)), and `attach` does not reconcile them.
+- Assumed: the attached history store starts aligned with the preference; production builds it from `settings.persistHistory` ([SyrupApp.swift#L184](../../Sources/App/SyrupApp.swift#L184)), and `attach` does not reconcile them.
 
-Tests: `AppSettingsTests.anOptOutBeforeTheStoresAreAttachedIsRefused`, `HardRuleTests.privacyTurningLearningOffDeletesTheRecordingsOrStaysOn`. No test covers the second-attach trap.
+Tests: `AppSettingsTests.anOptOutBeforeTheStoresAreAttachedIsRefused`. No test covers the second-attach trap.
 
 Open questions: none.
 
@@ -776,7 +785,7 @@ Open questions: none.
 
 The Keep history preference follows the history store and never leads it. Turning it on enables the store, then saves the preference; turning it off asks the store to delete the file and saves `false` only if that worked.
 
-State: [`persistHistory`](../../Sources/Settings/AppSettings.swift#L163-L167) with UserDefaults key [`persistHistory`](../../Sources/Settings/AppSettings.swift#L326), [`PrivacyOptIns.stores`](../../Sources/Settings/AppSettings.swift#L714), [`setPersistHistory`](../../Sources/Settings/AppSettings.swift#L740-L750), the store's [`isPersistenceEnabled`](../../Sources/History/HistoryStore.swift#L28) and [`isChangingPersistence`](../../Sources/History/HistoryStore.swift#L22), and the Privacy [toggle](../../Sources/Settings/PrivacySettingsPane.swift#L109-L110) with its [binding](../../Sources/Settings/PrivacySettingsPane.swift#L174-L180). File: `history.json` (M16).
+State: [`persistHistory`](../../Sources/Settings/AppSettings.swift#L163-L167) with UserDefaults key [`persistHistory`](../../Sources/Settings/AppSettings.swift#L319), [`PrivacyOptIns.history`](../../Sources/Settings/AppSettings.swift#L698), [`setPersistHistory`](../../Sources/Settings/AppSettings.swift#L719-L732), the store's [`isPersistenceEnabled`](../../Sources/History/HistoryStore.swift#L28) and [`isChangingPersistence`](../../Sources/History/HistoryStore.swift#L22), and the Privacy [toggle](../../Sources/Settings/PrivacySettingsPane.swift#L109-L110) with its [binding](../../Sources/Settings/PrivacySettingsPane.swift#L187-L193). File: `history.json` (M16).
 
 ```mermaid
 stateDiagram-v2
@@ -800,7 +809,7 @@ stateDiagram-v2
 
 Invariants:
 
-- The preference turns off only after the store deleted the file. Enforced at [L749](../../Sources/Settings/AppSettings.swift#L749).
+- The preference turns off only after the store deleted the file. Enforced at [L731](../../Sources/Settings/AppSettings.swift#L731).
 - A busy store refuses a change instead of queueing it, and the toggle is disabled while the store changes. Enforced at [HistoryStore.swift#L105](../../Sources/History/HistoryStore.swift#L105) and [PrivacySettingsPane.swift#L110](../../Sources/Settings/PrivacySettingsPane.swift#L110).
 - The setter is private to AppSettings.swift. Enforced at [L163](../../Sources/Settings/AppSettings.swift#L163).
 - Assumed: callers accept a refused change; there is no latest-wins queue.
@@ -810,83 +819,11 @@ Tests: `HistorySafeguardTests.historyDeletionFailurePreservesOptInAndRecords`, `
 
 Open questions: none.
 
-### M23. Learning opt-in transaction and supersession
-
-Turning glossary learning off sets the preference at once and returns a task that deletes every pending recording; if that deletion fails and no newer choice came in, learning turns back on, so Syrup never claims an opt-out it did not honor. A counter orders the choices: a newer choice before the task starts cancels the deletion, and a newer choice after it started stops a failure from turning learning back on. Model-checked by `LearningOptOutModel` together with `RecordingFiler` and `RecordingArchive`, and replayed against the real types (see the [README](README.md)).
-
-State: [`glossaryLearningEnabled`](../../Sources/Settings/AppSettings.swift#L179-L183) with UserDefaults key [`glossaryLearningEnabled`](../../Sources/Settings/AppSettings.swift#L329), [`PrivacyOptIns.glossaryLearningChange`](../../Sources/Settings/AppSettings.swift#L716), the captured [`change`](../../Sources/Settings/AppSettings.swift#L771), and the [deletion task](../../Sources/Settings/AppSettings.swift#L774-L781). Files: `Application Support/Syrup/Recordings/`. UI entry: the Glossary [toggle](../../Sources/Settings/GlossarySettingsView.swift#L454-L465).
-
-```mermaid
-stateDiagram-v2
-    state "Off, deletion task not started" as OffPending
-    state "Off, deleting recordings" as Deleting
-    state "On again, old deletion still running" as OnDuringDelete
-    [*] --> Off
-    [*] --> On
-    Off --> On: turn on, counter up
-    On --> OffPending: turn off with an archive, counter up, preference false at once
-    On --> Off: turn off, attached without an archive
-    On --> On: turn off before the stores attach, refused
-    OffPending --> On: turn on before the task starts, deletion skipped
-    OffPending --> Deleting: task starts with its counter value still current
-    Deleting --> Off: deletion succeeds
-    Deleting --> On: deletion fails, counter unchanged, preference back on
-    Deleting --> OnDuringDelete: turn on while the deletion runs
-    OnDuringDelete --> On: old deletion ends, success or failure, no rollback
-    note right of OnDuringDelete
-        A newer choice cannot stop a deletion that already started.
-    end note
-```
-
-Invariants:
-
-- Only this owner sets the preference. Enforced at [L179](../../Sources/Settings/AppSettings.swift#L179) and [L759-L782](../../Sources/Settings/AppSettings.swift#L759-L782).
-- A deletion whose counter value is stale when it starts deletes nothing. Enforced at [L775](../../Sources/Settings/AppSettings.swift#L775); model-checked.
-- A stale failure never turns learning back on, and a current failure does. Enforced at [L778-L779](../../Sources/Settings/AppSettings.swift#L778-L779); model-checked.
-- A recording that finishes filing after the opt-out is not committed, because `deleteAll` forgets in-flight entries. Enforced at [RecordingArchive.swift#L255](../../Sources/Learning/RecordingArchive.swift#L255) and [L104](../../Sources/Learning/RecordingArchive.swift#L104); model-checked.
-- A new entry needs the opt-in at the trigger and when the entry opens. Enforced at [RecordingFiler.swift#L24](../../Sources/App/RecordingFiler.swift#L24); model-checked.
-- Assumed: `deleteAll` removes everything or throws; a crash between `false` and the deletion leaves files for the launch cleanup (M24), which the model does not cover.
-- Assumed: nobody relies on cancelling the returned task; it checks the counter, not cancellation.
-
-Tests: `HardRuleTests.privacyTurningLearningOffDeletesTheRecordingsOrStaysOn`, `AppSettingsTests.turningLearningOffDeletesRecordingsWithoutAnyView`, `AppSettingsTests.anOlderFailedOptOutCannotUndoANewerOne`, `AppSettingsTests.anOptOutBeforeTheStoresAreAttachedIsRefused`, `AppSettingsTests.anOptOutSupersededBeforeItsDeletionStartsDeletesNothing`, `LearningOptOutModelTests`, `LearningOptOutConformanceTests`.
-
-Open questions: none.
-
-### M24. Startup recording cleanup
-
-At launch with learning off, deletes any recordings left from a time it was on, for example after a crash or a failed cleanup. A failure is swallowed and retried at the next launch; it never turns learning on. The speech and learning inventory charts the archive side.
-
-State: [`deleteLeftoverRecordingsIfLearningIsOff`](../../Sources/Learning/GlossaryLearningRetention.swift#L7-L13), the [launch task](../../Sources/App/SyrupApp.swift#L139-L146) with its captured [`learningEnabled`](../../Sources/App/SyrupApp.swift#L141), the UserDefaults key `glossaryLearningEnabled`, and the `Recordings` folder.
-
-```mermaid
-stateDiagram-v2
-    state Check <<choice>>
-    [*] --> HistoryCleanup: launch task
-    HistoryCleanup --> Check: history leftover cleanup done, see M17
-    Check --> Skipped: learning on or no archive
-    Check --> Deleting: learning off
-    Deleting --> Absent: deleteAll succeeds
-    Deleting --> Leftover: deleteAll fails, error swallowed, learning stays off
-    Leftover --> Deleting: next launch, or Delete All in Glossary
-    Skipped --> Reconciled: learning was on, archive lists pending entries
-```
-
-Invariants:
-
-- The cleanup reads the preference when it runs, after the history cleanup, so turning learning on in between skips it. Enforced at [GlossaryLearningRetention.swift#L11](../../Sources/Learning/GlossaryLearningRetention.swift#L11) and [SyrupApp.swift#L140-L142](../../Sources/App/SyrupApp.swift#L140-L142).
-- A failed cleanup never enables learning. Enforced at [L12](../../Sources/Learning/GlossaryLearningRetention.swift#L12).
-- Privacy and Glossary count stored recordings, so "Nothing is kept" appears only when nothing is (M39, M41).
-- Assumed: turning learning on during `deleteAll` is safe because the archive actor runs the deletion before any later entry.
-
-Tests: `AppSettingsTests.failedStartupCleanupNeverEnablesGlossaryLearning`, `PrivacyCopyTests.learningOffSaysNothingIsKeptOnlyWhenNothingIs`.
-
-Open questions: none.
-
 ### M25. Versioned settings blobs and backups
 
 Decides how the three JSON blobs in UserDefaults (workflow list, glossary, glossary proposals) load and save across versions. A blob from a newer build loads empty, or as the default workflow, and is never overwritten. A blob this build cannot read is copied once to `<key>.unreadable.<digest>` before an edit replaces it, and only the newest backup per key is kept.
 
-State: [`workflowList`, `glossaryList`, `glossaryProposals`](../../Sources/Settings/AppSettings.swift#L189-L203), saved by `didSet`; keys [`workflowListV3`, `workflowListV1`, `glossaryV1`, `glossaryProposalsV1`](../../Sources/Settings/AppSettings.swift#L342-L345); the marker [`migratedFlatSettingsToWorkflowListV1`](../../Sources/Settings/AppSettings.swift#L295); the [version header](../../Sources/Settings/AppSettings.swift#L645-L647); backups named by [digest](../../Sources/Settings/AppSettings.swift#L640-L643) and pruned by [`removeUnusableBlobBackups`](../../Sources/Settings/AppSettings.swift#L633-L638).
+State: [`workflowList`, `glossaryList`, `glossaryProposals`](../../Sources/Settings/AppSettings.swift#L183-L197), saved by `didSet`; keys [`workflowListV3`, `workflowListV1`, `glossaryV1`, `glossaryProposalsV1`](../../Sources/Settings/AppSettings.swift#L334-L337); the marker [`migratedFlatSettingsToWorkflowListV1`](../../Sources/Settings/AppSettings.swift#L288); the [version header](../../Sources/Settings/AppSettings.swift#L630-L632); backups named by [digest](../../Sources/Settings/AppSettings.swift#L625-L628) and pruned by [`removeUnusableBlobBackups`](../../Sources/Settings/AppSettings.swift#L618-L623).
 
 ```mermaid
 stateDiagram-v2
@@ -910,10 +847,10 @@ stateDiagram-v2
 
 Invariants:
 
-- A newer blob is never overwritten and gets no backup. Enforced at [L562-L567](../../Sources/Settings/AppSettings.swift#L562-L567) and [L623-L625](../../Sources/Settings/AppSettings.swift#L623-L625).
-- An unreadable blob is copied before the first edit replaces it, and preserving prunes the key's other backups. Enforced at [L620-L631](../../Sources/Settings/AppSettings.swift#L620-L631).
-- `workflowListV1` is never deleted. Enforced at [L649-L689](../../Sources/Settings/AppSettings.swift#L649-L689).
-- Logs carry the blob name and an error code, never content. Enforced at [L565](../../Sources/Settings/AppSettings.swift#L565) and [L572-L574](../../Sources/Settings/AppSettings.swift#L572-L574).
+- A newer blob is never overwritten and gets no backup. Enforced at [L547-L552](../../Sources/Settings/AppSettings.swift#L547-L552) and [L608-L610](../../Sources/Settings/AppSettings.swift#L608-L610).
+- An unreadable blob is copied before the first edit replaces it, and preserving prunes the key's other backups. Enforced at [L605-L616](../../Sources/Settings/AppSettings.swift#L605-L616).
+- `workflowListV1` is never deleted. Enforced at [L634-L674](../../Sources/Settings/AppSettings.swift#L634-L674).
+- Logs carry the blob name and an error code, never content. Enforced at [L550](../../Sources/Settings/AppSettings.swift#L550) and [L557-L559](../../Sources/Settings/AppSettings.swift#L557-L559).
 - Assumed: each key holds Data with a meaningful `version`; a corrupt blob whose header reads as newer is treated as newer.
 - Assumed: one AppSettings per defaults domain, with no observer for external writes.
 - Pruning runs only when preservation runs, not after edits to a healthy blob, so a backup survives deleting the visible glossary terms ([HardRuleTests.swift#L43-L62](../../Tests/SyrupTests/HardRuleTests.swift#L43-L62)).
@@ -957,14 +894,15 @@ Open questions: none.
 
 ### M27. Glossary and proposal memory
 
-Decides which spellings the glossary keeps and which terms learning may suggest. Glossary terms are trimmed, collapsed to one line, and deduplicated without regard to case. A proposal is offered only if it is new to the glossary, the pending list, and the persistent dismissals; at most 50 wait, and the oldest of 500 dismissals is forgotten. The speech and learning inventory also lists the proposal list.
+Decides which spellings the glossary keeps and which proposals may wait. Glossary terms are trimmed, collapsed to one line, and deduplicated without regard to case. A proposal is admitted only if it is new to the glossary, the pending list, and the persistent dismissals; at most 50 wait, and the oldest of 500 dismissals is forgotten. Glossary learning was the only producer of proposals, and it is gone (`a3dec87`): [`addGlossaryProposal`](../../Sources/Settings/AppSettings.swift#L457-L460) is now called only by tests, so the pending list holds proposals stored by an earlier version and can only shrink. The speech and glossary check inventory charts the proposal list as [M35](speech-learning.md#m35-proposal-and-dismissal-lifetime).
 
-State: [`GlossaryList.version` and `terms`](../../Sources/Core/Glossary.swift#L47-L48) with [normalization](../../Sources/Core/Glossary.swift#L97-L106); [`GlossaryProposalList.version`, `proposals`, `dismissedKeys`](../../Sources/Learning/GlossaryProposal.swift#L18-L20) with their [caps](../../Sources/Learning/GlossaryProposal.swift#L14-L16); the [accept action](../../Sources/Settings/GlossarySettingsView.swift#L491-L497). Saved as `glossaryV1` and `glossaryProposalsV1` (M25).
+State: [`GlossaryList.version` and `terms`](../../Sources/Core/Glossary.swift#L47-L48) with [normalization](../../Sources/Core/Glossary.swift#L97-L106); [`GlossaryProposalList.version`, `proposals`, `dismissedKeys`](../../Sources/Learning/GlossaryProposal.swift#L18-L20) with their [caps](../../Sources/Learning/GlossaryProposal.swift#L14-L16); the [accept action](../../Sources/Settings/GlossarySettingsView.swift#L280-L286). Saved as `glossaryV1` and `glossaryProposalsV1` (M25).
 
 ```mermaid
 stateDiagram-v2
     [*] --> Absent
-    Absent --> Pending: learning proposes it, fewer than 50 pending
+    [*] --> Pending: stored by an earlier version, loaded at launch
+    Absent --> Pending: addIfNew, tests only, fewer than 50 pending
     Absent --> Saved: person adds the term
     Pending --> Saved: person accepts, term added, proposal removed
     Pending --> Dismissed: person dismisses, key remembered
@@ -980,17 +918,17 @@ Invariants:
 - No proposal for a spelling already saved, pending, or dismissed; the lists stay bounded on additions. Enforced at [L23-L48](../../Sources/Learning/GlossaryProposal.swift#L23-L48) and [L54-L62](../../Sources/Learning/GlossaryProposal.swift#L54-L62).
 - Glossary normalization drops empty terms and keeps the first of duplicates that differ only in case. Enforced at [Glossary.swift#L97-L106](../../Sources/Core/Glossary.swift#L97-L106).
 - Assumed: decoded proposal lists are within bounds; nothing revalidates them on load.
-- Assumed: accepting removes the proposal even when the glossary refuses the term, for example as a duplicate ([GlossarySettingsView.swift#L491-L497](../../Sources/Settings/GlossarySettingsView.swift#L491-L497)).
+- Assumed: accepting removes the proposal even when the glossary refuses the term, for example as a duplicate ([GlossarySettingsView.swift#L280-L286](../../Sources/Settings/GlossarySettingsView.swift#L280-L286)).
 
-Tests: `GlossaryTests.modelTrimsRejectsEmptyTermsAndKeepsFirstCaseInsensitiveDuplicate`, `GlossaryTests.appSettingsPersistsAndReloadsNormalizedGlossaryBlob`, `GlossaryProposalTests.addIfNewNormalizesAndDeduplicatesAcrossAllSources`, `GlossaryProposalTests.removeProposalRemovesOnlyMatchingID`, `GlossaryProposalTests.dismissRemovesProposalAndRecordsPermanentKey`, `GlossaryProposalTests.codableRoundTripPreservesProposalList`.
+Tests: `GlossaryTests.modelTrimsRejectsEmptyTermsAndKeepsFirstCaseInsensitiveDuplicate`, `GlossaryTests.appSettingsPersistsAndReloadsNormalizedGlossaryBlob`, `GlossaryTests.storedProposalsAndDismissalsAreCapped`, `GlossaryProposalTests.addIfNewNormalizesAndDeduplicatesAcrossAllSources`, `GlossaryProposalTests.removeProposalRemovesOnlyMatchingID`, `GlossaryProposalTests.dismissRemovesProposalAndRecordsPermanentKey`, `GlossaryProposalTests.codableRoundTripPreservesProposalList`.
 
-Open questions: none.
+Open questions: none beyond M35's, whether the proposals section should be retired.
 
 ### M28. Scalar settings and one-time migrations
 
 Each scalar preference is a raw string, bool, or integer in UserDefaults, written on every change. Two one-time migrations run at load: an old English dictation default moves to pt-BR once, and flat translation settings become the first workflow (M25).
 
-State: the [scalar properties](../../Sources/Settings/AppSettings.swift#L29-L187) and their [keys](../../Sources/Settings/AppSettings.swift#L307-L345), [`init`](../../Sources/Settings/AppSettings.swift#L205-L271), the [locale migration](../../Sources/Settings/AppSettings.swift#L363-L386) with marker [`migratedDictationDefaultToPortugueseBrazil`](../../Sources/Settings/AppSettings.swift#L294), the [duration clamp](../../Sources/Settings/AppSettings.swift#L356-L361), the [tone bridge](../../Sources/Settings/AppSettings.swift#L273-L292), and the [first-run microphone](../../Sources/Settings/AppSettings.swift#L267-L270).
+State: the [scalar properties](../../Sources/Settings/AppSettings.swift#L29-L182) and their [keys](../../Sources/Settings/AppSettings.swift#L300-L337), [`init`](../../Sources/Settings/AppSettings.swift#L199-L264), the [locale migration](../../Sources/Settings/AppSettings.swift#L355-L378) with marker [`migratedDictationDefaultToPortugueseBrazil`](../../Sources/Settings/AppSettings.swift#L287), the [duration clamp](../../Sources/Settings/AppSettings.swift#L348-L353), the [tone bridge](../../Sources/Settings/AppSettings.swift#L266-L285), and the [first-run microphone](../../Sources/Settings/AppSettings.swift#L260-L263).
 
 ```mermaid
 stateDiagram-v2
@@ -1012,10 +950,10 @@ stateDiagram-v2
 
 Invariants:
 
-- Every scalar is written as a raw value in its `didSet`, and none is a secret. Enforced at [L29-L187](../../Sources/Settings/AppSettings.swift#L29-L187).
-- The recording duration is clamped to 1 through 3600 seconds on load and on set. Enforced at [L100-L110](../../Sources/Settings/AppSettings.swift#L100-L110) and [L231-L238](../../Sources/Settings/AppSettings.swift#L231-L238).
-- The locale migration runs once, and a later English choice survives. Enforced at [L363-L386](../../Sources/Settings/AppSettings.swift#L363-L386).
-- The microphone default is saved only when no key exists and the detected default is not empty. Enforced at [L267-L270](../../Sources/Settings/AppSettings.swift#L267-L270).
+- Every scalar is written as a raw value in its `didSet`, and none is a secret. Enforced at [L29-L182](../../Sources/Settings/AppSettings.swift#L29-L182).
+- The recording duration is clamped to 1 through 3600 seconds on load and on set. Enforced at [L100-L110](../../Sources/Settings/AppSettings.swift#L100-L110) and [L225-L232](../../Sources/Settings/AppSettings.swift#L225-L232).
+- The locale migration runs once, and a later English choice survives. Enforced at [L355-L378](../../Sources/Settings/AppSettings.swift#L355-L378).
+- The microphone default is saved only when no key exists and the detected default is not empty. Enforced at [L260-L263](../../Sources/Settings/AppSettings.swift#L260-L263).
 - Assumed: external UserDefaults writes need a relaunch; nothing observes them.
 - Turning Keep usage stats off stops collection but does not delete the stats file (M19). The workflow migration marker is written, but blob presence decides resolution (M25).
 
@@ -1027,7 +965,7 @@ Open questions: none.
 
 After an asynchronous check of the active workflow's dictation locale, stores the replacement only on the workflow that was checked, and only if its locale did not change meanwhile.
 
-State: the captured [workflow](../../Sources/Settings/AppSettings.swift#L409), the [awaited replacement and identity check](../../Sources/Settings/AppSettings.swift#L410-L412), and the [update](../../Sources/Settings/AppSettings.swift#L413), against the saved [`workflowList`](../../Sources/Settings/AppSettings.swift#L189).
+State: the captured [workflow](../../Sources/Settings/AppSettings.swift#L401), the [awaited replacement and identity check](../../Sources/Settings/AppSettings.swift#L402-L404), and the [update](../../Sources/Settings/AppSettings.swift#L405), against the saved [`workflowList`](../../Sources/Settings/AppSettings.swift#L183).
 
 ```mermaid
 stateDiagram-v2
@@ -1039,7 +977,7 @@ stateDiagram-v2
 
 Invariants:
 
-- A replacement never moves onto a newly active workflow and never overwrites an edit. Enforced at [L408-L414](../../Sources/Settings/AppSettings.swift#L408-L414).
+- A replacement never moves onto a newly active workflow and never overwrites an edit. Enforced at [L400-L406](../../Sources/Settings/AppSettings.swift#L400-L406).
 - Assumed: equal locale strings mean the result still applies; an edit from A to B and back to A during the check is not detected, and overlapping checks of one workflow may finish in either order.
 
 Tests: `AppSettingsTests.aDictationLocaleReplacementStaysOnTheWorkflowItWasFoundFor`, `AppSettingsTests.aDictationLocaleEditedDuringTheCheckIsKept`.
@@ -1050,7 +988,7 @@ Open questions: none.
 
 Mirrors four permission states for Settings and onboarding without asking for any. Microphone, speech, and Accessibility are read synchronously on refresh; notifications arrive later from an untracked task. Asking happens only through explicit Allow buttons.
 
-State: [`Status`](../../Sources/Settings/PermissionStatusModel.swift#L9-L24), the [four fields](../../Sources/Settings/PermissionStatusModel.swift#L26-L29), [`refresh`](../../Sources/Settings/PermissionStatusModel.swift#L37-L77) with its [notification task](../../Sources/Settings/PermissionStatusModel.swift#L64-L76). Settings and onboarding each own one instance ([SettingsView.swift#L21](../../Sources/Settings/SettingsView.swift#L21), [OnboardingView.swift#L15](../../Sources/Onboarding/OnboardingView.swift#L15)).
+State: [`Status`](../../Sources/Settings/PermissionStatusModel.swift#L9-L24), the [four fields](../../Sources/Settings/PermissionStatusModel.swift#L26-L29), [`refresh`](../../Sources/Settings/PermissionStatusModel.swift#L37-L77) with its [notification task](../../Sources/Settings/PermissionStatusModel.swift#L64-L76). Settings and onboarding each own one instance ([SettingsView.swift#L18](../../Sources/Settings/SettingsView.swift#L18), [OnboardingView.swift#L15](../../Sources/Onboarding/OnboardingView.swift#L15)).
 
 ```mermaid
 stateDiagram-v2
@@ -1304,7 +1242,7 @@ Open questions: none.
 
 Remembers which Settings tab is open, which workflow the Workflows tab edits, an uncommitted glossary draft, a focus request counter, and when Home last showed recent results. It lives as long as the app, so tab views can come and go.
 
-State: [`selectedTab`](../../Sources/Settings/SettingsNavigation.swift#L62), [`selectedWorkflowID`](../../Sources/Settings/SettingsNavigation.swift#L64), [`glossaryDraftTerm`](../../Sources/Settings/SettingsNavigation.swift#L65), [`glossaryFocusRequest`](../../Sources/Settings/SettingsNavigation.swift#L66), [`recentSeenAt`](../../Sources/Settings/SettingsNavigation.swift#L68), [`openWorkflow`](../../Sources/Settings/SettingsNavigation.swift#L70-L73), [`openGlossary`](../../Sources/Settings/SettingsNavigation.swift#L75-L78), and the Glossary [focus task](../../Sources/Settings/GlossarySettingsView.swift#L108-L110).
+State: [`selectedTab`](../../Sources/Settings/SettingsNavigation.swift#L62), [`selectedWorkflowID`](../../Sources/Settings/SettingsNavigation.swift#L64), [`glossaryDraftTerm`](../../Sources/Settings/SettingsNavigation.swift#L65), [`glossaryFocusRequest`](../../Sources/Settings/SettingsNavigation.swift#L66), [`recentSeenAt`](../../Sources/Settings/SettingsNavigation.swift#L68), [`openWorkflow`](../../Sources/Settings/SettingsNavigation.swift#L70-L73), [`openGlossary`](../../Sources/Settings/SettingsNavigation.swift#L75-L78), and the Glossary [focus task](../../Sources/Settings/GlossarySettingsView.swift#L79-L81).
 
 ```mermaid
 stateDiagram-v2
@@ -1366,32 +1304,45 @@ Open questions: none.
 
 ### M39. Privacy-pane disk and destination observations
 
-Privacy shows two observations it fetches asynchronously: how many recordings remain on disk, and which host runs send text to. With learning off, it says nothing is kept only when the count is zero.
+Privacy shows two observations it fetches asynchronously: which folders the removed glossary learning left on disk, read only once the launch cleanup has finished, and which host runs send text to. The leftover row appears only while some folder is left; Delete Now tries again and adds a failure line if any folder remains. The launch cleanup and its folder rules are charted as [M38 in the speech and glossary check inventory](speech-learning.md#m38-retired-learning-cleanup).
 
-State: [`leftoverRecordings`](../../Sources/Settings/PrivacySettingsPane.swift#L17), [`resolvedEndpointHost`](../../Sources/Settings/PrivacySettingsPane.swift#L20), their [tasks](../../Sources/Settings/PrivacySettingsPane.swift#L40-L47), and the [recordings copy](../../Sources/Settings/PrivacySettingsPane.swift#L167-L172).
+State: [`retiredLearningLeftovers` and `retiredLearningDeletionFailed`](../../Sources/Settings/PrivacySettingsPane.swift#L16-L17), [`resolvedEndpointHost`](../../Sources/Settings/PrivacySettingsPane.swift#L20), their [tasks](../../Sources/Settings/PrivacySettingsPane.swift#L40-L47), the [leftover row](../../Sources/Settings/PrivacySettingsPane.swift#L152-L154), and its [Show in Finder and Delete Now](../../Sources/Settings/PrivacySettingsPane.swift#L158-L185).
 
 ```mermaid
 stateDiagram-v2
-    state Copy <<choice>>
-    [*] --> Unknown: count 0 and no host before the first reply
-    Unknown --> Loading: pane appears
-    Loading --> Observed: archive count and resolved host arrive
-    Observed --> Loading: learning preference changes, recount
-    Observed --> Loading: base URL or model changes, resolve again
-    Observed --> Observed: key saved or removed, no refresh
-    Observed --> Copy: render the recordings line
-    Copy --> NothingKept: learning off and count 0
-    Copy --> LeftoverWarning: learning off and count above 0
-    Copy --> KeptUntilCompared: learning on
+    state Destination {
+        [*] --> NoHost: before the first reply
+        NoHost --> Resolving: pane appears
+        Resolving --> HostKnown: host resolved, nil if the configuration fails
+        HostKnown --> Resolving: base URL or model changes
+        HostKnown --> HostKnown: key saved or removed, no refresh
+    }
+    state Leftovers {
+        state "Waiting for the launch cleanup" as Waiting
+        state "Row hidden" as RowHidden
+        state "Row shown" as RowShown
+        state "Delete Now running" as Deleting
+        state "Row shown with the failure line" as RowFailed
+        [*] --> Waiting: pane appears
+        Waiting --> RowHidden: no folder left
+        Waiting --> RowShown: some folder left
+        RowShown --> Deleting: Delete Now
+        RowFailed --> Deleting: Delete Now
+        Deleting --> RowHidden: every folder gone
+        Deleting --> RowFailed: some folder still left
+    }
 ```
 
 Invariants:
 
-- "Nothing is kept" appears only when learning is off and the count is zero. Enforced at [L167-L172](../../Sources/Settings/PrivacySettingsPane.swift#L167-L172).
+- The row appears only while some folder is left, and its text names only those folders. Enforced at [L152-L154](../../Sources/Settings/PrivacySettingsPane.swift#L152-L154) and [L178-L179](../../Sources/Settings/PrivacySettingsPane.swift#L178-L179), with the wording at [RetiredGlossaryLearning.swift#L72-L81](../../Sources/Learning/RetiredGlossaryLearning.swift#L72-L81).
+- The folders are read only after the launch cleanup has finished, so a deletion still under way is never shown as one that failed. Enforced at [L40-L42](../../Sources/Settings/PrivacySettingsPane.swift#L40-L42) and [RetiredGlossaryLearning.swift#L61-L68](../../Sources/Learning/RetiredGlossaryLearning.swift#L61-L68).
+- Delete Now deletes off the main actor, then shows what is left, with the failure line while anything is. Enforced at [L167-L175](../../Sources/Settings/PrivacySettingsPane.swift#L167-L175) and [L181-L184](../../Sources/Settings/PrivacySettingsPane.swift#L181-L184).
 - Only the host is kept, never the key. Enforced at [L44-L46](../../Sources/Settings/PrivacySettingsPane.swift#L44-L46).
-- Assumed: the snapshots are fresh enough. A deletion elsewhere does not trigger a recount, and only a URL or model change re-resolves the host, although a key change can change the Debug environment precedence (M15).
+- Assumed: the snapshots are fresh enough. Only Delete Now reads the folders again while the pane stays open, and only a URL or model change re-resolves the host, although a key change can change the Debug environment precedence (M15).
+- Assumed: Delete Now has no running state, so a second click runs a second deletion; both end by reading the folders again.
 
-Tests: `PrivacyCopyTests.learningOffSaysNothingIsKeptOnlyWhenNothingIs`, `HomeStatusTests.destinationNamesADevelopmentOverrideRunsActuallyUse`.
+Tests: `RetiredGlossaryLearningTests.privacyReadsTheFoldersOnlyAfterTheLaunchCleanup`, `RetiredLearningCopyTests.theLeftoverRowNamesOnlyWhatIsLeft`, `HomeStatusTests.destinationNamesADevelopmentOverrideRunsActuallyUse`. No test hosts the row.
 
 Open questions: none.
 
@@ -1399,7 +1350,7 @@ Open questions: none.
 
 Each glossary row keeps its own draft, so an invalid edit (blank or duplicate) stays on screen while the saved term keeps its old spelling. Valid edits save at once; adding a term clears the new-term fields only when the add was accepted.
 
-State: [`selectedTermID`, `termDrafts`, `mishearingDrafts`, `newMishearingsDraft`, `isExportingGlossary`, `searchText`](../../Sources/Settings/GlossarySettingsView.swift#L44-L49), the new-term draft [`glossaryDraftTerm`](../../Sources/Settings/SettingsNavigation.swift#L65), [`persistDraft`](../../Sources/Settings/GlossarySettingsView.swift#L558-L569), [`addTerm`](../../Sources/Settings/GlossarySettingsView.swift#L571-L584), [`deleteTerm`](../../Sources/Settings/GlossarySettingsView.swift#L586-L593), and [`synchronizeDrafts`](../../Sources/Settings/GlossarySettingsView.swift#L595-L605).
+State: [`selectedTermID`, `termDrafts`, `mishearingDrafts`, `newMishearingsDraft`, `isExportingGlossary`, `searchText`](../../Sources/Settings/GlossarySettingsView.swift#L37-L42), the new-term draft [`glossaryDraftTerm`](../../Sources/Settings/SettingsNavigation.swift#L65), [`persistDraft`](../../Sources/Settings/GlossarySettingsView.swift#L336-L347), [`addTerm`](../../Sources/Settings/GlossarySettingsView.swift#L349-L362), [`deleteTerm`](../../Sources/Settings/GlossarySettingsView.swift#L364-L371), and [`synchronizeDrafts`](../../Sources/Settings/GlossarySettingsView.swift#L373-L383).
 
 ```mermaid
 stateDiagram-v2
@@ -1422,53 +1373,17 @@ stateDiagram-v2
 
 Invariants:
 
-- An invalid draft never overwrites the saved term, and its mishearing edits wait too. Enforced at [L558-L569](../../Sources/Settings/GlossarySettingsView.swift#L558-L569).
-- Deleting a term removes its drafts and clears the selection. Enforced at [L586-L593](../../Sources/Settings/GlossarySettingsView.swift#L586-L593).
-- Assumed: keeping an old draft after an external valid edit is intended ([L595-L605](../../Sources/Settings/GlossarySettingsView.swift#L595-L605)), and export errors need no visible response.
+- An invalid draft never overwrites the saved term, and its mishearing edits wait too. Enforced at [L336-L347](../../Sources/Settings/GlossarySettingsView.swift#L336-L347).
+- Deleting a term removes its drafts and clears the selection. Enforced at [L364-L371](../../Sources/Settings/GlossarySettingsView.swift#L364-L371).
+- Assumed: keeping an old draft after an external valid edit is intended ([L373-L383](../../Sources/Settings/GlossarySettingsView.swift#L373-L383)), and export errors need no visible response.
 
 Tests: `GlossaryTests.exportDocumentProducesDecodableGlossaryJSON`, `GlossaryTests.persistedDuplicateRemainsRejectedWhileExistingEditorDraftIsCleared`.
 
 Open questions: none.
 
-### M41. Learning controls and deletion display
-
-The Glossary learning section starts the privacy transaction (M23), cancels a model download, and asks separately whether to delete the 626 MB comparison model. It shows pending and leftover recording counts and the result of Delete All.
-
-State: [`pendingRecordingCount`, `recordingDeletionFailed`, `leftoverRecordingCount`, `isConfirmingModelRemoval`](../../Sources/Settings/GlossarySettingsView.swift#L40-L43), the [count tasks](../../Sources/Settings/GlossarySettingsView.swift#L99-L106), the [toggle](../../Sources/Settings/GlossarySettingsView.swift#L454-L465), and [Delete All](../../Sources/Settings/GlossarySettingsView.swift#L479-L489).
-
-```mermaid
-stateDiagram-v2
-    [*] --> LearningOff
-    LearningOff --> LearningOn: toggle on
-    LearningOn --> OffDeleting: toggle off, privacy task started, download cancelled
-    OffDeleting --> LearningOff: archive deleted
-    OffDeleting --> LearningOn: current deletion failed, preference back on
-    OffDeleting --> AskModel: comparison model ready, dialog opens
-    AskModel --> ModelKept: Keep
-    AskModel --> ModelRemoved: Delete Model
-    LearningOff --> LeftoverShown: stored count above 0
-    LeftoverShown --> DeletingAll: Delete All
-    DeletingAll --> LearningOff: deleted, count 0
-    DeletingAll --> LeftoverShown: failed, error shown, count reread
-    note right of AskModel
-        The dialog can still be open after a failed deletion turned learning back on.
-    end note
-```
-
-Invariants:
-
-- The opt-out deletion belongs to `PrivacyOptIns`, not to this view. Enforced at [L454-L465](../../Sources/Settings/GlossarySettingsView.swift#L454-L465).
-- Model removal is a separate choice. Enforced at [L87-L97](../../Sources/Settings/GlossarySettingsView.swift#L87-L97).
-- Delete All errors are shown, and the count is reread afterwards. Enforced at [L479-L489](../../Sources/Settings/GlossarySettingsView.swift#L479-L489).
-- Assumed: the count snapshots stay fresh; overlapping Delete All taps and count replies have no generation.
-
-Tests: `AppSettingsTests.turningLearningOffDeletesRecordingsWithoutAnyView`, `PrivacyCopyTests.learningOffSaysNothingIsKeptOnlyWhenNothingIs`.
-
-Open questions: none.
-
 ### M42. Mishearing checks and their UI projection
 
-Runs mishearing checks one term at a time with up to three voice locales and the current vocabulary, and yields to dictation: a foreground run cancels the check and gives the running term its previous state back. A result shows only while the term's spelling still matches the one checked; heard forms are saved only when accepted, and dismissals last for the session. The speech and learning inventory also lists this model; the copy functions in [`MishearingCheckCopy`](../../Sources/Settings/MishearingCheckCopy.swift#L9-L24) are pure.
+Runs mishearing checks one term at a time with up to three voice locales and the current vocabulary, and yields to dictation: a foreground run cancels the check and gives the running term its previous state back. A result shows only while the term's spelling still matches the one checked; heard forms are saved only when accepted, and dismissals last for the session. The speech and glossary check inventory charts this model in more detail as [M30](speech-learning.md#m30-suggestion-batch-and-per-term-results); the copy functions in [`MishearingCheckCopy`](../../Sources/Settings/MishearingCheckCopy.swift#L9-L24) are pure.
 
 State: [`TermState`](../../Sources/Learning/MishearingSuggestionModel.swift#L7-L14), [`states`, `progress`, `isRunning`, `isForegroundActive`](../../Sources/Learning/MishearingSuggestionModel.swift#L21-L24), [`canProbe`](../../Sources/Learning/MishearingSuggestionModel.swift#L25), [`task`, `probedTerms`, `dismissed`](../../Sources/Learning/MishearingSuggestionModel.swift#L38-L40), [`state(for:)`](../../Sources/Learning/MishearingSuggestionModel.swift#L47-L54), [`setForegroundActive`](../../Sources/Learning/MishearingSuggestionModel.swift#L67-L70), [`accept` and `dismiss`](../../Sources/Learning/MishearingSuggestionModel.swift#L72-L96), and the [run loop](../../Sources/Learning/MishearingSuggestionModel.swift#L98-L156). The model is split into the check and one term's result.
 
@@ -1524,7 +1439,7 @@ Open questions: none.
 
 Decides whether the welcome window opens by itself. A fresh install, with none of four setup keys present, is marked pending and stays pending until the guide is finished or closed; an existing install is marked done. The decision is made before AppSettings writes its defaults.
 
-State: UserDefaults key [`onboardingState`](../../Sources/Onboarding/OnboardingGate.swift#L9) with values [`pending` and `done`](../../Sources/Onboarding/OnboardingGate.swift#L10-L11), the [setup keys](../../Sources/Onboarding/OnboardingGate.swift#L12) whose presence marks an existing install, [`resolve`](../../Sources/Onboarding/OnboardingGate.swift#L15-L26), [`markDone`](../../Sources/Onboarding/OnboardingGate.swift#L32-L34), and the [launch decision](../../Sources/App/SyrupApp.swift#L91).
+State: UserDefaults key [`onboardingState`](../../Sources/Onboarding/OnboardingGate.swift#L9) with values [`pending` and `done`](../../Sources/Onboarding/OnboardingGate.swift#L10-L11), the [setup keys](../../Sources/Onboarding/OnboardingGate.swift#L12) whose presence marks an existing install, [`resolve`](../../Sources/Onboarding/OnboardingGate.swift#L15-L26), [`markDone`](../../Sources/Onboarding/OnboardingGate.swift#L32-L34), and the [launch decision](../../Sources/App/SyrupApp.swift#L89).
 
 ```mermaid
 stateDiagram-v2
@@ -1540,7 +1455,7 @@ stateDiagram-v2
 
 Invariants:
 
-- `resolve` runs before AppSettings is created. Enforced at [SyrupApp.swift#L91-L97](../../Sources/App/SyrupApp.swift#L91-L97).
+- `resolve` runs before AppSettings is created. Enforced at [SyrupApp.swift#L89-L93](../../Sources/App/SyrupApp.swift#L89-L93).
 - Pending survives the defaults AppSettings writes and later launches. Enforced at [L16-L18](../../Sources/Onboarding/OnboardingGate.swift#L16-L18).
 - Closing the window counts as done. Enforced at [OnboardingView.swift#L81-L84](../../Sources/Onboarding/OnboardingView.swift#L81-L84).
 - Assumed: one process resolves the defaults domain at a time.
@@ -1631,7 +1546,7 @@ Open questions: none.
 
 Runs Sparkle only when the app has a feed URL and a public key, refuses update checks during a run, and postpones an update's relaunch until the run ends. While Sparkle shows an update, Syrup becomes a regular app with an optional Dock badge, then returns to being a menu bar app.
 
-State: [`controller`, `isRunActive`, `subscriptions`, `updaterCanCheck`, `automaticChecksEnabled`, `deferredInstall`, `updateAvailable`](../../Sources/App/UpdateController.swift#L9-L15), the [start condition](../../Sources/App/UpdateController.swift#L29-L33) on Info.plist `SUFeedURL` and `SUPublicEDKey`, the [check guards](../../Sources/App/UpdateController.swift#L46-L63), the [postpone and resume](../../Sources/App/UpdateController.swift#L55-L70), the [activation policy and badge](../../Sources/App/UpdateController.swift#L74-L85), and the [activity hookup](../../Sources/App/SyrupApp.swift#L130-L138). Sparkle's own preferences, including `lastUpdateCheckDate`, are external state.
+State: [`controller`, `isRunActive`, `subscriptions`, `updaterCanCheck`, `automaticChecksEnabled`, `deferredInstall`, `updateAvailable`](../../Sources/App/UpdateController.swift#L9-L15), the [start condition](../../Sources/App/UpdateController.swift#L29-L33) on Info.plist `SUFeedURL` and `SUPublicEDKey`, the [check guards](../../Sources/App/UpdateController.swift#L46-L63), the [postpone and resume](../../Sources/App/UpdateController.swift#L55-L70), the [activation policy and badge](../../Sources/App/UpdateController.swift#L74-L85), and the [activity hookup](../../Sources/App/SyrupApp.swift#L107-L114). Sparkle's own preferences, including `lastUpdateCheckDate`, are external state.
 
 ```mermaid
 stateDiagram-v2
@@ -1659,7 +1574,7 @@ Invariants:
 
 - Checks are refused during a run, both at the button and in the delegate. Enforced at [L46-L53](../../Sources/App/UpdateController.swift#L46-L53) and [L61-L63](../../Sources/App/UpdateController.swift#L61-L63).
 - A postponed install runs once, after its callback is cleared, and only when no run is active. Enforced at [L55-L59](../../Sources/App/UpdateController.swift#L55-L59).
-- The resume sees the run as ended: every run end sets an inactive pipeline state before or in the same main-actor turn as the activity callback, and the callback defers the resume to a later task. Enforced by call order at [AppState.swift#L608-L612](../../Sources/App/AppState.swift#L608-L612), [L616-L625](../../Sources/App/AppState.swift#L616-L625), [L356-L363](../../Sources/App/AppState.swift#L356-L363), and [L749](../../Sources/App/AppState.swift#L749), with [SyrupApp.swift#L132-L135](../../Sources/App/SyrupApp.swift#L132-L135).
+- The resume sees the run as ended: every run end sets an inactive pipeline state before or in the same main-actor turn as the activity callback, and the callback defers the resume to a later task. Enforced by call order at [AppState.swift#L603-L607](../../Sources/App/AppState.swift#L603-L607), [L611-L620](../../Sources/App/AppState.swift#L611-L620), [L352-L359](../../Sources/App/AppState.swift#L352-L359), and [L744](../../Sources/App/AppState.swift#L744), with [SyrupApp.swift#L109-L112](../../Sources/App/SyrupApp.swift#L109-L112).
 - No automatic downloads or system profile, and no updater without both values. Enforced at [L21-L22](../../Sources/App/UpdateController.swift#L21-L22) and [L29-L33](../../Sources/App/UpdateController.swift#L29-L33).
 - Assumed: Sparkle calls its delegates on the main actor and offers one pending install at a time; a second postpone replaces the first.
 - Assumed: a pending install does not need to survive process death.
@@ -1672,7 +1587,7 @@ Open questions: none.
 
 Every quit (menu, Command-Q, logout, update relaunch) asks the delegate, which answers "terminate later", runs the app's bounded cleanup, and then replies. The cleanup itself, ending the run and waiting up to 2 s for run work and up to 2 s for stats and history writes, is charted in [run-pipeline.md](run-pipeline.md#quitting).
 
-State: [`openMainWindow` and `prepareForTermination`](../../Sources/App/SyrupApp.swift#L31-L32), [`applicationShouldTerminate`](../../Sources/App/SyrupApp.swift#L42-L50), the [arming in `MenuBarLabel`](../../Sources/App/SyrupApp.swift#L67-L75), and [`AppState.prepareForTermination`](../../Sources/App/AppState.swift#L368-L385). AppKit's outstanding terminate-later request is external state.
+State: [`openMainWindow` and `prepareForTermination`](../../Sources/App/SyrupApp.swift#L31-L32), [`applicationShouldTerminate`](../../Sources/App/SyrupApp.swift#L42-L50), the [arming in `MenuBarLabel`](../../Sources/App/SyrupApp.swift#L67-L75), and [`AppState.prepareForTermination`](../../Sources/App/AppState.swift#L364-L380). AppKit's outstanding terminate-later request is external state.
 
 ```mermaid
 stateDiagram-v2
@@ -1683,7 +1598,7 @@ stateDiagram-v2
     state Preparing {
         [*] --> EndRun
         EndRun --> AwaitWork: active run cancelled
-        AwaitWork --> Flush: run work, filing, and volume done, or 2 s
+        AwaitWork --> Flush: run tasks and volume restore done, or 2 s
         Flush --> Ready: stats and history written, or 2 s
     }
     Preparing --> Replied: reply terminate
@@ -1698,20 +1613,20 @@ stateDiagram-v2
 Invariants:
 
 - The callback is cleared before its task starts, so one quit runs one cleanup. Enforced at [L43-L49](../../Sources/App/SyrupApp.swift#L43-L49).
-- The cleanup finishes before the reply, and both of its waits are bounded by M05. Enforced at [L45-L47](../../Sources/App/SyrupApp.swift#L45-L47) and [AppState.swift#L376-L384](../../Sources/App/AppState.swift#L376-L384).
+- The cleanup finishes before the reply, and both of its waits are bounded by M05. Enforced at [L45-L47](../../Sources/App/SyrupApp.swift#L45-L47) and [AppState.swift#L371-L379](../../Sources/App/AppState.swift#L371-L379).
 - Assumed: the menu bar label appears before any quit; otherwise quit is immediate and skips the cleanup ([L43](../../Sources/App/SyrupApp.swift#L43), [L67-L75](../../Sources/App/SyrupApp.swift#L67-L75)).
 - Assumed: main-actor tasks keep running while AppKit waits for the reply.
-- Assumed: writes unfinished at the deadline may be lost, as in a crash ([AppState.swift#L380](../../Sources/App/AppState.swift#L380)).
+- Assumed: writes unfinished at the deadline may be lost, as in a crash ([AppState.swift#L375](../../Sources/App/AppState.swift#L375)).
 
-Tests: `PipelineRunTests.quittingWaitsForACancelledRecordingToBeDiscarded`, `PipelineRunTests.quittingEndsTheActiveRun`, `OutputVolumeCharacterizationTests.quittingWaitsForACancelledRunsVolumeRestore`, `RecordingFilingCharacterizationTests.quittingWaitsForADeliveredRunsRecordingToBeFiled`. No test drives the delegate.
+Tests: `PipelineRunTests.quittingEndsTheActiveRun`, `PipelineRunTests.quittingWaitsForACancelledRunToUnwind`, `OutputVolumeCharacterizationTests.quittingWaitsForACancelledRunsVolumeRestore`, `OutputDuckingTests.quittingWaitsForTheVolumeRestore`. No test drives the delegate.
 
 Open questions: none.
 
 ### M53. App bootstrap and inert test host
 
-Chooses an inert app under XCTest, so tests never register hotkeys, start downloads, or run retention cleanup. In production it resolves onboarding before AppSettings writes defaults, builds the services once, restores an output volume left lowered by a crash, and starts the launch cleanup and locale refresh.
+Chooses an inert app under XCTest, so tests never register hotkeys, start downloads, or run retention cleanup. In production it resolves onboarding before AppSettings writes defaults, builds the services once, restores an output volume left lowered by a crash, starts two launch cleanups, one for a leftover history file and one for the files glossary learning left, and refreshes the dictation locales.
 
-State: [`SyrupMain`](../../Sources/App/SyrupApp.swift#L7-L15), [`TestHost.isActive`](../../Sources/App/SyrupApp.swift#L17-L24), the app's [stored services](../../Sources/App/SyrupApp.swift#L80-L88), [`init`](../../Sources/App/SyrupApp.swift#L90-L150) with its [launch tasks](../../Sources/App/SyrupApp.swift#L139-L149), and the [scenes](../../Sources/App/SyrupApp.swift#L152-L199).
+State: [`SyrupMain`](../../Sources/App/SyrupApp.swift#L7-L15), [`TestHost.isActive`](../../Sources/App/SyrupApp.swift#L17-L24), the app's [stored services](../../Sources/App/SyrupApp.swift#L80-L86), [`init`](../../Sources/App/SyrupApp.swift#L88-L124) with its [launch tasks](../../Sources/App/SyrupApp.swift#L115-L123), and the [scenes](../../Sources/App/SyrupApp.swift#L126-L170).
 
 ```mermaid
 stateDiagram-v2
@@ -1720,17 +1635,17 @@ stateDiagram-v2
     Host --> InertHost: XCTest environment or class present
     Host --> ResolveOnboarding: production
     ResolveOnboarding --> BuildServices: before AppSettings writes defaults
-    BuildServices --> RestoreVolume: archive, models, AppState, stores attached
-    RestoreVolume --> ShellReady: coordinators, updater, activity callback, scenes
-    ShellReady --> ShellReady: launch cleanup and locale refresh finish on their own
+    BuildServices --> RestoreVolume: speech models, AppState, history store attached
+    RestoreVolume --> ShellReady: mishearing checks, updater, activity callback, scenes
+    ShellReady --> ShellReady: launch cleanups and locale refresh finish on their own
     InertHost --> [*]: empty Settings scene only
 ```
 
 Invariants:
 
 - The test host never constructs `SyrupApp`. Enforced at [L8-L13](../../Sources/App/SyrupApp.swift#L8-L13).
-- Onboarding is resolved before AppSettings exists. Enforced at [L91-L97](../../Sources/App/SyrupApp.swift#L91-L97).
-- Assumed: SwiftUI creates the app once; the launch tasks may overlap the person's first actions (M17, M24).
+- Onboarding is resolved before AppSettings exists. Enforced at [L89-L93](../../Sources/App/SyrupApp.swift#L89-L93).
+- Assumed: SwiftUI creates the app once; the launch tasks may overlap the person's first actions (M17, and M38 in [speech-learning.md](speech-learning.md#m38-retired-learning-cleanup)).
 
 Tests: `SmokeTests.unitTestsRunInTheInertHost`, `OnboardingLogicTests.creatingSettingsCountsAsExistingForTheNextDecision`.
 

@@ -1,6 +1,6 @@
 # Run pipeline state machines
 
-`Sources/App/` holds 13 state machines worth a chart and 6 small ones. Three of them, the pipeline state, the recording phase, and the run task with its single commit point, decide whether the clipboard is written, whether Esc still applies, and whether a recording can get stuck. All three, together with the success flash, the error reset, Copy result again, and pausing shortcuts, are model-checked by `RunLifecycleModel` and replayed against the real `AppState`. Every rule checked holds. The Fn latch mirror is checked by `FnShortcutModel` (see [input-output.md](input-output.md)). The rest are covered by example-based tests only.
+`Sources/App/` holds 12 state machines worth a chart and 6 small ones. Three of them, the pipeline state, the recording phase, and the run task with its single commit point, decide whether the clipboard is written, whether Esc still applies, and whether a recording can get stuck. All three, together with the success flash, the error reset, Copy result again, and pausing shortcuts, are model-checked by `RunLifecycleModel` and replayed against the real `AppState`. Every rule checked holds. The Fn latch mirror is checked by `FnShortcutModel` (see [input-output.md](input-output.md)). The rest are covered by example-based tests only.
 
 | Machine | Owner | Kind | Importance | Validation |
 | --- | --- | --- | --- | --- |
@@ -14,7 +14,6 @@
 | [Streamed delivery](#streamed-delivery) | `AppState+Delivery`, `PipelineRun.streamingTypist` | Implicit | High | Not formally validated |
 | [Run context at the trigger](#run-context-at-the-trigger) | `AppState.resolveRunContext` | Implicit | Medium | Not formally validated |
 | [Early transformation](#early-transformation) | `PipelineRun`, `AppState+VoiceRun` | Implicit | Medium | Not formally validated |
-| [Recording filing](#recording-filing) | `RecordingFiler`, `VoiceRunWork` | Implicit | High | Characterization tests |
 | [Output volume](#output-volume) | `OutputVolumeChain`, `OutputDucker` | Implicit | Medium | Characterization tests |
 | [Quitting](#quitting) | `AppState.prepareForTermination` | Implicit | Medium | Example tests |
 | Speech warm-up, once-per-launch notices, foreground activity | see [Small machines](#small-machines) | Implicit | Low | Example tests |
@@ -23,7 +22,7 @@
 
 `AppState.pipelineState` is what the menu bar icon, the recording cue, and the menu show. `AppState.activeRun` is the run that owns it. Every key, menu, and cancel event goes through the pure `PipelineTransitions.command(for:in:run:hasLastResult:)`, which returns start, stop, cancel, or ignore; `AppState` performs the command, and the run task's completions move the state on.
 
-State: [`AppState.pipelineState`](../../Sources/App/AppState.swift#L37), [`AppState.activeRun`](../../Sources/App/AppState.swift#L110), [`AppState.runTasks`](../../Sources/App/AppState.swift#L114), [`PipelineRun.deliveryCommitted`](../../Sources/App/PipelineRun.swift#L75), the event table in [`PipelineTransitions`](../../Sources/App/PipelineTransitions.swift#L61).
+State: [`AppState.pipelineState`](../../Sources/App/AppState.swift#L37), [`AppState.activeRun`](../../Sources/App/AppState.swift#L108), [`AppState.runTasks`](../../Sources/App/AppState.swift#L112), [`PipelineRun.deliveryCommitted`](../../Sources/App/PipelineRun.swift#L74), the event table in [`PipelineTransitions`](../../Sources/App/PipelineTransitions.swift#L61).
 
 ```mermaid
 stateDiagram-v2
@@ -59,7 +58,7 @@ Tests: `PipelineTransitionsTests` (the whole event table), `AppStateTriggerTests
 
 While the state is recording, `PipelineRun.recordingPhase` decides what a stop does. A hold released within 300 ms is a tap and is discarded. A hotkey stop after a loud buffer starts a release tail, so a last word spoken while releasing is kept; it ends at the first quiet buffer or after 200 ms. Menu stops, the duration limit, and failures stop at once.
 
-State: [`PipelineRun.recordingPhase`](../../Sources/App/PipelineRun.swift#L65), [`PipelineRun.lastBufferWasQuiet`](../../Sources/App/PipelineRun.swift#L66), [`PipelineRun.releaseTailDeadline`](../../Sources/App/PipelineRun.swift#L71), [`PipelineRun.recordingDurationTask`](../../Sources/App/PipelineRun.swift#L63), [`PipelineRun.stopWaiter`](../../Sources/App/PipelineRun.swift#L64), decisions in [`ReleaseTail`](../../Sources/App/ReleaseTail.swift#L19) and [`requestStopRecording`](../../Sources/App/AppState+VoiceRun.swift#L369).
+State: [`PipelineRun.recordingPhase`](../../Sources/App/PipelineRun.swift#L64), [`PipelineRun.lastBufferWasQuiet`](../../Sources/App/PipelineRun.swift#L65), [`PipelineRun.releaseTailDeadline`](../../Sources/App/PipelineRun.swift#L70), [`PipelineRun.recordingDurationTask`](../../Sources/App/PipelineRun.swift#L62), [`PipelineRun.stopWaiter`](../../Sources/App/PipelineRun.swift#L63), decisions in [`ReleaseTail`](../../Sources/App/ReleaseTail.swift#L19) and [`requestStopRecording`](../../Sources/App/AppState+VoiceRun.swift#L337).
 
 ```mermaid
 stateDiagram-v2
@@ -90,7 +89,7 @@ Tests: `ReleaseTailDecisionTests`, `ReleaseTailPipelineTests`, `ShortTapTests`, 
 
 A voice run's task is `runPipeline`: open the microphone, wait for the run's configuration, start transcription, wait for the stop, wait for the transcript, wait for the provider, then commit. The commit, in `commit(_:runID:recordReleaseToClipboard:)`, writes the clipboard, appends the success record, and sets `deliveryCommitted`; after it, Esc and trigger presses no longer apply, and the run pastes and succeeds. After every wait the task checks that it still owns the pipeline, so a cancelled run's late transcript or provider output changes nothing.
 
-State: the task's position (implicit in `runPipeline`'s awaits), [`VoiceRunWork`](../../Sources/App/AppState+VoiceRun.swift#L7), [`PipelineRun.failure`](../../Sources/App/PipelineRun.swift#L72), [`PipelineRun.failedRecordID`](../../Sources/App/PipelineRun.swift#L74), [`PipelineRun.deliveryCommitted`](../../Sources/App/PipelineRun.swift#L75), [`PipelineRun.preparedTransformer`](../../Sources/App/PipelineRun.swift#L77).
+State: the task's position (implicit in `runPipeline`'s awaits), [`VoiceRunWork`](../../Sources/App/AppState+VoiceRun.swift#L6), [`PipelineRun.failure`](../../Sources/App/PipelineRun.swift#L71), [`PipelineRun.failedRecordID`](../../Sources/App/PipelineRun.swift#L73), [`PipelineRun.deliveryCommitted`](../../Sources/App/PipelineRun.swift#L74), [`PipelineRun.preparedTransformer`](../../Sources/App/PipelineRun.swift#L76).
 
 ```mermaid
 stateDiagram-v2
@@ -180,7 +179,7 @@ Tests: `AppStateFailureTests.clipboardFailureMovesToErrorAndDoesNotMarkSuccess`,
 
 Paste Last copies the newest result and, with automatic paste on, pastes it where automatic paste would. It awaits the delivery target, an optional caret read, and the paste delay; a newer Paste Last or any new run supersedes it.
 
-State: [`ResultActions.pendingPasteID`](../../Sources/App/ResultActions.swift#L45), cleared by `cancelPendingPaste()` from [`clearRunTracking`](../../Sources/App/AppState.swift#L731).
+State: [`ResultActions.pendingPasteID`](../../Sources/App/ResultActions.swift#L45), cleared by `cancelPendingPaste()` from [`clearRunTracking`](../../Sources/App/AppState.swift#L726).
 
 ```mermaid
 stateDiagram-v2
@@ -201,7 +200,7 @@ Tests: `AppStateDeliveryTests.pasteLast*`, `ResultActionsCharacterizationTests`.
 
 With a streaming provider, the result is typed into the editor, or previewed in the cue only, as deltas arrive. The run owns its typist; cancel stops it at once, and a provider that cannot stream falls back to one atomic request. Delivery still ends at the single commit point.
 
-State: [`PipelineRun.streamingTypist`](../../Sources/App/PipelineRun.swift#L76) and the locals of [`streamAndDeliver`](../../Sources/App/AppState+Delivery.swift#L170): whether it types into the editor, whether the caret context was read, and the atomic fallback text.
+State: [`PipelineRun.streamingTypist`](../../Sources/App/PipelineRun.swift#L75) and the locals of [`streamAndDeliver`](../../Sources/App/AppState+Delivery.swift#L170): whether it types into the editor, whether the caret context was read, and the atomic fallback text.
 
 ```mermaid
 stateDiagram-v2
@@ -226,7 +225,7 @@ Tests: `AppStateDeliveryTests` (streaming cases), `StreamingTransformerTests`, `
 
 A voice run opens the microphone first; the opt-in selection read and the delivery-target capture run beside it and finish before the instruction is used. A selected-text run reads the selection before anything else and fails fast without one.
 
-State: the outcome of [`resolveRunContext`](../../Sources/App/AppState.swift#L478), `PipelineRun.deliveryTarget`, and three once-per-launch flags from [`didNotifyEmptySelectionContext`](../../Sources/App/AppState.swift#L117) on.
+State: the outcome of [`resolveRunContext`](../../Sources/App/AppState.swift#L473), `PipelineRun.deliveryTarget`, and three once-per-launch flags from [`didNotifyEmptySelectionContext`](../../Sources/App/AppState.swift#L115) on.
 
 ```mermaid
 stateDiagram-v2
@@ -249,7 +248,7 @@ Tests: `AppStateSelectionTests`, `RecoveryReliabilityTests.selectionIsReadBefore
 
 With early transformation on, a pause of 300 ms during dictation runs an offline pass over the audio so far and sends it to the provider. At delivery the attempt is used only if its input and instruction match the final ones exactly.
 
-State: [`PipelineRun.pauseCheckTask`](../../Sources/App/PipelineRun.swift#L41), [`PipelineRun.pauseAttempt`](../../Sources/App/PipelineRun.swift#L42), [`PipelineRun.pauseOutcome`](../../Sources/App/PipelineRun.swift#L44), `quietSince`, `pauseCheckedQuiet`, and the [`schedulePauseTransformation`](../../Sources/App/AppState+VoiceRun.swift#L435) task.
+State: [`PipelineRun.pauseCheckTask`](../../Sources/App/PipelineRun.swift#L41), [`PipelineRun.pauseAttempt`](../../Sources/App/PipelineRun.swift#L42), [`PipelineRun.pauseOutcome`](../../Sources/App/PipelineRun.swift#L44), `quietSince`, `pauseCheckedQuiet`, and the [`schedulePauseTransformation`](../../Sources/App/AppState+VoiceRun.swift#L403) task.
 
 ```mermaid
 stateDiagram-v2
@@ -270,27 +269,6 @@ stateDiagram-v2
 
 Tests: `PauseTransformationTests`.
 
-## Recording filing
-
-For an opted-in voice run, the audio is copied into a provisional archive entry while it is captured. After delivery the entry is committed once the WAV is complete and Apple's transcript is known, unless learning was turned off meanwhile; a failed, cancelled, or empty run discards it.
-
-State: `VoiceRunWork.provisionalRecordingID` and `recordingTee` in [`VoiceRunWork`](../../Sources/App/AppState+VoiceRun.swift#L7), [`RecordingFiler.work`](../../Sources/App/RecordingFiler.swift#L11). The archive's own entry lifecycle is in [speech-learning.md](speech-learning.md).
-
-```mermaid
-stateDiagram-v2
-    [*] --> NoEntry
-    NoEntry --> Provisional: run learns, learning still on, archive accepts
-    NoEntry --> NoEntry: learning off, or the archive refuses during a pending cleanup
-    Provisional --> Filing: the run delivered
-    Provisional --> Discarded: the run failed, was cancelled, or heard nothing
-    Filing --> Committed: WAV complete, learning still on, Apple transcript not empty
-    Filing --> Discarded: otherwise
-    Committed --> [*]
-    Discarded --> [*]
-```
-
-Tests: `AppStateLearningTests`, `RecordingFilingCharacterizationTests`, `PipelineRunTests.quittingWaitsForACancelledRecordingToBeDiscarded`.
-
 ## Output volume
 
 A run that lowers other audio lowers it once the microphone is open and restores it when the recorder finishes, and again on any other ending; the repeated restore is a no-op. All changes run in order on one chain.
@@ -310,7 +288,7 @@ Tests: `OutputDuckingTests`, `OutputDuckerTests`, `OutputVolumeCharacterizationT
 
 ## Quitting
 
-Every quit path ends the run, waits up to two seconds for run tasks, recordings being filed, and the volume restore, then up to two seconds to flush usage stats and history.
+Every quit path ends the run, waits up to two seconds for run tasks and the volume restore, then up to two seconds to flush usage stats and history ([`AppState.prepareForTermination`](../../Sources/App/AppState.swift#L364-L380)).
 
 ```mermaid
 stateDiagram-v2
@@ -322,7 +300,7 @@ stateDiagram-v2
     Quit --> [*]
 ```
 
-Tests: `PipelineRunTests.quittingEndsTheActiveRun`, `PipelineRunTests.quittingWaitsForACancelledRecordingToBeDiscarded`, `OutputVolumeCharacterizationTests.quittingWaitsForACancelledRunsVolumeRestore`, `RecordingFilingCharacterizationTests.quittingWaitsForADeliveredRunsRecordingToBeFiled`.
+Tests: `PipelineRunTests.quittingEndsTheActiveRun`, `PipelineRunTests.quittingWaitsForACancelledRunToUnwind`, `OutputVolumeCharacterizationTests.quittingWaitsForACancelledRunsVolumeRestore`, `OutputDuckingTests.quittingWaitsForTheVolumeRestore`.
 
 ## Small machines
 
@@ -331,6 +309,6 @@ Tests: `PipelineRunTests.quittingEndsTheActiveRun`, `PipelineRunTests.quittingWa
 | Speech warm-up | [`SpeechReadiness.preparedLocaleIDs`](../../Sources/App/SpeechReadiness.swift#L13) | The bound locales last prepared, so an unchanged set is not prepared again. |
 | Speech fallback notice | [`SpeechReadiness.didShowFallbackNotice`](../../Sources/App/SpeechReadiness.swift#L14) | Whether the model-fallback notice was shown this launch. |
 | Accessibility notice for paste | [`DeliveryCoordinator.didNotifyAutoPasteNotTrusted`](../../Sources/App/DeliveryCoordinator.swift#L24) | Shown once per launch. |
-| Foreground activity | [`AppState.foregroundActivityChanged`](../../Sources/App/AppState.swift#L115), the run's `ProcessInfo` activity | Begun when a run starts, ended in `clearRunTracking`; learning and updates wait while it is active. |
+| Foreground activity | [`AppState.foregroundActivityChanged`](../../Sources/App/AppState.swift#L113), the run's `ProcessInfo` activity | Begun when a run starts, ended in `clearRunTracking`; Suggest checks stop and wait while it is active, and a deferred update install resumes when it ends ([SyrupApp.swift L109-L114](../../Sources/App/SyrupApp.swift#L109-L114)). |
 | Onboarding paste hold | [`AppState.holdsPasteForOnboarding`](../../Sources/App/AppState.swift#L57) | While the onboarding's try-it page is open and Syrup is in front, runs do not paste. |
 | Recording cue caption | `AppState.recordingCueCaption` | Derived on demand: the revision note, or a workflow other than the active one. |

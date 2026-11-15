@@ -4,7 +4,7 @@ The six input and output folders (`Sources/Hotkey`, `Paste`, `Audio`, `Recording
 
 Only the three Fn machines are formally validated. `FnShortcutModel` ([model](../../Tests/SyrupTests/StateMachines/FnShortcutModel.swift), [rules](../../Tests/SyrupTests/StateMachines/FnShortcutModelTests.swift)) explores every reachable state of a finite model of them and replays it against the real `HotkeyController`, `FnKeyMonitor`, and `AppState`. It confirmed findings F1 to F3. All three are fixed: the model now holds every rule, `FnShortcutFixTests` reproduces each finding on the real app as a regression test, and the [index](README.md#findings) lists them. Every other machine here was checked against the source by reading and is not formally validated. Three suspected defects found while checking stay unverified; they are listed, with their event sequences, at the [end](#suspected-defects-not-yet-verified).
 
-Checked against the source on 2026-11-14, branch `state-machines` at `c339c8b`; the Fn sections updated for the F1 to F3 fix on 2026-11-15, branch `fn-shortcut-fixes`. Kind: explicit means an enum names the states, implicit means Bool flags, optionals, tasks, generations, or a saved record encode them, and mixed means both. Importance: High when the machine's own history can break an AGENTS.md hard rule or strand a recording, the system volume, or typed text; Medium when a mistake is visible but a High machine or the caller contains it; Low for cosmetic or per-call state. In the invariants, enforced means a guard, lock, type, or task ownership in the code makes it hold; assumed means it depends on callers, macOS, or a framework.
+Checked against the source on 2026-11-14, branch `state-machines` at `c339c8b`; the Fn sections updated for the F1 to F3 fix on 2026-11-15, branch `fn-shortcut-fixes`. On 2026-11-15 every line link was checked again against `5386bbc`: removing glossary learning moved lines in `AppState` and `AppState+VoiceRun`, and no machine here changed. Kind: explicit means an enum names the states, implicit means Bool flags, optionals, tasks, generations, or a saved record encode them, and mixed means both. Importance: High when the machine's own history can break an AGENTS.md hard rule or strand a recording, the system volume, or typed text; Medium when a mistake is visible but a High machine or the caller contains it; Low for cosmetic or per-call state. In the invariants, enforced means a guard, lock, type, or task ownership in the code makes it hold; assumed means it depends on callers, macOS, or a framework.
 
 | Machine | Owner | Kind | Importance | Validation |
 | --- | --- | --- | --- | --- |
@@ -70,7 +70,7 @@ stateDiagram-v2
 Invariants:
 
 - Esc is attached only while listening and the pipeline allows a cancel. Enforced in `setListening` and `setCancelShortcutEnabled` ([L183-187](../../Sources/Hotkey/HotkeyController.swift#L183), [L294-303](../../Sources/Hotkey/HotkeyController.swift#L294)); the Fn replay compares Esc availability after every step.
-- A shortcut never starts or ends a run while paused. Enforced in `AppState`: pausing cancels first ([L64-70](../../Sources/App/AppState.swift#L64)), and `triggerPressed`, `triggerReleased`, and the revise methods return while paused, which also drops callbacks queued before the pause ([L311-329](../../Sources/App/AppState.swift#L311)). Model-checked for Fn and the dictate shortcut ("nothing records while shortcuts are paused").
+- A shortcut never starts or ends a run while paused. Enforced in `AppState`: pausing cancels first ([L64-70](../../Sources/App/AppState.swift#L64)), and `triggerPressed`, `triggerReleased`, and the revise methods return while paused, which also drops callbacks queued before the pause ([L307-325](../../Sources/App/AppState.swift#L307)). Model-checked for Fn and the dictate shortcut ("nothing records while shortcuts are paused").
 - A removed workflow's callback does nothing. Enforced: its shortcut is detached ([L142-144](../../Sources/Hotkey/HotkeyController.swift#L142)) and the queued task checks `registeredWorkflowIDs` ([L150](../../Sources/Hotkey/HotkeyController.swift#L150), [L156](../../Sources/Hotkey/HotkeyController.swift#L156)).
 - The handler dictionaries and the KeyboardShortcuts library stay in step. Assumed: `enable` removes and re-adds the handlers ([L45-49](../../Sources/Hotkey/HotkeyController.swift#L45)), and nothing else registers these names.
 - Paste Last and Esc callbacks are not checked against the pause. Assumed harmless: an Esc after a pause finds no run, and a queued Paste Last pastes as if pressed just before.
@@ -439,10 +439,10 @@ Invariants:
 
 - A permission reply after a stop or a newer start never opens the microphone. Enforced by the cancellation and generation checks after the await ([L86-87](../../Sources/Audio/AudioRecorder.swift#L86)).
 - A failed start leaves nothing running, and a denial creates no session. Enforced ([L82-84](../../Sources/Audio/AudioRecorder.swift#L82), [L131-137](../../Sources/Audio/AudioRecorder.swift#L131)).
-- A late failure from an old session never reaches the current run. Enforced by `captureGeneration` ([L122-128](../../Sources/Audio/AudioRecorder.swift#L122)); `AppState` also tags its handler with the run ID ([AppState+VoiceRun.swift L74-76](../../Sources/App/AppState+VoiceRun.swift#L74)).
+- A late failure from an old session never reaches the current run. Enforced by `captureGeneration` ([L122-128](../../Sources/Audio/AudioRecorder.swift#L122)); `AppState` also tags its handler with the run ID ([AppState+VoiceRun.swift L69-71](../../Sources/App/AppState+VoiceRun.swift#L69)).
 - `finish` keeps the final buffers; `stop` drops them. Enforced ([L99-107](../../Sources/Audio/AudioRecorder.swift#L99)) with the session's drain below.
-- `finish` follows a `start` that returned, and no `start` runs while a session drains. Assumed: `finish` does not bump the generation, so it would not invalidate a start still waiting for permission. The voice run's order provides this ([AppState+VoiceRun.swift L77](../../Sources/App/AppState+VoiceRun.swift#L77), [L213-218](../../Sources/App/AppState+VoiceRun.swift#L213)).
-- A failure does not stop the session by itself. Assumed: the run's failure path calls `stop` ([AppState+VoiceRun.swift L56-59](../../Sources/App/AppState+VoiceRun.swift#L56)).
+- `finish` follows a `start` that returned, and no `start` runs while a session drains. Assumed: `finish` does not bump the generation, so it would not invalidate a start still waiting for permission. The voice run's order provides this ([AppState+VoiceRun.swift L72](../../Sources/App/AppState+VoiceRun.swift#L72), [L199-204](../../Sources/App/AppState+VoiceRun.swift#L199)).
+- A failure does not stop the session by itself. Assumed: the run's failure path calls `stop` ([AppState+VoiceRun.swift L52-55](../../Sources/App/AppState+VoiceRun.swift#L52)).
 
 Tests: `AudioRecorderTests`: `startDoesNotRetryFailedCaptureSessionStart`, `deniedMicrophonePermissionDoesNotCreateCaptureSession`, `normalFinishPreservesFinalCallbackWhileCancelDiscardsIt`, `closedLidUsesReplacementFormatWithoutChangingPreference`, `closedLidFailureNeverCreatesCaptureSession`; `PipelineLifecycleRegressionTests.cancellationDuringPermissionMustNotLeaveCaptureRunning`; `AudioFailureTests.lateCaptureOverflowMustPreventDelivery`.
 
@@ -539,7 +539,7 @@ Open questions:
 
 ### Audio fan-out
 
-`AudioFanOut` splits one audio stream into two bounded streams, the live preview and the final transcription ([AppState+VoiceRun.swift L165](../../Sources/App/AppState+VoiceRun.swift#L165)), fed by one detached task. A branch that drops a buffer, or whose consumer stopped, is left out from the next buffer on without affecting the other; the producer is cancelled once both branches have terminated.
+`AudioFanOut` splits one audio stream into two bounded streams, the live preview and the final transcription ([AppState+VoiceRun.swift L151](../../Sources/App/AppState+VoiceRun.swift#L151)), fed by one detached task. A branch that drops a buffer, or whose consumer stopped, is left out from the next buffer on without affecting the other; the producer is cancelled once both branches have terminated.
 
 State: the two streams [`first` and `second`](../../Sources/Audio/AudioFanOut.swift#L6), the producer [`task`](../../Sources/Audio/AudioFanOut.swift#L8), its live set [`outputs`](../../Sources/Audio/AudioFanOut.swift#L9), and the termination count [`openOutputs`](../../Sources/Audio/AudioFanOut.swift#L33).
 
@@ -602,10 +602,10 @@ stateDiagram-v2
 
 Invariants:
 
-- Overflow fails the output and the run. Enforced ([L98-101](../../Sources/RecordingCue/AudioLevelMeter.swift#L98)); `AppState` turns `onOverflow` into a run failure ([AppState+VoiceRun.swift L79-80](../../Sources/App/AppState+VoiceRun.swift#L79)).
+- Overflow fails the output and the run. Enforced ([L98-101](../../Sources/RecordingCue/AudioLevelMeter.swift#L98)); `AppState` turns `onOverflow` into a run failure ([AppState+VoiceRun.swift L74-75](../../Sources/App/AppState+VoiceRun.swift#L74)).
 - An upstream error reaches the output unchanged. Enforced ([L107-108](../../Sources/RecordingCue/AudioLevelMeter.swift#L107)).
 - Only scalar levels leave the tap; no audio or text is logged or saved. Enforced by construction ([L93-113](../../Sources/RecordingCue/AudioLevelMeter.swift#L93)).
-- A consumer can see a buffer before its level is reported, and a level can arrive after cancellation. Assumed harmless: `AppState` drops levels for any run but the current one ([AppState+VoiceRun.swift L83](../../Sources/App/AppState+VoiceRun.swift#L83)).
+- A consumer can see a buffer before its level is reported, and a level can arrive after cancellation. Assumed harmless: `AppState` drops levels for any run but the current one ([AppState+VoiceRun.swift L78](../../Sources/App/AppState+VoiceRun.swift#L78)).
 
 Tests: `AudioLevelTapTests.forwardsEveryBufferAndReportsLevels`, `AudioFailureTests.audioStagesPreserveUpstreamFailure`, `AudioFailureTests.productionLevelTapOverflowAfterReleaseMustPreventDelivery`.
 
@@ -711,7 +711,7 @@ Invariants:
 - The panel never takes focus or clicks. Enforced at creation: non-activating and `ignoresMouseEvents` ([L160](../../Sources/RecordingCue/RecordingCueController.swift#L160), [L168](../../Sources/RecordingCue/RecordingCueController.swift#L168)).
 - The transcript is cleared on hidden, recording, and processing ([L53-80](../../Sources/RecordingCue/RecordingCueController.swift#L53)). Enforced; on success and error it stays in the model, and the view not showing it there is assumed.
 - Applying the state already shown does nothing ([L48](../../Sources/RecordingCue/RecordingCueController.swift#L48)). Enforced; that a new run is separated from the last by another state is assumed.
-- Level and transcript updates belong to the current run. Assumed: `AppState` checks the run ID before calling ([AppState+VoiceRun.swift L83](../../Sources/App/AppState+VoiceRun.swift#L83)).
+- Level and transcript updates belong to the current run. Assumed: `AppState` checks the run ID before calling ([AppState+VoiceRun.swift L78](../../Sources/App/AppState+VoiceRun.swift#L78)).
 
 Tests: `RecordingCuePresentationTests`: `cueMirrorsSuccessfulRunLifecycle`, `cueReceivesPartialTranscripts`, `cueHidesOnCancelWithoutSuccessFlash`, `failedRunShowsErrorStateThenHides`, `disabledCueSettingKeepsCueHiddenThroughRun`, `disabledLiveTranscriptKeepsCueButSkipsPartials`, `revisionRunShowsRevisionCaption`; `StatusDisplayCharacterizationTests`. All use a presenter spy, not this panel.
 

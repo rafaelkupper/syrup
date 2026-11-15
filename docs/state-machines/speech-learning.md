@@ -1,24 +1,24 @@
-# Speech and learning state machines
+# Speech and glossary check state machines
 
-`Sources/Transcription` and `Sources/Learning` contain 37 state machines, and ten of them matter most. Four guard the AGENTS.md privacy rule on recordings: the recording entry lifetime ([M23](#m23-recording-entry-lifetime)), archive retention and cleanup debt ([M24](#m24-archive-retention-and-cleanup-debt)), the tee that copies live audio to disk ([M27](#m27-live-forwarding-and-the-archive-writer)), and the learning pass ([M28](#m28-learning-schedule-and-pass)). A mistake there keeps a recording after a cancel, a failure, or an opt-out, or analyzes one after opt-out. Four keep a model's published state in step with its files: the speech model queue ([M01](#m01-download-load-and-remove-queue)), staged publication ([M02](#m02-staged-model-publication)), per-locale Apple assets ([M04](#m04-per-locale-asset-preparation)), and the Whisper model manager ([M22](#m22-whisper-model-download-removal-and-load-latch)). A mistake there shows a broken model as ready, hides a model that is on disk, or shows a download that nothing is running. The last two keep each dictation's audio inside its own run: the Apple analyzer session ([M07](#m07-apple-analyzer-session)) and the ordered streaming sessions ([M12](#m12-ordered-streaming-sessions)). Only the recording archive's opt-out path is formally validated: `LearningOptOutModel` model-checks M23 and the cleanup-debt part of M24 against the real archive. SpeechModelManager's queue has bounded sequence tests, and the other 34 machines are not formally validated. Five suspected defects are recorded, all unverified: four from the 2026-11-14 inventory and one found while checking M01 against the code.
+`Sources/Transcription` and `Sources/Learning` contain 28 state machines, and six of them matter most. Three keep a model's published state in step with its files: the speech model machine ([M01](#m01-download-load-and-remove-queue)), staged publication ([M02](#m02-staged-model-publication)), and per-locale Apple assets ([M04](#m04-per-locale-asset-preparation)). A mistake there shows a broken model as ready, hides a model that is on disk, or shows a download that nothing is running. Two keep each dictation's audio inside its own run: the Apple analyzer session ([M07](#m07-apple-analyzer-session)) and the ordered streaming sessions ([M12](#m12-ordered-streaming-sessions)). The last, the retired learning cleanup ([M38](#m38-retired-learning-cleanup)), deletes the recordings and the comparison model that glossary learning left on disk, and keeps Privacy from saying nothing is left when it cannot tell. Only M01 is formally validated: `SpeechModelExplorerTests` runs the production `SpeechModelMachine` over every interleaving of clicks and job steps, and `SpeechModelConformanceTests` replays the explored transitions on the real `SpeechModelManager`; the handover in [M03](#m03-retired-model-handover) is explored with it. The other 26 machines are not formally validated. Two suspected defects are recorded, both unverified and both from the 2026-11-14 inventory.
 
 ## How to read this
 
-The charts were drawn from the source on 2026-11-14, starting from a read-only inventory made that day at commit `4837945`. Every source file linked here is unchanged from that commit through `42b82ba`, so machine numbers follow the inventory and line links match both. For each High machine, every state, event, and guard in the chart was checked against the code. For Medium and Low machines, the state variables and line numbers were spot-checked.
+The charts were drawn from the source on 2026-11-14, starting from a read-only inventory made that day at commit `4837945`, and checked again on 2026-11-15 against `5386bbc`. Since the first check, glossary learning was removed from the app: its Whisper model, recording archive, recording tee, background passes, judge, and launch cleanup are gone, and so are their machines (M22 to M29, M34, M36). `SpeechModelManager` became an interpreter of the explicit `SpeechModelMachine`, which M01 now charts, and Settings gained Delete Partial Download. Machine numbers follow the inventory; the one new machine, M38, takes the next free number. For each High machine, every state, event, and guard in the chart was checked against the code. For Medium and Low machines, the state variables and line numbers were spot-checked.
 
 - **Kind.** Explicit: a Swift enum names the states. Implicit: the state lives in flags, optionals, tasks, continuations, counters, or files. Mixed: an enum plus hidden variables that change what the enum means.
 - **Importance.** High: an AGENTS.md hard rule, or a failure the person sees across runs, is at stake. Medium: a wrong transcript, a stall, or a misleading status within one feature. Low: diagnostics, or a helper that lives for one call.
 - **Invariants.** Enforced: a guard, lock, actor, or ordered queue in the cited code makes it hold. Assumed: it holds only if a caller, the OS, or a framework behaves as described.
 - **Charts.** Files on disk count as state where the code reads them. A choice point is a decision inside one handler. "Queued" means the work waits behind an earlier task.
-- **Validation status.** "Model-checked" means a finite model's every reachable state is explored and its walks are replayed against the real types; the [README](README.md) describes the method. "Not formally validated" means no model checking or exhaustive search covers the machine; unit tests may still pin parts of it. A suspected defect is a reading of the code with an event sequence; none was reproduced.
+- **Validation status.** "Exhaustively explored" means a test runs the production machine itself over every reachable state, and its transitions are replayed against the real type; the [README](README.md) describes the method used for the other validated models. "Not formally validated" means no model checking or exhaustive search covers the machine; unit tests may still pin parts of it. A suspected defect is a reading of the code with an event sequence; none was reproduced.
 
 ## Machines
 
 | Machine | Owner type | Kind | Importance | Validation status |
 |---|---|---|---|---|
-| [M01 Download, load, and remove queue](#m01-download-load-and-remove-queue) | `SpeechModelManager` | mixed | High | Bounded sequence tests (SpeechModelSequenceTests) |
+| [M01 Download, load, and remove queue](#m01-download-load-and-remove-queue) | `SpeechModelMachine`, `SpeechModelManager` | explicit | High | Exhaustively explored (`SpeechModelExplorerTests`), replayed on the real manager (`SpeechModelConformanceTests`) |
 | [M02 Staged model publication](#m02-staged-model-publication) | `SpeechModelCatalog` | implicit | High | Not formally validated |
-| [M03 Retired-model handover](#m03-retired-model-handover) | `SpeechModelManager`, `SpeechModelCatalog` | implicit | Medium | Not formally validated |
+| [M03 Retired-model handover](#m03-retired-model-handover) | `SpeechModelMachine`, `SpeechModelManager`, `SpeechModelCatalog` | mixed | Medium | Explored with M01; a failed folder deletion is not modeled |
 | [M04 Per-locale asset preparation](#m04-per-locale-asset-preparation) | `TranscriberAssetManager` | mixed | High | Not formally validated |
 | [M05 Installed-locale cache](#m05-installed-locale-cache) | `TranscriberInstalledLocaleCache` | implicit | Medium | Not formally validated |
 | [M06 Speech authorization bridge](#m06-speech-authorization-bridge) | `TranscriberAssetManager`, `SpeechPermissionRequester` | mixed | Medium | Not formally validated |
@@ -37,47 +37,35 @@ The charts were drawn from the source on 2026-11-14, starting from a read-only i
 | [M19 Resumable Canary bundle fetch](#m19-resumable-canary-bundle-fetch) | `CanaryModel` | implicit | Medium | Not formally validated |
 | [M20 URL download continuation](#m20-url-download-continuation) | `FileDownload` | implicit | Medium | Not formally validated |
 | [M21 Canary window segmentation](#m21-canary-window-segmentation) | `CanaryTranscriber` | implicit | Medium | Not formally validated |
-| [M22 Whisper model download, removal, and load latch](#m22-whisper-model-download-removal-and-load-latch) | `WhisperModelManager` | mixed | High | Not formally validated |
-| [M23 Recording entry lifetime](#m23-recording-entry-lifetime) | `RecordingArchive` | implicit | High | Model-checked (`LearningOptOutModel`) |
-| [M24 Archive retention and cleanup debt](#m24-archive-retention-and-cleanup-debt) | `RecordingArchive` | implicit | High | Partly model-checked (`LearningOptOutModel`): cleanup debt, not the caps |
-| [M25 Pending-count subscriptions](#small-machines) | `RecordingArchive` | implicit | Low | Not formally validated |
-| [M26 Recording retry and backoff](#m26-recording-retry-and-backoff) | `RecordingArchive`, `GlossaryLearningCoordinator` | implicit | Medium | Not formally validated |
-| [M27 Live forwarding and the archive writer](#m27-live-forwarding-and-the-archive-writer) | `RecordingTee`, `RecordingTeeSession` | implicit | High | Not formally validated |
-| [M28 Learning schedule and pass](#m28-learning-schedule-and-pass) | `GlossaryLearningCoordinator` | implicit | High | Not formally validated |
-| [M29 Whisper pipeline residency and decode cancellation](#m29-whisper-pipeline-residency-and-decode-cancellation) | `WhisperKitBatchTranscriber` | implicit | Medium | Not formally validated |
 | [M30 Suggestion batch and per-term results](#m30-suggestion-batch-and-per-term-results) | `MishearingSuggestionModel` | mixed | Medium | Not formally validated |
 | [M31 Probe sample accumulation](#m31-probe-sample-accumulation) | `MishearingProbeEngine` | mixed | Medium | Not formally validated |
 | [M32 Synthetic speech callbacks and timer](#m32-synthetic-speech-callbacks-and-timer) | `SystemMishearingSynthesizer` | implicit | Medium | Not formally validated |
 | [M33 Check-only recognition](#m33-check-only-recognition) | `AppleMishearingRecognizer` | mixed | Medium | Not formally validated |
-| [M34 Pair judging and proposal publication](#m34-pair-judging-and-proposal-publication) | `JudgingCrossCheckSink`, `LLMMishearingJudge` | implicit | Medium | Not formally validated |
 | [M35 Proposal and dismissal lifetime](#m35-proposal-and-dismissal-lifetime) | `GlossaryProposalList` | implicit | Medium | Not formally validated |
-| [M36 Launch cleanup decision](#m36-launch-cleanup-decision) | `deleteLeftoverRecordingsIfLearningIsOff` (function) | implicit | Medium | Not formally validated |
 | [M37 Small algorithm, resource, and global latches](#small-machines) | `SpeechSegmenter`, `CanaryMelSpectrogram`, scan helpers, `FluidAudioLogging` | implicit | Low | Not formally validated |
+| [M38 Retired learning cleanup](#m38-retired-learning-cleanup) | `RetiredGlossaryLearning`, `PrivacySettingsPane` | implicit | High | Not formally validated |
 
 ## Suspected defects
 
-All five are unverified. Each section gives the full event sequence.
+Both are unverified. Each section gives the full event sequence.
 
-- [M01](#m01-download-load-and-remove-queue), found in this check: a Cancel that lands after the model is moved into place leaves it on disk while Settings shows Not downloaded.
 - [M03](#m03-retired-model-handover): if deleting the retired Parakeet v3 folder fails during a cancelled handover, the next launch starts the cancelled download again.
 - [M04](#m04-per-locale-asset-preparation): a framework `CancellationError` leaves a locale shown as Checking or Downloading with no worker.
-- [M22](#m22-whisper-model-download-removal-and-load-latch): Retry after a load failure republishes the same model as Ready if deleting its folder fails.
-- [M24](#m24-archive-retention-and-cleanup-debt): a failed `deleteAll` records no cleanup debt, so a new recording is admitted while the leftovers remain; learning is back on by then. The [README](README.md) records the new recordings as documented behavior, not a rule violation.
 
 ## Speech models and transcription
 
 ### M01 Download, load, and remove queue
 
-`SpeechModelManager` decides what one downloadable speech model shows in Settings and whether dictation can use it. Every download, load, and removal for the model waits for the one before it, and a generation counter stops a superseded operation from publishing its result. The published enum is only part of the state: a queued removal shows Not downloaded while the files are still on disk, and a Delete must never leave a model that dictation can load.
+`SpeechModelMachine` decides what one downloadable speech model shows in Settings and whether dictation can use it, and `SpeechModelManager` runs what it decides. The machine is a pure function from an event (a click, a job's start or finish, a progress report, or a reading of the disk) to a new state and a list of effects; it touches no file and starts no work, so a test can run it over every interleaving. Downloads, loads, and removals run one job at a time, in order. Each click that changes what the person asked for moves a generation counter on; a job from an earlier generation is stale, its result changes nothing, and a stale download or load is skipped when its task begins. A removal always runs. The published enum is only part of the state: a queued removal shows Not downloaded while the files are still on disk, and a Delete must never leave a model that dictation can load.
 
 **State variables**
 
-- [`SpeechModelManager.state`](../../Sources/Transcription/SpeechModelManager.swift#L15), the published [`SpeechModelState`](../../Sources/Transcription/SpeechModelState.swift#L9-L16)
-- [`SpeechModelManager.generation`](../../Sources/Transcription/SpeechModelManager.swift#L19)
-- [`SpeechModelManager.downloadTask`](../../Sources/Transcription/SpeechModelManager.swift#L20)
-- [`SpeechModelManager.lastOperation`](../../Sources/Transcription/SpeechModelManager.swift#L24)
-- [`SpeechModelManager.replacedDirectory`](../../Sources/Transcription/SpeechModelManager.swift#L26), see [M03](#m03-retired-model-handover)
-- On disk: the model folder [`directory`](../../Sources/Transcription/SpeechModelManager.swift#L39) and its staging sibling from [`stagingDirectory`](../../Sources/Transcription/SpeechModelManager.swift#L48-L52), judged by [`Operations.modelsExist`](../../Sources/Transcription/SpeechModelManager.swift#L8)
+- [`SpeechModelManager.state`](../../Sources/Transcription/SpeechModelManager.swift#L21), the published [`SpeechModelState`](../../Sources/Transcription/SpeechModelState.swift#L9-L16), copied from the machine after every event ([L152](../../Sources/Transcription/SpeechModelManager.swift#L152))
+- The machine's [`state`, `generation`, `failure`, `running`, `queue`, and `handoverPending`](../../Sources/Transcription/SpeechModelMachine.swift#L61-L66); `failure` remembers whether a download, a load, or a removal failed ([`Failure`](../../Sources/Transcription/SpeechModelMachine.swift#L22-L24))
+- [`SpeechModelManager.runningTask`](../../Sources/Transcription/SpeechModelManager.swift#L34), the one task of the running job
+- [`SpeechModelManager.hasPartialDownload`](../../Sources/Transcription/SpeechModelManager.swift#L24), see "Partial download" below
+- [`SpeechModelManager.replacedDirectory`](../../Sources/Transcription/SpeechModelManager.swift#L36), see [M03](#m03-retired-model-handover)
+- On disk: the model folder [`directory`](../../Sources/Transcription/SpeechModelManager.swift#L25) and its staging sibling from [`stagingDirectory`](../../Sources/Transcription/SpeechModelManager.swift#L61-L65), judged by [`Operations.modelsExist`](../../Sources/Transcription/SpeechModelManager.swift#L11)
 
 ```mermaid
 stateDiagram-v2
@@ -89,60 +77,73 @@ stateDiagram-v2
     state "Downloaded, not loaded" as Downloaded
     state "Loading, may wait in the queue" as Loading
     state "Ready" as Ready
-    state "Failed" as Failed
-    state "Shows not downloaded, removal queued" as Removing
+    state "Failed, remembers what failed" as Failed
     [*] --> Launch
     Launch --> Unsupported: not Apple silicon
     Launch --> Downloaded: modelsExist at launch
     Launch --> NotDownloaded: model missing or incomplete
-    NotDownloaded --> Downloading: download, generation plus one
-    Downloading --> Downloading: progress, current generation, never lower
-    Downloading --> Loading: files in place, current generation
-    Downloading --> Failed: download throws, current generation
-    Downloading --> NotDownloaded: cancelDownload, generation plus one
+    NotDownloaded --> Downloading: download, or replace (M03)
+    Failed --> Downloading: download, or replace (M03)
+    Downloading --> Downloading: progress from the current job, never lower
+    Downloading --> NotDownloaded: cancelDownload
+    Downloading --> Loading: current download succeeds, its load runs next
+    Downloading --> Failed: current download fails
     Downloaded --> Loading: loadIfDownloaded
     Failed --> RetryCheck: retry
-    RetryCheck --> Loading: modelsExist
-    RetryCheck --> Downloading: model missing
-    Loading --> Ready: load returns, current generation
-    Loading --> Failed: load throws, current generation
-    NotDownloaded --> Removing: remove
-    Downloaded --> Removing: remove
-    Loading --> Removing: remove, the load finishes unpublished
-    Ready --> Removing: remove
-    Failed --> Removing: remove
-    Downloading --> Removing: remove cancels the download first
-    Removing --> NotDownloaded: unload, model and staging deleted
-    Removing --> Failed: a folder delete throws, current generation
-    Removing --> Downloading: download queues behind the removal
-    note right of Removing
-        An accepted removal always deletes.
-        A newer operation only skips its state update.
-        Download is also accepted from Failed.
+    RetryCheck --> NotDownloaded: a removal failed, removal queued again
+    RetryCheck --> Loading: a download or load failed, model on disk
+    RetryCheck --> Downloading: a download or load failed, model missing
+    Loading --> Ready: current load returns
+    Loading --> Failed: current load throws
+    Downloading --> NotDownloaded: remove, the download is cancelled first
+    Downloaded --> NotDownloaded: remove
+    Loading --> NotDownloaded: remove, the load is skipped or finishes unpublished
+    Ready --> NotDownloaded: remove
+    Failed --> NotDownloaded: remove
+    NotDownloaded --> NotDownloaded: remove, or Delete Partial Download
+    NotDownloaded --> Failed: current removal throws
+    NotDownloaded --> Downloaded: work drained, disk check finds the model
+    Unsupported --> Unsupported: remove deletes the folders, the state stays
+    note right of NotDownloaded
+        Every remove queues a removal that always runs.
+        A stale job's result changes no state.
+        A stale download or load is skipped as it begins.
     end note
 ```
 
 **Invariants**
 
-- Enforced: operations on one manager run one at a time, in call order, through `lastOperation` ([L66-L83](../../Sources/Transcription/SpeechModelManager.swift#L66-L83), [L134-L139](../../Sources/Transcription/SpeechModelManager.swift#L134-L139), [L153-L171](../../Sources/Transcription/SpeechModelManager.swift#L153-L171)).
-- Enforced: a superseded operation never publishes its state; each compares its generation first ([L69](../../Sources/Transcription/SpeechModelManager.swift#L69), [L75](../../Sources/Transcription/SpeechModelManager.swift#L75), [L137](../../Sources/Transcription/SpeechModelManager.swift#L137), [L169](../../Sources/Transcription/SpeechModelManager.swift#L169), [L193-L195](../../Sources/Transcription/SpeechModelManager.swift#L193-L195)).
-- Enforced: an accepted removal unloads and deletes even when a later download has changed what the state shows ([L154-L168](../../Sources/Transcription/SpeechModelManager.swift#L154-L168)).
-- Enforced: published progress stays between 0 and 1 and never moves backwards ([L205-L208](../../Sources/Transcription/SpeechModelManager.swift#L205-L208)).
-- Enforced: `loadIfDownloaded` starts at most one load, because it acts only in Downloaded and `startLoad` leaves that state at once ([L124-L140](../../Sources/Transcription/SpeechModelManager.swift#L124-L140)).
-- Enforced: on a Mac without Apple silicon nothing downloads or loads, and a removal leaves the state Unsupported ([L58](../../Sources/Transcription/SpeechModelManager.swift#L58), [L151](../../Sources/Transcription/SpeechModelManager.swift#L151), [L169](../../Sources/Transcription/SpeechModelManager.swift#L169)).
-- Assumed: each queued operation finishes. The queue has no timeout, so a hung download or load holds every later operation.
+- Enforced: jobs run one at a time, in order. A job waits behind the running one, and the next starts only when the running one finishes or is skipped ([SpeechModelMachine.swift L193-L217](../../Sources/Transcription/SpeechModelMachine.swift#L193-L217)); the manager keeps one task per job ([SpeechModelManager.swift L128-L136](../../Sources/Transcription/SpeechModelManager.swift#L128-L136)).
+- Enforced: a stale job's result never changes the state; `finished` acts only for the current generation ([L164-L191](../../Sources/Transcription/SpeechModelMachine.swift#L164-L191)).
+- Enforced: a stale download or load does no work. Its task reports that it began, and the machine skips it if a click made it stale meanwhile ([L106-L110](../../Sources/Transcription/SpeechModelMachine.swift#L106-L110)); a stale job still in the queue is dropped ([L208-L217](../../Sources/Transcription/SpeechModelMachine.swift#L208-L217)). The task asks the machine and starts the work with no suspension in between ([SpeechModelManager.swift L129-L135](../../Sources/Transcription/SpeechModelManager.swift#L129-L135)).
+- Enforced: every accepted removal runs and deletes, even when a later click made it stale ([L108](../../Sources/Transcription/SpeechModelMachine.swift#L108), [L212](../../Sources/Transcription/SpeechModelMachine.swift#L212)), and Retry after a failed removal removes again ([L95](../../Sources/Transcription/SpeechModelMachine.swift#L95)).
+- Enforced: a Delete shows Not downloaded at once, so `loadIfDownloaded`, which acts only in Downloaded, cannot start a load meanwhile ([L97-L99](../../Sources/Transcription/SpeechModelMachine.swift#L97-L99), [L152-L162](../../Sources/Transcription/SpeechModelMachine.swift#L152-L162)).
+- Enforced: once the work drains, the disk decides: Not downloaded with the model on disk becomes Downloaded ([L113-L120](../../Sources/Transcription/SpeechModelMachine.swift#L113-L120), [L193-L197](../../Sources/Transcription/SpeechModelMachine.swift#L193-L197)); the manager reads the disk for it ([SpeechModelManager.swift L144-L148](../../Sources/Transcription/SpeechModelManager.swift#L144-L148)).
+- Enforced: published progress comes only from the current download, stays between 0 and 1, and never moves backwards ([L102-L105](../../Sources/Transcription/SpeechModelMachine.swift#L102-L105)).
+- Enforced: a successful download is followed by its load before anything else runs ([L170-L176](../../Sources/Transcription/SpeechModelMachine.swift#L170-L176)).
+- Enforced: on a Mac without Apple silicon nothing downloads or loads, and a removal leaves the state Unsupported ([L124-L130](../../Sources/Transcription/SpeechModelMachine.swift#L124-L130), [L158](../../Sources/Transcription/SpeechModelMachine.swift#L158), [L183-L186](../../Sources/Transcription/SpeechModelMachine.swift#L183-L186)).
+- Enforced: `loadIfDownloaded`, which runs at every dictation trigger, reads nothing from the disk ([SpeechModelManager.swift L93-L96](../../Sources/Transcription/SpeechModelManager.swift#L93-L96)).
+- Assumed: each job finishes. There is no timeout, so a hung download or load holds every later job.
 - Assumed: a load that returns means the engine can transcribe.
 - Assumed: only this manager writes its two folders.
+- Assumed: a click that arrives after a job's work has started does not stop that work, except Cancel, which cancels a running download's task ([SpeechModelManager.swift L140-L141](../../Sources/Transcription/SpeechModelManager.swift#L140-L141)). The call into the operation leaves the main actor and can be overtaken there, as the manager's comment says ([L29-L34](../../Sources/Transcription/SpeechModelManager.swift#L29-L34)).
 
-**Validation.** `SpeechModelSequenceTests.everySequenceLeavesTheManagerAgreeingWithTheDisk` runs all 155 sequences of up to three steps (download, cancel, delete, load, retry) against the real manager, from a model on disk and from none, with a marker-file fake whose download takes 2 ms. Once the work settles, the state must agree with the disk, and no two downloads may have overlapped. The steps are issued back to back before any operation runs, so the test never places an event inside a running operation, and it injects no filesystem failure.
+**Partial download.** A cancelled or failed download leaves what it fetched in the staging folder, so the next download can resume. `hasPartialDownload` says whether that folder exists. It is read at launch ([L56](../../Sources/Transcription/SpeechModelManager.swift#L56)) and whenever the work drains ([L146-L147](../../Sources/Transcription/SpeechModelManager.swift#L146-L147)), never at a dictation trigger. While the model is Not downloaded and the flag is set, Settings shows Delete Partial Download beside Download ([SpeechModelViews.swift L12-L23](../../Sources/Settings/SpeechModelViews.swift#L12-L23)). The button calls `remove`, whose removal deletes the model folder and the staging folder ([SpeechModelManager.swift L167-L172](../../Sources/Transcription/SpeechModelManager.swift#L167-L172)), so it adds no state to the machine. Limits that follow from the code: an empty staging folder also shows the button; the button appears only once a cancelled download has stopped, and stays until its own removal has finished; a failed Delete Partial Download shows "Couldn't remove the model."
 
-**Tests.** [`SpeechModelManagerTests`](../../Tests/SyrupTests/SpeechModelManagerTests.swift): `loadIfDownloadedNeverDownloads`, `loadIfDownloadedLoadsAModelAlreadyOnDisk`, `downloadIsExplicitReportsProgressAndLoads`, `failuresAreReportedAndRetryable`, `retryAfterALoadFailureLoadsAgainInsteadOfDownloading`, `retryAfterADownloadFailureDownloadsAgain`, `removeUnloadsAndDeletesTheModel`, `cancelStopsTheDownload`, `aNewDownloadWaitsForACancelledOneToStop`, `aLoadAskedForRightAfterDeleteDoesNotKeepTheModel`, `deleteDuringAStartedLoadStillRemovesTheModel`, `downloadRightAfterDeleteStartsFromNothing`, `deleteWhileDownloadingCancelsTheDownloadThenRemovesWhatItFetched`, `unsupportedMacsNeverDownloadOrLoad`. [`SpeechModelSequenceTests`](../../Tests/SyrupTests/SpeechModelSequenceTests.swift): `everySequenceLeavesTheManagerAgreeingWithTheDisk`.
+**Validation.** `SpeechModelExplorerTests` runs the production `SpeechModelMachine`, not a copy of its rules, breadth first over every interleaving of the five clicks (Download, Cancel, Delete, Load, Retry) and the job steps (begin, report progress, land the files, succeed, fail, fail keeping the model, fail after deleting the files but not the folder) on a simulated disk. A started job begins in a step of its own, so clicks can come between a job being queued and its task running, and a cancelled download can still land. Generations are compared only as current or stale, so the space is finite; queues longer than three are not expanded. It reaches 1,584 states and 6,430 transitions from no model and 1,573 states and 6,357 transitions from a model on disk (each start with and without an older folder being replaced), and 11 states from an unsupported model, with no violation. After every step it checks that:
 
-**Suspected defect (unverified, found in this check).** A Cancel can land after the files are in place but before the manager sees the result. Sequence: a download runs; `stagedDownload` moves the model into its folder on the main actor ([SpeechModelCatalog.swift L122-L127](../../Sources/Transcription/SpeechModelCatalog.swift#L122-L127)); it returns through the nonisolated `Operations.download` closure, so the manager's task has to hop back onto the main actor; the person presses Cancel in that gap, and `cancelDownload` advances the generation and shows Not downloaded ([L89-L95](../../Sources/Transcription/SpeechModelManager.swift#L89-L95)); the task resumes and its generation check returns ([L75](../../Sources/Transcription/SpeechModelManager.swift#L75)). The model is complete on disk, yet Settings shows Not downloaded and offers only Download ([SpeechModelViews.swift L12-L15](../../Sources/Settings/SpeechModelViews.swift#L12-L15)), and dictation with that engine falls back to Apple. It heals at the next Download, which finds the files and loads without a network call, or at the next launch. The gap is short and depends on main-actor scheduling; `SpeechModelSequenceTests` cannot reach it.
+- the simulated disk runs exactly the machine's job, and never two at once;
+- a stale download or load never does its work, and no download starts before an accepted Delete has run;
+- every Delete, and every Retry after a failed removal, queues a removal of its own, and none is left unrun once the work is idle; a Retry after a failed removal starts no download or load;
+- once idle, Downloaded and Ready have the model on disk, Not downloaded does not, and nothing stays Downloading or Loading;
+- stale progress changes nothing, and progress never goes back;
+- the handover rules of [M03](#m03-retired-model-handover) hold, and an unsupported model stays unsupported.
 
-**Open questions**
+`SpeechModelConformanceTests` replays every explored transition with a queue of at most one and no progress step on the real `SpeechModelManager` with a real folder. It holds each job's start through `Operations.willBeginJob`, fails removals with file permissions, and after every step compares the manager's state, the model on disk, and the older folder with the machine: 1,297 transitions from no model, 1,340 from no model while replacing an older folder, and 1,297 from a model on disk. The counts were taken on 2026-11-15 by running the explorer's code at `5386bbc` outside the test suite; the suites themselves were not run for this update. Not covered: real downloads, and [M02](#m02-staged-model-publication)'s staging, since the fakes write the model straight into its folder. Only one progress value is explored; `downloadIsExplicitReportsProgressAndLoads` checks that progress never goes back.
 
-- After a failed removal the state is Failed, and Settings offers Retry beside Delete ([SpeechModelViews.swift L41-L51](../../Sources/Settings/SpeechModelViews.swift#L41-L51)). `retry` loads the model if it is still complete on disk ([L115-L122](../../Sources/Transcription/SpeechModelManager.swift#L115-L122)) instead of removing it again. Is that what Retry should mean after a failed Delete? [M22](#m22-whisper-model-download-removal-and-load-latch) keeps a separate removal reason for this case.
+**Tests.** [`SpeechModelExplorerTests`](../../Tests/SyrupTests/SpeechModelExplorerTests.swift): `everyInterleavingKeepsTheInvariants`, `anUnsupportedModelStaysUnsupported`. [`SpeechModelConformanceTests`](../../Tests/SyrupTests/SpeechModelConformanceTests.swift): `theManagerFollowsTheMachineOnEveryExploredTransition`. [`SpeechModelRegressionTests`](../../Tests/SyrupTests/SpeechModelRegressionTests.swift): `retryAfterAFailedDeleteDeletesAgain`, `cancelAsTheFilesLandLeavesAStateThatAgreesWithTheDisk`, `deleteRightAfterALoadRequestSkipsTheLoad`, `cancelRightAfterDownloadDownloadsNothing`, `aJobOvertakenAfterItBeganDoesNoWork`, `aPartialDownloadIsReportedAndDeleteRemovesIt`, `lateProgressFromACancelledDownloadDoesNotMoveTheNextOne`. [`SpeechModelManagerTests`](../../Tests/SyrupTests/SpeechModelManagerTests.swift): `loadIfDownloadedNeverDownloads`, `loadIfDownloadedLoadsAModelAlreadyOnDisk`, `downloadIsExplicitReportsProgressAndLoads`, `failuresAreReportedAndRetryable`, `retryAfterALoadFailureLoadsAgainInsteadOfDownloading`, `retryAfterADownloadFailureDownloadsAgain`, `removeUnloadsAndDeletesTheModel`, `cancelStopsTheDownload`, `aNewDownloadWaitsForACancelledOneToStop`, `aLoadAskedForRightAfterDeleteDoesNotKeepTheModel`, `deleteDuringAStartedLoadStillRemovesTheModel`, `downloadRightAfterDeleteStartsFromNothing`, `deleteWhileDownloadingCancelsTheDownloadThenRemovesWhatItFetched`, `unsupportedMacsNeverDownloadOrLoad`. [`SpeechModelSequenceTests`](../../Tests/SyrupTests/SpeechModelSequenceTests.swift): `everySequenceLeavesTheManagerAgreeingWithTheDisk`, all 155 sequences of up to three steps from a model on disk and from none.
+
+**Open questions.** None. Retry after a failed Delete now removes again.
 
 ### M02 Staged model publication
 
@@ -151,7 +152,7 @@ stateDiagram-v2
 **State variables**
 
 - On disk: the destination folder and its completeness through `modelsExist` ([L111](../../Sources/Transcription/SpeechModelCatalog.swift#L111))
-- On disk: the staging folder from [`SpeechModelManager.stagingDirectory`](../../Sources/Transcription/SpeechModelManager.swift#L48-L52) and the staged child named after the destination ([L112-L125](../../Sources/Transcription/SpeechModelCatalog.swift#L112-L125))
+- On disk: the staging folder from [`SpeechModelManager.stagingDirectory`](../../Sources/Transcription/SpeechModelManager.swift#L61-L65) and the staged child named after the destination ([L112-L125](../../Sources/Transcription/SpeechModelCatalog.swift#L112-L125))
 - The task's cancellation flag, checked at [L115](../../Sources/Transcription/SpeechModelCatalog.swift#L115) and [L120](../../Sources/Transcription/SpeechModelCatalog.swift#L120)
 
 ```mermaid
@@ -196,20 +197,20 @@ stateDiagram-v2
 
 ### M03 Retired-model handover
 
-At launch, a Parakeet v3 folder left by Syrup 0.9 means Ultra should replace it. `SpeechModelManager.replace` downloads Ultra if needed and deletes the v3 folder once Ultra is on disk, or once the person cancels or deletes Ultra. The v3 folder is the only record: no flag is stored, so the folder makes every launch try again.
+At launch, a Parakeet v3 folder left by Syrup 0.9 means Ultra should replace it. `SpeechModelManager.replace` remembers the folder and sends `replace` to the machine, which sets `handoverPending`: with Ultra already on disk the folder goes at once; otherwise Ultra downloads, and the folder goes once the current download succeeds, or once the person cancels or deletes Ultra. The v3 folder is the only record across launches: no flag is stored, so the folder makes every launch try again.
 
 **State variables**
 
-- [`SpeechModelManager.replacedDirectory`](../../Sources/Transcription/SpeechModelManager.swift#L26)
+- [`SpeechModelManager.replacedDirectory`](../../Sources/Transcription/SpeechModelManager.swift#L36) and the machine's [`handoverPending`](../../Sources/Transcription/SpeechModelMachine.swift#L66)
 - On disk: the retired folder found by [`SpeechModelCatalog.replaceRetiredParakeetV3`](../../Sources/Transcription/SpeechModelCatalog.swift#L30-L36), named by [`SpeechEngine.retiredParakeetV3Folder`](../../Sources/Core/SpeechEngine.swift#L168)
-- Ultra's published state from [M01](#m01-download-load-and-remove-queue), read as a guard in [`replace`](../../Sources/Transcription/SpeechModelManager.swift#L101-L111)
+- Ultra's state in [M01](#m01-download-load-and-remove-queue), read when the machine handles [`replace`](../../Sources/Transcription/SpeechModelMachine.swift#L80-L90)
 
 ```mermaid
 stateDiagram-v2
     state LaunchScan <<choice>>
     state UltraState <<choice>>
     state "No handover" as NoHandover
-    state "Retired folder remembered" as Remembered
+    state "Handover pending, folder kept" as Remembered
     state "Ultra downloading for the handover" as Downloading
     state "Deleting the retired folder" as DeleteOld
     state "Handover ended" as Ended
@@ -220,10 +221,11 @@ stateDiagram-v2
     UltraState --> DeleteOld: Ultra downloaded, loading, or ready
     UltraState --> Downloading: Ultra not downloaded or failed
     UltraState --> Remembered: Ultra downloading or unsupported
-    Downloading --> DeleteOld: Ultra files in place
+    Downloading --> DeleteOld: current download succeeds
     Downloading --> DeleteOld: person cancels or deletes Ultra
-    Downloading --> Remembered: download fails, folder kept
-    Remembered --> DeleteOld: a later download succeeds, or cancel, or delete
+    Downloading --> Remembered: current download fails
+    Remembered --> Downloading: download or retry
+    Remembered --> DeleteOld: delete, or a running download succeeds or is cancelled
     DeleteOld --> Ended: removeItem succeeds
     DeleteOld --> Residual: removeItem throws, error ignored
     Residual --> LaunchScan: next launch
@@ -233,15 +235,18 @@ stateDiagram-v2
 
 **Invariants**
 
-- Enforced: the v3 folder is kept when the Ultra download fails, so the next launch tries again ([L75-L80](../../Sources/Transcription/SpeechModelManager.swift#L75-L80)).
-- Enforced: Cancel and Delete end the handover and request the folder's deletion ([L94](../../Sources/Transcription/SpeechModelManager.swift#L94), [L152](../../Sources/Transcription/SpeechModelManager.swift#L152)).
+- Enforced: the v3 folder is kept when the Ultra download fails, so the next launch tries again; only the current download's success ends the handover ([SpeechModelMachine.swift L170-L178](../../Sources/Transcription/SpeechModelMachine.swift#L170-L178)).
+- Enforced: Cancel and Delete end the handover and delete the folder ([L136-L144](../../Sources/Transcription/SpeechModelMachine.swift#L136-L144), [L154-L162](../../Sources/Transcription/SpeechModelMachine.swift#L154-L162), [L219-L223](../../Sources/Transcription/SpeechModelMachine.swift#L219-L223)).
+- Enforced: with Ultra already downloaded, loading, or ready, the folder goes at once ([L82-L85](../../Sources/Transcription/SpeechModelMachine.swift#L82-L85)).
 - Enforced: only the retired sibling folder is targeted ([SpeechModelCatalog.swift L32-L35](../../Sources/Transcription/SpeechModelCatalog.swift#L32-L35)).
-- Assumed: deleting the folder succeeds. The reference is cleared before the `try?` removal, and a failure is not recorded ([L183-L187](../../Sources/Transcription/SpeechModelManager.swift#L183-L187)).
-- Assumed: `replace` runs once, right after the catalog is built at launch ([SyrupApp.swift L95](../../Sources/App/SyrupApp.swift#L95)), when Ultra can only be Unsupported, Not downloaded, or Downloaded.
+- Assumed: deleting the folder succeeds. The reference is cleared before the `try?` removal, and a failure is not recorded ([SpeechModelManager.swift L180-L184](../../Sources/Transcription/SpeechModelManager.swift#L180-L184)).
+- Assumed: `replace` runs once, right after the catalog is built at launch ([SyrupApp.swift L91](../../Sources/App/SyrupApp.swift#L91)), when Ultra can only be Unsupported, Not downloaded, or Downloaded.
 
-**Tests.** [`SpeechModelManagerTests`](../../Tests/SyrupTests/SpeechModelManagerTests.swift): `aParakeetV3DownloadIsRemovedAndUltraDownloadsInItsPlace`, `cancellingTheUltraHandoverDeletesV3SoTheNextLaunchDoesNotStartItAgain`, `aFailedUltraDownloadKeepsParakeetV3SoTheNextLaunchTriesAgain`, `withoutAParakeetV3DownloadNothingDownloads`.
+**Validation.** Explored with [M01](#m01-download-load-and-remove-queue): the explorer starts with and without an older folder, and checks that the folder exists exactly while `handoverPending` is set; that it is gone after a Delete, after a Cancel that stopped a download, and whenever Ultra is Downloaded, Loading, or Ready; and that it goes only then or when the current download succeeds. The conformance test replays the start "no model, replacing an older folder" on the real manager. The simulated deletion always succeeds, so a folder that cannot be deleted is not modeled.
 
-**Suspected defect (unverified, from the inventory).** A cancelled handover can restart at a later launch. Sequence: launch with a v3 folder and no Ultra; `replace` starts the Ultra download; the person cancels; `removeReplacedDirectory` clears the reference, and its `try?` removal of the v3 folder fails ([L89-L95](../../Sources/Transcription/SpeechModelManager.swift#L89-L95), [L183-L187](../../Sources/Transcription/SpeechModelManager.swift#L183-L187)); the folder stays; the next launch finds it ([SpeechModelCatalog.swift L30-L36](../../Sources/Transcription/SpeechModelCatalog.swift#L30-L36)), and `replace` starts the download the person cancelled. It needs a filesystem failure and was not induced.
+**Tests.** [`SpeechModelManagerTests`](../../Tests/SyrupTests/SpeechModelManagerTests.swift): `aParakeetV3DownloadIsRemovedAndUltraDownloadsInItsPlace`, `cancellingTheUltraHandoverDeletesV3SoTheNextLaunchDoesNotStartItAgain`, `aFailedUltraDownloadKeepsParakeetV3SoTheNextLaunchTriesAgain`, `withoutAParakeetV3DownloadNothingDownloads`. [`SpeechModelRegressionTests`](../../Tests/SyrupTests/SpeechModelRegressionTests.swift): `replacingWithTheModelAlreadyOnDiskDeletesTheOlderFolderAtOnce`. The explorer and conformance tests of M01.
+
+**Suspected defect (unverified, from the inventory).** A cancelled handover can restart at a later launch. Sequence: launch with a v3 folder and no Ultra; `replace` starts the Ultra download; the person cancels, and the machine ends the handover ([SpeechModelMachine.swift L136-L144](../../Sources/Transcription/SpeechModelMachine.swift#L136-L144)); `removeReplacedDirectory` clears the reference, and its `try?` removal of the v3 folder fails ([SpeechModelManager.swift L180-L184](../../Sources/Transcription/SpeechModelManager.swift#L180-L184)); the folder stays; the next launch finds it ([SpeechModelCatalog.swift L30-L36](../../Sources/Transcription/SpeechModelCatalog.swift#L30-L36)), and `replace` starts the download the person cancelled. It needs a filesystem failure and was not induced; the explorer cannot reach it, because its simulated deletion always succeeds.
 
 **Open questions**
 
@@ -595,7 +600,7 @@ stateDiagram-v2
 - Enforced: the session number is taken before the wait, so once a new begin has started, any new call for the old session is refused ([L46-L47](../../Sources/Transcription/StreamingSpeech.swift#L46-L47), [L55](../../Sources/Transcription/StreamingSpeech.swift#L55), [L60](../../Sources/Transcription/StreamingSpeech.swift#L60)).
 - Enforced: calls accepted before a begin run before its reset ([L64-L71](../../Sources/Transcription/StreamingSpeech.swift#L64-L71)).
 - Enforced: a begin before load throws `notLoaded` ([L45](../../Sources/Transcription/StreamingSpeech.swift#L45)).
-- Assumed: `isLoaded` matches the backend because `SpeechModelManager` never overlaps a load and an unload for one engine ([SpeechModelManager.swift L134-L139](../../Sources/Transcription/SpeechModelManager.swift#L134-L139), [L156-L158](../../Sources/Transcription/SpeechModelManager.swift#L156-L158)). If they overlapped, the load could set `isLoaded` after the unload cleared it, over an unloaded backend; begin would then fail in the backend with the same `notLoaded`.
+- Assumed: `isLoaded` matches the backend because `SpeechModelManager` never overlaps a load and an unload for one engine: its machine runs one job at a time ([SpeechModelMachine.swift L199-L217](../../Sources/Transcription/SpeechModelMachine.swift#L199-L217)), and a removal unloads inside its own job ([SpeechModelManager.swift L167-L168](../../Sources/Transcription/SpeechModelManager.swift#L167-L168)). If they overlapped, the load could set `isLoaded` after the unload cleared it, over an unloaded backend; begin would then fail in the backend with the same `notLoaded`.
 - Assumed: a cancelled caller's queued call still runs; caller cancellation is not passed to backend work ([L64-L71](../../Sources/Transcription/StreamingSpeech.swift#L64-L71)).
 - Assumed: nothing marks a session finished. [M13](#m13-streaming-run-feed-and-drain)'s control flow is what prevents an append after finish.
 - Assumed: partial transcripts carry no session number; the next begin's reset installs the new run's callback ([M14](#m14-streaming-backend-residency-and-reset)).
@@ -1015,450 +1020,9 @@ stateDiagram-v2
 
 **Open questions.** None.
 
-## Glossary learning
+## Glossary checks, proposals, and learning leftovers
 
-### M22 Whisper model download, removal, and load latch
-
-`WhisperModelManager` decides whether the 626 MB Whisper comparison model and its tokenizer are on disk and usable for glossary learning. It downloads both into a staging folder and moves them into place only when they are complete, current, and not cancelled. A model that failed to load is latched, so background passes stop using it until the person retries or deletes it; reporting a broken model as ready would make every pass fail.
-
-**State variables**
-
-- [`state`](../../Sources/Learning/WhisperModelManager.swift#L61), the published [`State`](../../Sources/Learning/WhisperModelManager.swift#L23-L28)
-- [`failure`](../../Sources/Learning/WhisperModelManager.swift#L70), the hidden reason behind Failed ([`Failure`](../../Sources/Learning/WhisperModelManager.swift#L57-L59): download, load, or removal)
-- [`generation`](../../Sources/Learning/WhisperModelManager.swift#L69), [`lastOperation`](../../Sources/Learning/WhisperModelManager.swift#L72), [`downloadTask`](../../Sources/Learning/WhisperModelManager.swift#L73)
-- On disk: [`modelDirectory` and `tokenizerDirectory`](../../Sources/Learning/WhisperModelManager.swift#L62-L64) under `storageDirectory`, judged by [`bundleFiles` and `tokenizerFiles`](../../Sources/Learning/WhisperModelManager.swift#L51-L55), plus the [staging folder](../../Sources/Learning/WhisperModelManager.swift#L204-L206)
-
-```mermaid
-stateDiagram-v2
-    state Launch <<choice>>
-    state Publish <<choice>>
-    state "Not downloaded" as Missing
-    state "Downloading, may wait in the queue" as Downloading
-    state "Ready, files complete" as Ready
-    state "Failed, download" as DownloadFailed
-    state "Failed, load latched" as LoadFailed
-    state "Failed, removal" as RemovalFailed
-    state "Shows not downloaded, removal queued" as Removing
-    [*] --> Launch
-    Launch --> Ready: every model and tokenizer file exists
-    Launch --> Missing: a file is missing
-    Missing --> Downloading: ensureModel, generation plus one
-    DownloadFailed --> Downloading: ensureModel or retry
-    RemovalFailed --> Downloading: ensureModel from a learning pass
-    Downloading --> Downloading: progress, current generation
-    Downloading --> Publish: tokenizer fetched, not cancelled, current generation
-    Publish --> Ready: staged files complete and moved into place
-    Publish --> DownloadFailed: staged files incomplete, or a move throws
-    Downloading --> DownloadFailed: a fetch throws, not a cancel
-    Downloading --> Missing: cancelDownload, or a cancel-like error
-    Ready --> LoadFailed: modelFailedToLoad
-    LoadFailed --> LoadFailed: ensureModel returns at once
-    LoadFailed --> Downloading: retry deletes both folders, then ensureModel
-    RemovalFailed --> Removing: retry removes again
-    Ready --> Removing: removeModel
-    Downloading --> Removing: removeModel cancels the download first
-    DownloadFailed --> Removing: removeModel
-    LoadFailed --> Removing: removeModel
-    Removing --> Missing: storage folder deleted
-    Removing --> RemovalFailed: delete throws, current generation
-    Removing --> Downloading: ensureModel queues behind the removal
-    note right of LoadFailed
-        Suspected, unverified. If deleting the model
-        folder fails, the download finds a complete
-        model, fetches only the tokenizer, and
-        publishes Ready again.
-    end note
-```
-
-`removeModel` is accepted in every state, including Not downloaded; the chart shows the transitions Settings offers.
-
-**Invariants**
-
-- Enforced: Ready at launch needs every model bundle file and every tokenizer file ([L86-L88](../../Sources/Learning/WhisperModelManager.swift#L86-L88)).
-- Enforced: stale completions and progress change nothing; each compares its generation ([L192](../../Sources/Learning/WhisperModelManager.swift#L192), [L217](../../Sources/Learning/WhisperModelManager.swift#L217), [L230](../../Sources/Learning/WhisperModelManager.swift#L230), [L254](../../Sources/Learning/WhisperModelManager.swift#L254)).
-- Enforced: downloads and removals run one at a time through `lastOperation` ([L159-L161](../../Sources/Learning/WhisperModelManager.swift#L159-L161), [L189-L196](../../Sources/Learning/WhisperModelManager.swift#L189-L196)).
-- Enforced: staged files move into place only when complete, current, and not cancelled, and Ready is set only after both moves, on the main actor with no await between ([L216-L228](../../Sources/Learning/WhisperModelManager.swift#L216-L228)).
-- Enforced: after a load failure, `ensureModel` does nothing until Retry or Delete ([L103](../../Sources/Learning/WhisperModelManager.swift#L103), [L146-L149](../../Sources/Learning/WhisperModelManager.swift#L146-L149)).
-- Enforced: a cancel, or an error that is really a cancel, returns to Not downloaded instead of Failed ([L232-L233](../../Sources/Learning/WhisperModelManager.swift#L232-L233)).
-- Enforced: a failed removal shows Failed, and Retry removes again ([L170-L173](../../Sources/Learning/WhisperModelManager.swift#L170-L173), [L131-L133](../../Sources/Learning/WhisperModelManager.swift#L131-L133)).
-- Enforced: progress stays between 0 and 1 ([L253-L256](../../Sources/Learning/WhisperModelManager.swift#L253-L256)). Unlike [M01](#m01-download-load-and-remove-queue), no highest value is kept, so it can move backwards.
-- Assumed: named files present means the model loads; a load failure is reported by the learning pass ([GlossaryLearningCoordinator.swift L144-L148](../../Sources/Learning/GlossaryLearningCoordinator.swift#L144-L148)).
-- Assumed: the load latch lives in memory. After a relaunch with the same files the state is Ready again, and the next pass tries the load once more ([L70](../../Sources/Learning/WhisperModelManager.swift#L70), [L86-L88](../../Sources/Learning/WhisperModelManager.swift#L86-L88)).
-- Assumed: only this manager writes under `storageDirectory`.
-
-**Tests.** [`WhisperModelRemovalTests`](../../Tests/SyrupTests/WhisperModelManagerTests.swift): `removeModelDeletesFilesAndResetsState`, `removeModelWithoutFilesIsANoOpReset`, `aDownloadOfThePublishedFilesBecomesReady`, `aModelAlreadyOnDiskFetchesOnlyItsTokenizer`, `aDownloadMissingAModelFileFails`, `cancelStopsTheDownloadAndMovesNothingIntoPlace`, `deleteDuringADownloadCancelsItThenRemovesTheFiles`, `aModelThatFailedToLoadIsDownloadedAgainOnlyOnRetry`, `retryAfterAFailedRemovalRemovesAgain`. `WhisperModelManagerTests` in [`GlossaryLearningCoordinatorTests.swift`](../../Tests/SyrupTests/GlossaryLearningCoordinatorTests.swift): `incompleteDownloadIsNotReportedReady`, `modelFoldersWithoutTheirCompiledDataAreNotReady`, `thePublishedLayoutWithItsTokenizerIsReady`, `thePublishedLayoutWithoutItsTokenizerIsNotReady`.
-
-**Suspected defect (unverified, from the inventory).** Retry after a load failure can publish the same broken model. Sequence: the model files are complete but fail to load, so the pass calls `modelFailedToLoad`, and the state is Failed with the load reason; the person presses Retry; the `try?` deletion of `modelDirectory` fails and the files stay ([L134-L135](../../Sources/Learning/WhisperModelManager.swift#L134-L135)); Retry clears the latch and calls `ensureModel` anyway ([L136-L138](../../Sources/Learning/WhisperModelManager.swift#L136-L138)); `download` sees a complete model, skips the model fetch, fetches the tokenizer, and publishes Ready ([L207-L228](../../Sources/Learning/WhisperModelManager.swift#L207-L228)). The next pass fails to load it again. Retry is documented as a full download ([L127-L128](../../Sources/Learning/WhisperModelManager.swift#L127-L128)). It needs a deletion failure; `aModelThatFailedToLoadIsDownloadedAgainOnlyOnRetry` covers only a successful deletion.
-
-**Open questions**
-
-- After a failed Delete, a learning pass's `ensureModel` downloads the model again, while Retry would remove it again. Settings' help says a pending recording can download the model again after Delete ([GlossarySettingsView.swift L362](../../Sources/Settings/GlossarySettingsView.swift#L362)). Is that also intended after a failed Delete?
-- Should the load latch survive a relaunch?
-
-### M23 Recording entry lifetime
-
-`RecordingArchive` decides whether one voice run's audio becomes a recording kept for glossary learning. A run opens a provisional entry, a protected empty WAV that the tee fills; only a commit while the ID is still active writes the sidecar that makes it a recording. Discard, delete, and opt-out remove the files, so a cancelled, failed, or opted-out run must never leave a committed pair behind.
-
-**State variables**
-
-- [`RecordingArchive.activeIDs`](../../Sources/Learning/RecordingArchive.swift#L51), provisional entries allowed to commit
-- [`RecordingArchive.awaitingDeletion`](../../Sources/Learning/RecordingArchive.swift#L54), entries whose deletion failed ([M24](#m24-archive-retention-and-cleanup-debt))
-- [`storageDirectory`](../../Sources/Learning/RecordingArchive.swift#L57), `Application Support/Syrup/Recordings`
-- On disk: the WAV and JSON named by the entry ID ([L373-L375](../../Sources/Learning/RecordingArchive.swift#L373-L375)); the sidecar [`RecordingSidecar`](../../Sources/Learning/RecordingArchive.swift#L4-L11) holds `id`, `createdAt`, `localeID`, `appleTranscript`, `attempts`, and `nextAttemptAt`
-
-One machine runs per entry ID.
-
-```mermaid
-stateDiagram-v2
-    state DeleteFiles <<choice>>
-    state "No files" as Absent
-    state "Provisional, active ID, 0600 placeholder WAV" as Provisional
-    state "Committed WAV and sidecar" as Committed
-    state "Deletion pending in awaitingDeletion" as Pending
-    state "Inactive WAV, no sidecar" as Orphan
-    [*] --> Absent
-    Absent --> Provisional: beginEntry with no cleanup debt
-    Absent --> Absent: beginEntry refused or throws, placeholder removed
-    Provisional --> Provisional: tee writes audio outside the actor
-    Provisional --> Committed: commitEntry, ID still active, sidecar written
-    Provisional --> DeleteFiles: discardEntry
-    Provisional --> DeleteFiles: commitEntry cannot write the sidecar
-    Committed --> DeleteFiles: analyzed, retired, over a cap, or pair broken
-    DeleteFiles --> Absent: WAV and sidecar both gone
-    DeleteFiles --> Pending: a removal throws
-    Pending --> DeleteFiles: retried by begin, pendingEntries, or unresolvedDeletions
-    Provisional --> Absent: deleteAll removes the folder
-    Committed --> Absent: deleteAll removes the folder
-    Provisional --> Orphan: deleteAll fails after clearing the active ID
-    Provisional --> Orphan: app quits before filing
-    Orphan --> Orphan: late commitEntry ignored
-    Orphan --> DeleteFiles: next reconcile finds no pair
-    note right of Committed
-        Commit needs a delivered run, archived audio,
-        a live opt-in, and a nonempty Apple transcript.
-        RecordingFiler checks these, not the archive.
-    end note
-```
-
-**Invariants**
-
-- Enforced: only an active ID can commit ([L104](../../Sources/Learning/RecordingArchive.swift#L104)); delete, discard, and `deleteAll` clear it ([L227](../../Sources/Learning/RecordingArchive.swift#L227), [L255](../../Sources/Learning/RecordingArchive.swift#L255)), so a late filing after opt-out writes no sidecar.
-- Enforced: a begin while deletion debt remains is refused and creates no file ([L84-L88](../../Sources/Learning/RecordingArchive.swift#L84-L88)).
-- Enforced: the folder is 0700; the placeholder WAV and the sidecar are 0600 ([L91-L93](../../Sources/Learning/RecordingArchive.swift#L91-L93), [L116-L119](../../Sources/Learning/RecordingArchive.swift#L116-L119), [L313-L329](../../Sources/Learning/RecordingArchive.swift#L313-L329)).
-- Enforced: the sidecar is written atomically, and a failed commit discards the entry ([L118](../../Sources/Learning/RecordingArchive.swift#L118), [L121-L124](../../Sources/Learning/RecordingArchive.swift#L121-L124)).
-- Enforced: errors are logged with an operation name and a code only ([L377-L381](../../Sources/Learning/RecordingArchive.swift#L377-L381)).
-- Assumed: `RecordingFiler` commits only a delivered run whose tee returned true, with learning still on and a nonempty Apple transcript, and discards everything else ([RecordingFiler.swift L44-L55](../../Sources/App/RecordingFiler.swift#L44-L55)). The archive checks none of these.
-- Assumed: a failed or cancelled run's tee is joined before its discard ([RecordingFiler.swift L60-L64](../../Sources/App/RecordingFiler.swift#L60-L64)).
-- Assumed: a tee writer that opens its file only after `deleteAll` and a new begin recreated the folder can recreate a WAV for an invalidated ID. Its commit is ignored, and the next reconcile removes it.
-- Assumed: entry IDs are fresh UUIDs and never reused.
-
-**Validation.** `LearningOptOutModel` ([model](../../Tests/SyrupTests/StateMachines/LearningOptOutModel.swift), [rules](../../Tests/SyrupTests/StateMachines/LearningOptOutModelTests.swift), [replay](../../Tests/SyrupTests/StateMachines/LearningOptOutConformanceTests.swift)) explores every reachable state of the opt-in, one run, and up to two archive entries, with file removals that can start or stop failing at any step. Its walks are replayed against the real `PrivacyOptIns`, `RecordingFiler`, and `RecordingArchive` on a temporary folder. It checks that a recording begins and commits only while learning is on, that no recording is on disk once an opt-out has finished with learning off, and that no new recording begins while a failed deletion is unresolved. The tee is reduced to a filing step, and the caps are not modeled. It landed in commit `cf9e1a4`, after this document's brief; this document did not run it.
-
-**Tests.** [`RecordingArchiveTests`](../../Tests/SyrupTests/RecordingArchiveTests.swift): `beginAndCommitCreateProtectedAudioAndSidecarFiles`, `beginFailureRemovesTheUnprotectedPlaceholder`, `discardRemovesAudioAndSidecarFiles`, `deleteEntryRemovesAudioAndSidecarFiles`, `deleteAllRemovesTheRecordingDirectory`. [`AppStateLearningTests`](../../Tests/SyrupTests/AppStateLearningTests.swift), with a spy archive: `learningEnabledArchivesSuccessfulVoiceRun`, `turningLearningOnMidRunDoesNotRecordThatRun`, `cancelledLearningRunDiscardsRecording`, `archiveFinalizationDoesNotDelayDeliveryAndHonorsOptOut`, `learningDisabledNeverTouchesArchive`, `failedLearningRunNeverPublishesRecording`, `emptyTranscriptLearningRunLeavesNoRecording`, `disablingLearningDuringActiveRunPreventsCommit`.
-
-**Open questions**
-
-- A failed `deleteAll` leaves provisional and committed files with nothing in `awaitingDeletion`; see [M24](#m24-archive-retention-and-cleanup-debt).
-
-### M24 Archive retention and cleanup debt
-
-This is the archive-wide side of [M23](#m23-recording-entry-lifetime). It enforces the 50-recording and 7-day caps, removes broken or orphaned files, and turns any deletion it cannot do into cleanup debt that blocks new recordings, so Syrup never claims a deletion that did not happen. There is no timer: maintenance runs when `pendingEntries` or `commitEntry` runs, that is at launch with learning on, at each learning pass, at each commit, and when Settings reads counts.
-
-**State variables**
-
-- [`awaitingDeletion`](../../Sources/Learning/RecordingArchive.swift#L54), the cleanup debt
-- [`activeIDs`](../../Sources/Learning/RecordingArchive.swift#L51), exempt from reconciliation
-- [`maxEntries`](../../Sources/Learning/RecordingArchive.swift#L59) and [`maxAge`](../../Sources/Learning/RecordingArchive.swift#L60), 50 and 7 days by default ([L48-L49](../../Sources/Learning/RecordingArchive.swift#L48-L49)), and the clock [`now`](../../Sources/Learning/RecordingArchive.swift#L61)
-- On disk: every WAV and JSON in the folder ([L361-L371](../../Sources/Learning/RecordingArchive.swift#L361-L371)), with each sidecar's `createdAt` and `id`
-- Maintenance: [`enforceCaps`](../../Sources/Learning/RecordingArchive.swift#L269-L282), [`reconcileInvalidArtifacts`](../../Sources/Learning/RecordingArchive.swift#L284-L311), [`retryAwaitingDeletion`](../../Sources/Learning/RecordingArchive.swift#L238-L242), [`deleteAll`](../../Sources/Learning/RecordingArchive.swift#L253-L267)
-
-Archive-wide view; the per-entry states are in M23.
-
-```mermaid
-stateDiagram-v2
-    state Maintain <<choice>>
-    state Retry <<choice>>
-    state "No cleanup debt" as Clean
-    state "Cleanup debt, new entries refused" as Debt
-    state "Files left by a failed deleteAll, no debt" as Residual
-    [*] --> Clean
-    Clean --> Maintain: pendingEntries or commitEntry runs enforceCaps
-    Maintain --> Clean: invalid, expired, and excess files removed
-    Maintain --> Debt: a removal throws, its UUID recorded
-    Clean --> Debt: discardEntry or deleteEntry cannot remove a file
-    Debt --> Debt: beginEntry refused with cleanupPending
-    Debt --> Retry: beginEntry, pendingEntries, or unresolvedDeletions
-    Retry --> Clean: every recorded removal succeeds
-    Retry --> Debt: a removal still throws
-    Clean --> Clean: deleteAll removes the folder
-    Debt --> Clean: deleteAll removes the folder, debt cleared
-    Debt --> Debt: deleteAll throws, debt kept
-    Clean --> Residual: deleteAll throws after clearing active IDs
-    Residual --> Residual: beginEntry admits a new WAV
-    Residual --> Maintain: pendingEntries or commitEntry runs enforceCaps
-    note right of Residual
-        Suspected, unverified. Survivors are not
-        added to awaitingDeletion. Reconcile finds
-        only invalid, expired, or excess ones.
-    end note
-```
-
-**Invariants**
-
-- Enforced: an active ID's files are never reconciled away ([L292](../../Sources/Learning/RecordingArchive.swift#L292)).
-- Enforced: debt entries are left out of `pendingEntries` and the published count ([L210](../../Sources/Learning/RecordingArchive.swift#L210)).
-- Enforced: a begin is refused while any debt remains after a retry ([L84-L88](../../Sources/Learning/RecordingArchive.swift#L84-L88)).
-- Enforced: each `enforceCaps` removes entries created before now minus 7 days and then the oldest beyond 50, oldest first with a stable tie-break ([L274-L281](../../Sources/Learning/RecordingArchive.swift#L274-L281), [L383-L388](../../Sources/Learning/RecordingArchive.swift#L383-L388)); an entry exactly at the cutoff stays.
-- Enforced: a name without both a WAV and a decodable sidecar carrying the same ID is removed ([L293-L306](../../Sources/Learning/RecordingArchive.swift#L293-L306)).
-- Enforced: `storedRecordingCount` counts every WAV or JSON name on disk, pending or not, for the truthful leftover count after a failed opt-out ([L245-L251](../../Sources/Learning/RecordingArchive.swift#L245-L251)).
-- Assumed: debt lives in memory. After a relaunch it is rebuilt only for files that reconcile or the caps reject; a valid pair whose deletion failed after analysis comes back as pending and is analyzed again.
-- Assumed: files use UUID names; an undeletable file with another name is not tracked as debt ([L305](../../Sources/Learning/RecordingArchive.swift#L305)).
-
-**Validation.** Partly model-checked. `LearningOptOutModel` (see [M23](#m23-recording-entry-lifetime)) covers cleanup debt that blocks new entries, the orphans a failed `deleteAll` leaves, and their removal at the next commit. It does not model the age and count caps, broken sidecars, or a relaunch.
-
-**Tests.** [`RecordingArchiveTests`](../../Tests/SyrupTests/RecordingArchiveTests.swift): `deniedDiscardIsReportedRetriedAndBlocksNewEntries`, `entriesThatCannotBeDeletedNeverExceedTheCapOrReachAnalysis`, `entryCapDeletesTheOldestPairs`, `ageCapDeletesExpiredPairsOnTheNextCommit`, `pendingEntriesPrunesExpiredPairsWithoutANewCommit`, `pendingEntriesAreSortedOldestFirst`, `nextCommitDeletesOrphanedAndCorruptArtifacts`. [`PipelineLifecycleRegressionTests`](../../Tests/SyrupTests/PipelineLifecycleRegressionTests.swift): `listingPendingMustPreserveActiveWAV`. [`HardRuleTests`](../../Tests/SyrupTests/HardRuleTests.swift): `privacyTurningLearningOffDeletesTheRecordingsOrStaysOn`, with a spy archive. [`AppSettingsTests`](../../Tests/SyrupTests/AppSettingsTests.swift): `failedStartupCleanupNeverEnablesGlossaryLearning`. In `nextCommitDeletesOrphanedAndCorruptArtifacts` the orphan is still active, so reconcile keeps its WAV; the test passes because its `entryExists` helper requires both files ([RecordingArchiveTests.swift L453-L458](../../Tests/SyrupTests/RecordingArchiveTests.swift#L453-L458)). It shows that the orphan never gets a sidecar, not that an orphan WAV is deleted.
-
-**Suspected defect (unverified, from the inventory).** A failed `deleteAll` records no cleanup debt. Sequence: a committed pair is on disk and there is no debt; the person turns learning off; `deleteAll` clears the active IDs, the folder removal throws, and nothing is added to `awaitingDeletion` ([L253-L266](../../Sources/Learning/RecordingArchive.swift#L253-L266)); `setGlossaryLearning` turns learning back on ([AppSettings.swift L774-L781](../../Sources/Settings/AppSettings.swift#L774-L781)); the next voice run's `beginEntry` retries an empty debt set and admits a new WAV ([L82-L95](../../Sources/Learning/RecordingArchive.swift#L82-L95)). Reading the caller, admitting the new recording matches the hard rule, because learning is on again, and the survivors stay ordinary pending entries under the caps. The open part is whether a failed opt-out should block new recordings until the leftovers are gone, as `awaitingDeletion` does for a single failed deletion. `LearningOptOutModel` includes a failed `deleteAll`, and the [README](README.md) records new recordings after one, with learning back on, as documented behavior rather than a rule violation. Not induced for this document.
-
-**Open questions**
-
-- Should a failed `deleteAll` record the surviving names as debt?
-- Should debt survive a relaunch?
-- The comment on `awaitingDeletion` says it is retried before every operation ([L52-L53](../../Sources/Learning/RecordingArchive.swift#L52-L53)); only `beginEntry`, `pendingEntries`, and `unresolvedDeletions` retry it ([L84](../../Sources/Learning/RecordingArchive.swift#L84), [L140](../../Sources/Learning/RecordingArchive.swift#L140), [L146](../../Sources/Learning/RecordingArchive.swift#L146)). Should the comment or the code change?
-
-### M26 Recording retry and backoff
-
-Decides when a recording that failed analysis may be tried again and when it is given up. Each ordinary failure, a decode error or a judge that gave no answer, adds an attempt and a backoff of 30 minutes, then 60; the third deletes the recording. A cancel and a model that will not load cost nothing.
-
-**State variables**
-
-- On disk: [`RecordingSidecar.attempts`](../../Sources/Learning/RecordingArchive.swift#L9), [`nextAttemptAt`](../../Sources/Learning/RecordingArchive.swift#L10), and [`createdAt`](../../Sources/Learning/RecordingArchive.swift#L6), written by [`recordAttempt`](../../Sources/Learning/RecordingArchive.swift#L179-L195)
-- In the coordinator: the due filter ([L114](../../Sources/Learning/GlossaryLearningCoordinator.swift#L114)), the five-entry limit ([L119](../../Sources/Learning/GlossaryLearningCoordinator.swift#L119)), and [`recordFailure`](../../Sources/Learning/GlossaryLearningCoordinator.swift#L158-L162)
-
-```mermaid
-stateDiagram-v2
-    state DeleteFiles <<choice>>
-    state "Attempts 0" as Fresh
-    state "Attempts 1, due 30 min later" as Wait1
-    state "Attempts 2, due 60 min later" as Wait2
-    state "Deleted" as Gone
-    state "Cleanup debt" as Debt
-    [*] --> Fresh: commitEntry
-    Fresh --> Wait1: ordinary failure
-    Wait1 --> Wait2: ordinary failure once due
-    Wait2 --> DeleteFiles: third ordinary failure, retired
-    Fresh --> DeleteFiles: judged and handled
-    Wait1 --> DeleteFiles: judged and handled once due
-    Wait2 --> DeleteFiles: judged and handled once due
-    Fresh --> Fresh: pass cancelled or model unavailable, no charge
-    Wait1 --> Wait1: not yet due, skipped before the limit of five
-    Wait2 --> Wait2: not yet due, skipped before the limit of five
-    DeleteFiles --> Gone: both files removed
-    DeleteFiles --> Debt: a removal throws
-    note right of Wait2
-        A sidecar that cannot be read or rewritten
-        is discarded and counts as retired.
-        Caps and opt-out can delete at any point.
-    end note
-```
-
-**Invariants**
-
-- Enforced: the attempt count and the next date are written to the sidecar atomically, 0600 ([L184-L188](../../Sources/Learning/RecordingArchive.swift#L184-L188)).
-- Enforced: entries not yet due are filtered out before the limit of five, so newer recordings pass older ones in backoff ([GlossaryLearningCoordinator.swift L114](../../Sources/Learning/GlossaryLearningCoordinator.swift#L114), [L119](../../Sources/Learning/GlossaryLearningCoordinator.swift#L119)).
-- Enforced: the third ordinary failure deletes the recording ([GlossaryLearningCoordinator.swift L158-L161](../../Sources/Learning/GlossaryLearningCoordinator.swift#L158-L161)).
-- Enforced: a cancel and `modelUnavailable` record no attempt ([GlossaryLearningCoordinator.swift L142-L150](../../Sources/Learning/GlossaryLearningCoordinator.swift#L142-L150)).
-- Enforced: a sidecar that cannot be read or rewritten is discarded, and `recordAttempt` returns 3 so the caller retires it ([L190-L194](../../Sources/Learning/RecordingArchive.swift#L190-L194)).
-- Assumed: decoded attempt counts are valid. The backoff formula keeps doubling up to 24 hours ([L185](../../Sources/Learning/RecordingArchive.swift#L185)), but the coordinator deletes at three.
-- Assumed: there is no durable "in progress" mark. A pass cut short by quitting repeats the comparison, and the judge can receive the same pair again.
-
-**Tests.** [`RecordingArchiveTests`](../../Tests/SyrupTests/RecordingArchiveTests.swift): `recordAttemptIncrementsAndPersistsTheSidecarCount`. [`GlossaryLearningCoordinatorTests`](../../Tests/SyrupTests/GlossaryLearningCoordinatorTests.swift): `sinkFailureCountsTowardBoundedRetries`, `thirdTranscriptionFailureDeletesRecording`, `judgeFailuresBackOffAndAllowNewerRecordingsToProgress`, `threeJudgeFailuresRetireRecording`, `foregroundRunCancelsLearningAndReleasesModelsWithoutChargingRetry`, `aModelThatFailsToLoadUsesUpNoRecordings`.
-
-**Open questions.** None.
-
-### M27 Live forwarding and the archive writer
-
-`RecordingTee` copies a run's live audio to a WAV for glossary learning without ever slowing the live path. A forwarder passes each buffer to the transcriber first and then to a bounded write queue; a separate writer task writes the file. If the writer falls behind, archiving is abandoned for that run and dictation continues; this is where audio reaches the disk, so a false result must lead to a discard.
-
-**State variables**
-
-- [`RecordingTeeSession.stream`, `forwarder`, and `writer`](../../Sources/Learning/RecordingTee.swift#L12-L14)
-- The live stream ([L69](../../Sources/Learning/RecordingTee.swift#L69)) and the write queue, bounded to `AudioBufferStream.capacity`, 256 buffers ([L70-L72](../../Sources/Learning/RecordingTee.swift#L70-L72), [AudioBufferStream.swift L7](../../Sources/Audio/AudioBufferStream.swift#L7))
-- [`ArchiveAbandonment.flag`](../../Sources/Learning/RecordingTee.swift#L130), shared by both tasks ([L73](../../Sources/Learning/RecordingTee.swift#L73))
-- Writer: [`audioFile`](../../Sources/Learning/RecordingTee.swift#L76) and [`isWritingEnabled`](../../Sources/Learning/RecordingTee.swift#L77)
-- Forwarder: [`isArchiving`](../../Sources/Learning/RecordingTee.swift#L102)
-
-Two tasks run at once; each is drawn as its own region.
-
-```mermaid
-stateDiagram-v2
-    state Forwarder {
-        state "Forwarding and archiving" as ForwardArchive
-        state "Forwarding only, archive abandoned" as ForwardOnly
-        state "Forwarder done, both streams finished" as ForwardDone
-        [*] --> ForwardArchive
-        ForwardArchive --> ForwardArchive: buffer to the live stream, then the write queue
-        ForwardArchive --> ForwardOnly: write queue full, abandon, finish writes
-        ForwardOnly --> ForwardOnly: buffer to the live stream only
-        ForwardArchive --> ForwardDone: source ends, throws, or is cancelled, or live queue full
-        ForwardOnly --> ForwardDone: source ends, throws, or is cancelled, or live queue full
-    }
-    state Writer {
-        state WriterEnd <<choice>>
-        state "No file open" as Unopened
-        state "Writing the WAV" as Writing
-        state "Writing disabled" as Disabled
-        state "Returns true, WAV kept" as Accepted
-        state "Returns false, WAV removal tried" as Rejected
-        state "Returns false, WAV kept" as CancelledKept
-        [*] --> Unopened
-        Unopened --> Writing: first buffer, file opened, chmod 0600
-        Writing --> Writing: buffer written
-        Unopened --> Disabled: open or chmod throws
-        Writing --> Disabled: write throws
-        Disabled --> Disabled: later buffers skipped
-        Unopened --> WriterEnd: write queue ends
-        Writing --> WriterEnd: write queue ends
-        Disabled --> WriterEnd: write queue ends
-        WriterEnd --> Rejected: disabled or abandoned
-        WriterEnd --> CancelledKept: writer task cancelled
-        WriterEnd --> Accepted: otherwise
-    }
-```
-
-**Invariants**
-
-- Enforced: forwarding never waits on the disk; the writer is a separate utility-priority task fed through a bounded queue ([L70-L75](../../Sources/Learning/RecordingTee.swift#L70-L75), [L101](../../Sources/Learning/RecordingTee.swift#L101)).
-- Enforced: a full write queue abandons archiving, and forwarding continues ([L109-L113](../../Sources/Learning/RecordingTee.swift#L109-L113)).
-- Enforced: a full live queue ends the run with `audioBufferOverflow` instead of dropping speech ([L105-L107](../../Sources/Learning/RecordingTee.swift#L105-L107), [AudioBufferStream.swift L13-L19](../../Sources/Audio/AudioBufferStream.swift#L13-L19)).
-- Enforced: an upstream error reaches the live stream unchanged ([L115-L117](../../Sources/Learning/RecordingTee.swift#L115-L117)).
-- Enforced: only the writer task touches the file, and the file is set to 0600 when opened ([L76-L93](../../Sources/Learning/RecordingTee.swift#L76-L93)).
-- Enforced: `waitForCompletion` and `cancelAndWait` join both tasks ([L25-L40](../../Sources/Learning/RecordingTee.swift#L25-L40)), and `RecordingFiler` discards a failed run only after `cancelAndWait` returns ([RecordingFiler.swift L60-L64](../../Sources/App/RecordingFiler.swift#L60-L64)).
-- Assumed: true means the WAV holds every buffer the writer received, not that the run succeeded. A live overflow, an upstream error, or the live consumer stopping still ends with true; `RecordingFiler` decides whether to commit ([RecordingFiler.swift L44-L55](../../Sources/App/RecordingFiler.swift#L44-L55)).
-- Assumed: false does not prove the file is gone. A cancelled writer keeps it ([L98](../../Sources/Learning/RecordingTee.swift#L98)), and the removal can fail ([L95](../../Sources/Learning/RecordingTee.swift#L95)); the caller's discard deletes it or records debt.
-- Assumed: a writer that never receives a buffer returns true with the 0-byte placeholder from `beginEntry`. A commit also needs a nonempty Apple transcript, which needs audio.
-- Assumed: the source and live streams end when their consuming task is cancelled.
-
-**Tests.** [`RecordingArchiveTests`](../../Tests/SyrupTests/RecordingArchiveTests.swift): `teeForwardsEveryBufferAndWritesReadableWAV`, `teeKeepsForwardingAfterTheWriterCannotOpen`, `slowArchiveWriterNeverDelaysForwardingAndAbandonsTheFile`, `teeWriteFailureRemovesThePlaceholderAndCommitReconcilesTheSidecar`, `cancelledTeeStopsBeforeTheArchiveIsDiscarded`. [`AudioFailureTests`](../../Tests/SyrupTests/AudioFailureTests.swift): `audioStagesPreserveUpstreamFailure`, `audioBufferOverflowFailsExplicitlyAndBoundsQueue`.
-
-**Open questions**
-
-- When the live consumer stops, only the forwarder is cancelled ([L122-L124](../../Sources/Learning/RecordingTee.swift#L122-L124)); the writer finishes and returns true. A cancelled run then relies on the pipeline calling `RecordingFiler.discard`, which `AppStateLearningTests.cancelledLearningRunDiscardsRecording` covers with a spy archive. Should the writer see the cancel itself?
-
-### M28 Learning schedule and pass
-
-`GlossaryLearningCoordinator` decides when recordings are analyzed. Every 30 minutes, with 15 minutes of tolerance, or on Compare Now, it runs one pass if learning is on, no dictation is running, and no pass is active. A pass takes up to five due recordings, oldest first, decodes each with Whisper, sends the transcript pair to the judge, and then deletes the recording or charges an attempt; a mistake in its order could analyze a recording after opt-out or charge a dictation's interruption as a failure.
-
-**State variables**
-
-- [`isRunning`](../../Sources/Learning/GlossaryLearningCoordinator.swift#L65), [`foregroundActive`](../../Sources/Learning/GlossaryLearningCoordinator.swift#L66), [`passTask`](../../Sources/Learning/GlossaryLearningCoordinator.swift#L67)
-- [`backgroundScheduler`](../../Sources/Learning/GlossaryLearningCoordinator.swift#L62), set up at [L173-L190](../../Sources/Learning/GlossaryLearningCoordinator.swift#L173-L190), and the clock [`now`](../../Sources/Learning/GlossaryLearningCoordinator.swift#L68)
-- Pass locals: [`pendingEntries`](../../Sources/Learning/GlossaryLearningCoordinator.swift#L114), the entry loop ([L119-L153](../../Sources/Learning/GlossaryLearningCoordinator.swift#L119-L153)), [`whisperTranscript`](../../Sources/Learning/GlossaryLearningCoordinator.swift#L124), [`pair`](../../Sources/Learning/GlossaryLearningCoordinator.swift#L129-L134), [`handled`](../../Sources/Learning/GlossaryLearningCoordinator.swift#L135)
-- Read from elsewhere: `settings.glossaryLearningEnabled` and the Whisper model state ([M22](#m22-whisper-model-download-removal-and-load-latch))
-
-```mermaid
-stateDiagram-v2
-    state "Idle" as Idle
-    state "Dictation running" as Blocked
-    state "Cancelling, isRunning still true" as Cancelling
-    state Pass {
-        state "Listing due entries" as Listing
-        state "Ensuring the Whisper model" as Ensuring
-        state "Decoding one entry" as Decoding
-        state "Judging the pair" as Judging
-        state "Recording the outcome" as Accounting
-        state "Releasing models" as Releasing
-        state "Early exit, nothing loaded" as EarlyExit
-        [*] --> Listing
-        Listing --> EarlyExit: nothing due, learning off, or cancelled
-        Listing --> Ensuring: due entries
-        Ensuring --> EarlyExit: model not ready, learning off, or cancelled
-        Ensuring --> Decoding: model ready, first of at most five
-        Decoding --> Judging: transcript, learning on, not cancelled
-        Decoding --> Accounting: other decode error, one attempt charged
-        Decoding --> Releasing: cancelled, opted out, or model unavailable
-        Judging --> Accounting: handled deletes, not handled charges an attempt
-        Judging --> Releasing: opted out or cancelled
-        Accounting --> Decoding: next due entry, learning on, not cancelled
-        Accounting --> Releasing: five done, none left, opted out, or cancelled
-        Releasing --> [*]
-        EarlyExit --> [*]
-    }
-    [*] --> Idle
-    Idle --> Blocked: foreground starts
-    Blocked --> Idle: foreground ends
-    Idle --> Pass: tick or Compare Now, learning on, isRunning set
-    Pass --> Idle: child returns, isRunning cleared
-    Pass --> Cancelling: foreground starts or the caller cancels
-    Cancelling --> Blocked: child returns, dictation still running
-    Cancelling --> Idle: child returns after a caller cancel
-```
-
-A tick or Compare Now while a dictation runs, while learning is off, or during a pass returns at once ([L102](../../Sources/Learning/GlossaryLearningCoordinator.swift#L102)).
-
-**Invariants**
-
-- Enforced: at most one pass per coordinator; `isRunning` is set before the first await and cleared after the child returns ([L102-L110](../../Sources/Learning/GlossaryLearningCoordinator.swift#L102-L110)).
-- Enforced: a dictation cancels the pass at once ([L96-L99](../../Sources/Learning/GlossaryLearningCoordinator.swift#L96-L99)), and no pass starts during one ([L102](../../Sources/Learning/GlossaryLearningCoordinator.swift#L102)).
-- Enforced: the opt-in and cancellation are checked again after every awaited step ([L115](../../Sources/Learning/GlossaryLearningCoordinator.swift#L115), [L117](../../Sources/Learning/GlossaryLearningCoordinator.swift#L117), [L120](../../Sources/Learning/GlossaryLearningCoordinator.swift#L120), [L128](../../Sources/Learning/GlossaryLearningCoordinator.swift#L128), [L136](../../Sources/Learning/GlossaryLearningCoordinator.swift#L136)).
-- Enforced: a cancel and `modelUnavailable` charge no attempt; `modelUnavailable` latches the model failure unless the pass was cancelled ([L142-L148](../../Sources/Learning/GlossaryLearningCoordinator.swift#L142-L148)).
-- Enforced: models are released after every loop exit ([L155](../../Sources/Learning/GlossaryLearningCoordinator.swift#L155)); the two early exits come before any model loads.
-- Enforced: each transcript in the pair is cut to 4,000 characters ([L169-L171](../../Sources/Learning/GlossaryLearningCoordinator.swift#L169-L171)).
-- Assumed: turning learning off does not cancel the pass. An in-flight decode or judge request finishes, the next check stops the pass, and the opt-out's `deleteAll` removes the files ([AppSettings.swift L770-L781](../../Sources/Settings/AppSettings.swift#L770-L781)). A judge request already sent cannot be recalled.
-- Assumed: WhisperKit and the judge's transformer honor cancellation ([M29](#m29-whisper-pipeline-residency-and-decode-cancellation), [M34](#m34-pair-judging-and-proposal-publication)).
-- Assumed: Settings keeps Remove Model and Clear disabled while `isRunning` ([L63-L64](../../Sources/Learning/GlossaryLearningCoordinator.swift#L63-L64), [GlossarySettingsView.swift L361](../../Sources/Settings/GlossarySettingsView.swift#L361)).
-- Assumed: nothing keeps a pass from running beside a suggestion batch ([M30](#m30-suggestion-batch-and-per-term-results)); both stop on the same foreground signal ([SyrupApp.swift L132-L138](../../Sources/App/SyrupApp.swift#L132-L138)).
-
-**Tests.** [`GlossaryLearningCoordinatorTests`](../../Tests/SyrupTests/GlossaryLearningCoordinatorTests.swift): `disabledSettingBailsOutBeforeModelOrTranscription`, `passProcessesOnlyFiveOldestEntriesSequentially`, `sinkSuccessDeletesRecordingAndUsesLanguageSubtag`, `unavailableJudgeRetainsRecordingThroughRealSink`, `existingGlossaryTermsAreFilteredLocallyNotSentToTheJudge`, `repeatedFindingCreatesOnlyOneProposal`, `transcriptPairIsBoundedToFourThousandCharacters`, `aModelThatFailsToLoadUsesUpNoRecordings`, `emptyQueueDoesNotDownloadRemovedModel`, `foregroundRunCancelsLearningAndReleasesModelsWithoutChargingRetry`. They inject the schedule; `NSBackgroundActivityScheduler` timing is not tested.
-
-**Open questions**
-
-- Should turning learning off cancel `passTask` directly, so an in-flight decode or judge request stops at once instead of at the next check?
-
-### M29 Whisper pipeline residency and decode cancellation
-
-`WhisperKitBatchTranscriber` loads the WhisperKit pipeline from local files on a pass's first decode, reuses it for the rest of the pass, and unloads it when the pass ends. A cancel during a decode sets a flag that WhisperKit's progress callback reads, so the decode stops early.
-
-**State variables**
-
-- [`pipeline`](../../Sources/Learning/BatchTranscriber.swift#L22), with the fixed [`modelDirectory`](../../Sources/Learning/BatchTranscriber.swift#L18) and [`tokenizerBase`](../../Sources/Learning/BatchTranscriber.swift#L21)
-- The per-call [`cancelled`](../../Sources/Learning/BatchTranscriber.swift#L30) flag, read by the [callback](../../Sources/Learning/BatchTranscriber.swift#L38) and set by the [cancellation handler](../../Sources/Learning/BatchTranscriber.swift#L42-L44)
-- [`loadedPipeline`](../../Sources/Learning/BatchTranscriber.swift#L52-L76)
-
-```mermaid
-stateDiagram-v2
-    state "No pipeline" as Absent
-    state "Loading the local pipeline" as Loading
-    state "Pipeline cached for the pass" as Loaded
-    state "Decoding a file" as Decoding
-    state "Decode told to stop" as Stopping
-    state "Unloading" as Unloading
-    [*] --> Absent
-    Absent --> Loading: transcribe, not cancelled
-    Loading --> Loaded: WhisperKit loads with downloading off
-    Loading --> Absent: cancel-like error, CancellationError thrown
-    Loading --> Absent: other load error, modelUnavailable thrown
-    Loaded --> Decoding: transcribe, not cancelled, explicit language
-    Decoding --> Loaded: text returned after the cancellation check
-    Decoding --> Loaded: decode throws, error rethrown
-    Decoding --> Stopping: caller cancels, flag set
-    Stopping --> Loaded: callback stops the decode, CancellationError thrown
-    Loaded --> Unloading: releaseModels after the pass
-    Unloading --> Absent: unloadModels returns
-```
-
-**Invariants**
-
-- Enforced: cancellation is checked before load, after load, and after decode ([L32](../../Sources/Learning/BatchTranscriber.swift#L32), [L34](../../Sources/Learning/BatchTranscriber.swift#L34), [L40](../../Sources/Learning/BatchTranscriber.swift#L40)).
-- Enforced: the decode callback reads cancellation through a `Mutex` ([L30](../../Sources/Learning/BatchTranscriber.swift#L30), [L38](../../Sources/Learning/BatchTranscriber.swift#L38), [L43](../../Sources/Learning/BatchTranscriber.swift#L43)).
-- Enforced: a cancel-like load failure throws `CancellationError`, not `modelUnavailable` ([L67-L72](../../Sources/Learning/BatchTranscriber.swift#L67-L72)).
-- Enforced: the pipeline loads only local files, with the tokenizer folder given and downloading off ([L59-L66](../../Sources/Learning/BatchTranscriber.swift#L59-L66)).
-- Assumed: WhisperKit stops when the callback returns false.
-- Assumed: the coordinator never overlaps two decodes, or a decode and `releaseModels`; two direct calls could each load a pipeline.
-
-**Tests.** [`GlossaryLearningCoordinatorTests`](../../Tests/SyrupTests/GlossaryLearningCoordinatorTests.swift) use `BatchTranscribing` fakes: `aModelThatFailsToLoadUsesUpNoRecordings`, `foregroundRunCancelsLearningAndReleasesModelsWithoutChargingRetry`. No test runs WhisperKit.
-
-**Open questions.** None.
+What is left in `Sources/Learning`: the Suggest check that asks how Apple recognition hears a glossary term ([M30](#m30-suggestion-batch-and-per-term-results) to [M33](#m33-check-only-recognition)), the proposal list ([M35](#m35-proposal-and-dismissal-lifetime)), and the cleanup of what glossary learning left on disk ([M38](#m38-retired-learning-cleanup)).
 
 ### M30 Suggestion batch and per-term results
 
@@ -1584,7 +1148,7 @@ stateDiagram-v2
 - Assumed: the caller passes at most three locales ([M30](#m30-suggestion-batch-and-per-term-results)).
 - Assumed: synthesis and recognition stay in memory and never prompt or download ([M32](#m32-synthetic-speech-callbacks-and-timer), [M33](#m33-check-only-recognition)).
 
-**Tests.** [`MishearingProbeTests`](../../Tests/SyrupTests/MishearingProbeTests.swift): `usesVocabularyAndAggregatesAcrossVoicesAndLocales`, `missingVoicesAndAssetsNeverStartSynthesisOrRecognition`, `exactDiscardedAndFailedSamplesRemainDistinct`, `dropsCarrierSpillAndFlagsEverydayFormsByTheirOwnLocale`, `plausibleFormsNeedTwoLettersAndStayNearTheTermLength`, `canceledEngineDoesNotProceedToRecognition`, and the helper tests `extractsOnlyCompleteCarriers`, `normalizesAndDeduplicatesWithoutRemovingAccents`, `picksExactLocaleThenQualityAndDistinctVoices`, `skipsNoveltyVoicesAndPrefersSiriEraVoicesAtEqualQuality`.
+**Tests.** [`MishearingProbeEngineTests`](../../Tests/SyrupTests/MishearingProbeTests.swift): `usesVocabularyAndAggregatesAcrossVoicesAndLocales`, `missingVoicesAndAssetsNeverStartSynthesisOrRecognition`, `exactDiscardedAndFailedSamplesRemainDistinct`, `dropsCarrierSpillAndFlagsEverydayFormsByTheirOwnLocale`, `plausibleFormsNeedTwoLettersAndStayNearTheTermLength`, `canceledEngineDoesNotProceedToRecognition`, and the helper tests in [`MishearingProbeTextTests`](../../Tests/SyrupTests/MishearingProbeTests.swift): `extractsOnlyCompleteCarriers`, `normalizesAndDeduplicatesWithoutRemovingAccents`, `picksExactLocaleThenQualityAndDistinctVoices`, `skipsNoveltyVoicesAndPrefersSiriEraVoicesAtEqualQuality`.
 
 **Open questions.** None.
 
@@ -1678,71 +1242,21 @@ stateDiagram-v2
 - Enforced: the analyzer receives one complete buffer, then end of input ([L99-L102](../../Sources/Learning/SystemMishearingSpeech.swift#L99-L102)).
 - Enforced: the Apple call returns within 60 s ([L103-L105](../../Sources/Learning/SystemMishearingSpeech.swift#L103-L105)).
 - Assumed: availability is a snapshot; recognition can still fail if assets or permission change.
-- Assumed: sharing the dictation `TranscriberAssetManager` is harmless ([SyrupApp.swift L126](../../Sources/App/SyrupApp.swift#L126)). Probe readiness checks can update Settings' language-model status for the probed key, and a recognition error invalidates the shared installed-locale entry ([AppleTranscriber.swift L86-L87](../../Sources/Transcription/AppleTranscriber.swift#L86-L87)).
+- Assumed: sharing the dictation `TranscriberAssetManager` is harmless ([SyrupApp.swift L103](../../Sources/App/SyrupApp.swift#L103)). Probe readiness checks can update Settings' language-model status for the probed key, and a recognition error invalidates the shared installed-locale entry ([AppleTranscriber.swift L86-L87](../../Sources/Transcription/AppleTranscriber.swift#L86-L87)).
 
-**Tests.** [`MishearingProbeTests`](../../Tests/SyrupTests/MishearingProbeTests.swift): `offlineFeedCombinesBuffersWithoutDroppingFrames`. [`MishearingProbeRealTests`](../../Tests/SyrupTests/MishearingProbeRealTests.swift): `publicTermsWithInstalledAssetsOnly`, gated and not run.
-
-**Open questions.** None.
-
-### M34 Pair judging and proposal publication
-
-`JudgingCrossCheckSink` sends one opted-in transcript pair to the configured provider through `LLMMishearingJudge`, and turns the supported findings into glossary proposals. The judge returns nil when it could not judge, which keeps the recording for a retry, and an empty list when it judged and found nothing. After the await, nothing is added unless learning is still on and the pass was not cancelled.
-
-**State variables**
-
-- [`JudgingCrossCheckSink.settings` and `judge`](../../Sources/Learning/GlossaryLearningCoordinator.swift#L20-L21), and [`process`](../../Sources/Learning/GlossaryLearningCoordinator.swift#L30-L46)
-- [`LLMMishearingJudge.findings`](../../Sources/Learning/MishearingJudge.swift#L45-L62), which fixes the body, provider, snapshot, and transformer for one call
-- The nil-versus-empty contract ([L4-L7](../../Sources/Learning/MishearingJudge.swift#L4-L7))
-
-```mermaid
-stateDiagram-v2
-    state ConsentCheck <<choice>>
-    state "Pair received" as Received
-    state "Transform in flight" as Transforming
-    state "Judge unavailable, nil" as Unavailable
-    state "Verified findings, maybe empty" as Findings
-    state "Returned false, nothing added" as NotHandled
-    state "Proposals offered, returned true" as Handled
-    [*] --> Received
-    Received --> Transforming: provider read, snapshot taken, fixed instruction
-    Transforming --> Unavailable: transform throws, fixed log line
-    Transforming --> Unavailable: reply does not parse
-    Transforming --> Findings: parsed, filtered, checked against both transcripts
-    Unavailable --> NotHandled: sink returns false
-    Findings --> ConsentCheck
-    ConsentCheck --> NotHandled: learning off or task cancelled
-    ConsentCheck --> Handled: learning on, batch added once
-    Handled --> [*]
-    NotHandled --> [*]
-    note right of NotHandled
-        The pass charges an attempt for false
-        only while learning is on and not cancelled.
-    end note
-```
-
-**Invariants**
-
-- Enforced: the request body holds only the Apple and Whisper transcripts, and the instruction is fixed text ([MishearingJudge.swift L17-L28](../../Sources/Learning/MishearingJudge.swift#L17-L28), [L46-L50](../../Sources/Learning/MishearingJudge.swift#L46-L50)).
-- Enforced: glossary terms, pending proposals, and dismissals are filtered locally and never sent ([GlossaryLearningCoordinator.swift L28-L29](../../Sources/Learning/GlossaryLearningCoordinator.swift#L28-L29), [GlossaryProposal.swift L31-L35](../../Sources/Learning/GlossaryProposal.swift#L31-L35)).
-- Enforced: a finding needs a confidence of at least 0.6, a term found in transcript B, and a mishearing found in transcript A, as whole words; at most 5 findings, 3 mishearings each, and 60 characters per phrase ([L85-L127](../../Sources/Learning/MishearingJudge.swift#L85-L127)).
-- Enforced: nothing is added after an opt-out or a cancel ([GlossaryLearningCoordinator.swift L35](../../Sources/Learning/GlossaryLearningCoordinator.swift#L35)).
-- Enforced: the failure log line carries no content ([L59](../../Sources/Learning/MishearingJudge.swift#L59)).
-- Assumed: the pair was captured under the opt-in; a request already sent cannot be recalled.
-- Assumed: the provider bounds the request; the judge has no timeout of its own.
-
-**Tests.** [`MishearingJudgeTests`](../../Tests/SyrupTests/MishearingJudgeTests.swift): `judgeUsesConfiguredProviderAndSendsOnlyTheTranscriptPair`, `onlyFindingsBothTranscriptsSupportAreKept`, `aFloodOfFindingsIsCapped`, `parserDistinguishesGarbageFromAnEmptyFindingSet`, `parserAppliesConfidenceAndMishearingValidityFilters`. [`GlossaryLearningCoordinatorTests`](../../Tests/SyrupTests/GlossaryLearningCoordinatorTests.swift): `unavailableJudgeRetainsRecordingThroughRealSink`, `existingGlossaryTermsAreFilteredLocallyNotSentToTheJudge`, `repeatedFindingCreatesOnlyOneProposal`.
+**Tests.** [`MishearingProbeEngineTests`](../../Tests/SyrupTests/MishearingProbeTests.swift): `offlineFeedCombinesBuffersWithoutDroppingFrames`. [`MishearingProbeRealTests`](../../Tests/SyrupTests/MishearingProbeRealTests.swift): `publicTermsWithInstalledAssetsOnly`, gated and not run.
 
 **Open questions.** None.
 
 ### M35 Proposal and dismissal lifetime
 
-`GlossaryProposalList` decides whether a judged finding becomes a proposal the person sees, and remembers dismissals so the same term is not proposed again. Nothing reaches the glossary without the person's Add. Settings stores the list as the versioned `glossaryProposalsV1` blob.
+`GlossaryProposalList` holds the glossary proposals Settings shows, each with Add and Dismiss, and remembers dismissals so the same term is not proposed again. Nothing reaches the glossary without the person's Add. Settings stores the list as the versioned `glossaryProposalsV1` blob. Glossary learning's judge was the only producer of proposals. Nothing in the app calls `addIfNew` now: its one wrapper, [`AppSettings.addGlossaryProposal`](../../Sources/Settings/AppSettings.swift#L457-L460), is called only by tests. So the list holds proposals stored by an earlier version, and it can only shrink.
 
 **State variables**
 
 - [`version`](../../Sources/Learning/GlossaryProposal.swift#L18), [`proposals`](../../Sources/Learning/GlossaryProposal.swift#L19), [`dismissedKeys`](../../Sources/Learning/GlossaryProposal.swift#L20)
 - The caps [`maximumProposals`](../../Sources/Learning/GlossaryProposal.swift#L14), 50, and [`maximumDismissedKeys`](../../Sources/Learning/GlossaryProposal.swift#L16), 500
-- The stored copy [`AppSettings.glossaryProposals`](../../Sources/Settings/AppSettings.swift#L199-L203), written by [`persistGlossaryProposals`](../../Sources/Settings/AppSettings.swift#L548-L553)
+- The stored copy [`AppSettings.glossaryProposals`](../../Sources/Settings/AppSettings.swift#L193-L197), written by [`persistGlossaryProposals`](../../Sources/Settings/AppSettings.swift#L533-L538) on every change
 
 ```mermaid
 stateDiagram-v2
@@ -1752,67 +1266,82 @@ stateDiagram-v2
     state "Removed" as Removed
     state "Dismissed, key remembered" as Dismissed
     state "Key forgotten" as Forgotten
-    [*] --> Admit: addIfNew
+    [*] --> Pending: loaded from the stored blob
+    [*] --> Admit: addIfNew, called only by tests
     Admit --> Rejected: empty term, 50 pending, or already in the glossary, pending, or dismissed
     Admit --> Pending: trimmed term and hints stored
     Pending --> Removed: Add in Settings, or removeProposal
     Pending --> Dismissed: dismiss, lowercased key appended
-    Dismissed --> Dismissed: later finding for the key rejected
+    Dismissed --> Dismissed: a later addIfNew for the key is rejected
     Dismissed --> Forgotten: 500 newer dismissals push the key out
-    Forgotten --> Admit: later finding
+    Forgotten --> Admit: a later addIfNew
 ```
 
 **Invariants**
 
 - Enforced: a term is proposed once, compared case-insensitively against the glossary, the pending list, and the dismissals ([L27-L35](../../Sources/Learning/GlossaryProposal.swift#L27-L35)).
 - Enforced: at most 50 pending and 500 remembered dismissals; the oldest dismissal is forgotten first ([L14-L16](../../Sources/Learning/GlossaryProposal.swift#L14-L16), [L31](../../Sources/Learning/GlossaryProposal.swift#L31), [L58-L61](../../Sources/Learning/GlossaryProposal.swift#L58-L61)).
-- Enforced: a batch of findings is written to Settings once ([AppSettings.swift L471-L475](../../Sources/Settings/AppSettings.swift#L471-L475)).
-- Enforced: nothing is added to the glossary automatically.
+- Enforced: nothing is added to the glossary automatically; a proposal reaches it only through Add in Settings, which adds the term and removes the proposal ([GlossarySettingsView.swift L280-L286](../../Sources/Settings/GlossarySettingsView.swift#L280-L286)).
 - Assumed: a decoded list is within the caps; the type does not check a decoded blob again.
-- Assumed: Settings' versioned storage keeps a newer build's blob intact ([AppSettings.swift L555-L557](../../Sources/Settings/AppSettings.swift#L555-L557)).
-- Assumed: every finding has at least one hint. `addIfNew` drops hints that trim to empty and can store a proposal with none ([L41-L43](../../Sources/Learning/GlossaryProposal.swift#L41-L43)); the judge's filters normally prevent that ([MishearingJudge.swift L90-L93](../../Sources/Learning/MishearingJudge.swift#L90-L93)).
+- Assumed: Settings' versioned storage keeps a newer build's blob intact ([AppSettings.swift L547-L552](../../Sources/Settings/AppSettings.swift#L547-L552)).
+- Assumed: a stored proposal has at least one hint. `addIfNew` drops hints that trim to empty and can store a proposal with none ([L41-L43](../../Sources/Learning/GlossaryProposal.swift#L41-L43)).
 
-**Tests.** [`AppSettingsTests`](../../Tests/SyrupTests/AppSettingsTests.swift): `glossaryProposalsPersistAndReloadAsVersionedBlob`. [`GlossaryProposalTests`](../../Tests/SyrupTests/GlossaryProposalTests.swift): `addIfNewNormalizesAndDeduplicatesAcrossAllSources`, `removeProposalRemovesOnlyMatchingID`, `dismissRemovesProposalAndRecordsPermanentKey` (despite its name, 500 later dismissals push the key out), `codableRoundTripPreservesProposalList`. [`MishearingJudgeTests`](../../Tests/SyrupTests/MishearingJudgeTests.swift): `storedProposalsAndDismissalsAreCapped`. [`HardRuleTests`](../../Tests/SyrupTests/HardRuleTests.swift): `settingsANewerBuildsBlobsLoadEmptyOrAsTheDefaultWorkflowAndAreNeverOverwritten`.
+**Tests.** [`AppSettingsTests`](../../Tests/SyrupTests/AppSettingsTests.swift): `glossaryProposalsPersistAndReloadAsVersionedBlob`. [`GlossaryProposalTests`](../../Tests/SyrupTests/GlossaryProposalTests.swift): `addIfNewNormalizesAndDeduplicatesAcrossAllSources`, `removeProposalRemovesOnlyMatchingID`, `dismissRemovesProposalAndRecordsPermanentKey` (despite its name, 500 later dismissals push the key out), `codableRoundTripPreservesProposalList`. [`GlossaryTests`](../../Tests/SyrupTests/GlossaryTests.swift): `storedProposalsAndDismissalsAreCapped`. [`HardRuleTests`](../../Tests/SyrupTests/HardRuleTests.swift): `settingsANewerBuildsBlobsLoadEmptyOrAsTheDefaultWorkflowAndAreNeverOverwritten`.
 
-**Open questions.** None.
+**Open questions**
 
-### M36 Launch cleanup decision
+- With no producer left, the Settings section, still titled "Suggested from your recordings" ([GlossarySettingsView.swift L243-L263](../../Sources/Settings/GlossarySettingsView.swift#L243-L263)), shows only proposals stored by an earlier version. Should it be retired once those are added or dismissed?
 
-At launch, if learning is off, `deleteLeftoverRecordingsIfLearningIsOff` deletes recordings left from a time it was on. A failure is swallowed and retried at the next launch; it never turns learning on, because the person did not change the setting.
+### M38 Retired learning cleanup
+
+Glossary learning kept dictation audio under `Recordings/` and a 626 MB comparison model under `WhisperModels/` in Syrup's Application Support folder, behind the `glossaryLearningEnabled` setting. The feature is gone, and `RetiredGlossaryLearning` deletes what it left at every launch, and nothing else. A folder it cannot delete stays on disk, is tried again at the next launch, and is shown in Privacy with Show in Finder and Delete Now. The order matters: Privacy reads the folders only after the launch cleanup has finished, so a deletion still under way is never shown as one that failed, and a folder that cannot be inspected counts as left, so Privacy never says nothing is left when it cannot tell.
 
 **State variables**
 
-- None of its own. It reads [`settings.glossaryLearningEnabled`](../../Sources/Learning/GlossaryLearningRetention.swift#L11) and calls [`deleteAll`](../../Sources/Learning/GlossaryLearningRetention.swift#L12)
-- The launch task reads the setting first and runs maintenance after the cleanup when learning was on ([SyrupApp.swift L139-L146](../../Sources/App/SyrupApp.swift#L139-L146))
+- [`RetiredGlossaryLearning.launchCleanup`](../../Sources/Learning/RetiredGlossaryLearning.swift#L12), the detached task `SyrupApp` starts at launch ([SyrupApp.swift L118-L120](../../Sources/App/SyrupApp.swift#L118-L120))
+- On disk: the two [`folders`](../../Sources/Learning/RetiredGlossaryLearning.swift#L9) and the [`settingKey`](../../Sources/Learning/RetiredGlossaryLearning.swift#L10) in UserDefaults; [`remainingFolders`](../../Sources/Learning/RetiredGlossaryLearning.swift#L39-L45) lists every folder the system does not report as missing
+- Privacy's [`retiredLearningLeftovers` and `retiredLearningDeletionFailed`](../../Sources/Settings/PrivacySettingsPane.swift#L16-L17), filled by its [first task](../../Sources/Settings/PrivacySettingsPane.swift#L40-L42) and by [Delete Now](../../Sources/Settings/PrivacySettingsPane.swift#L167-L175)
 
 ```mermaid
 stateDiagram-v2
-    state Guard <<choice>>
-    state "Nothing to do" as NoAction
-    state "deleteAll requested" as Cleaning
-    state "Clean, learning off" as CleanOff
-    state "Files left, learning off" as ResidualOff
-    [*] --> Guard: launch
-    Guard --> NoAction: learning on, or no archive
-    Guard --> Cleaning: learning off and an archive
-    Cleaning --> CleanOff: deleteAll returns
-    Cleaning --> ResidualOff: deleteAll throws, error swallowed
-    ResidualOff --> Guard: next launch
-    note right of ResidualOff
-        The opt-in is never turned on here.
-        Settings shows the leftover count from
-        storedRecordingCount.
-    end note
+    state LaunchResult <<choice>>
+    state DeleteResult <<choice>>
+    state "Launch cleanup running" as Cleaning
+    state "Nothing left" as Clean
+    state "Folders left, tried again at the next launch" as Left
+    state "Privacy waiting for the launch cleanup" as Waiting
+    state "Privacy row hidden" as Hidden
+    state "Privacy row shown" as Shown
+    state "Delete Now running" as Deleting
+    state "Row shown with the failure line" as ShownFailed
+    [*] --> Cleaning: launch
+    Cleaning --> LaunchResult: removeItem on each folder, setting key removed
+    LaunchResult --> Clean: every folder reported missing
+    LaunchResult --> Left: a delete threw, or a folder cannot be inspected
+    Left --> Cleaning: next launch
+    [*] --> Waiting: Privacy pane appears
+    Waiting --> Hidden: cleanup done, no folder reported
+    Waiting --> Shown: cleanup done, some folder reported
+    Shown --> Deleting: Delete Now
+    ShownFailed --> Deleting: Delete Now
+    Deleting --> DeleteResult: removeLeftovers returns
+    DeleteResult --> Hidden: no folder reported
+    DeleteResult --> ShownFailed: some folder still reported
 ```
 
 **Invariants**
 
-- Enforced: it never changes the opt-in ([L11-L12](../../Sources/Learning/GlossaryLearningRetention.swift#L11-L12)).
-- Enforced: only a launch with learning off and an archive deletes anything ([L11](../../Sources/Learning/GlossaryLearningRetention.swift#L11)).
-- Assumed: Settings shows leftover files truthfully from `storedRecordingCount` ([GlossarySettingsView.swift L106](../../Sources/Settings/GlossarySettingsView.swift#L106), [L379](../../Sources/Settings/GlossarySettingsView.swift#L379)).
-- Assumed: the setting is read once. If the person turns learning on while the cleanup runs, a recording begun before `deleteAll` reaches the archive is deleted with the rest; that errs toward deleting.
+- Enforced: only the `Recordings` and `WhisperModels` folders in Syrup's Application Support folder, and the `glossaryLearningEnabled` key, are removed ([L9-L10](../../Sources/Learning/RetiredGlossaryLearning.swift#L9-L10), [L18-L34](../../Sources/Learning/RetiredGlossaryLearning.swift#L18-L34), [L83-L87](../../Sources/Learning/RetiredGlossaryLearning.swift#L83-L87)).
+- Enforced: a symbolic link in a folder's place is reported and removed, never what it points to ([L42-L43](../../Sources/Learning/RetiredGlossaryLearning.swift#L42-L43), [L47-L59](../../Sources/Learning/RetiredGlossaryLearning.swift#L47-L59)).
+- Enforced: a folder counts as gone only when the system reports it missing; one that cannot be inspected is reported as left ([L36-L45](../../Sources/Learning/RetiredGlossaryLearning.swift#L36-L45), [L49-L58](../../Sources/Learning/RetiredGlossaryLearning.swift#L49-L58)).
+- Enforced: Privacy reads the folders only after the launch cleanup has finished, and off the main actor ([L61-L68](../../Sources/Learning/RetiredGlossaryLearning.swift#L61-L68)).
+- Enforced: a failed delete is logged with its error code only, and tried again at the next launch ([L25-L31](../../Sources/Learning/RetiredGlossaryLearning.swift#L25-L31)).
+- Enforced: Privacy's description names only the folders reported ([L72-L81](../../Sources/Learning/RetiredGlossaryLearning.swift#L72-L81)), and the row appears only while some folder is reported ([PrivacySettingsPane.swift L152-L154](../../Sources/Settings/PrivacySettingsPane.swift#L152-L154)).
+- Assumed: nothing in the app creates either folder any more; no source file outside `RetiredGlossaryLearning` names them.
+- Assumed: `launchCleanup` is set before Privacy can appear. `SyrupApp.init` sets it before any scene is built; were it nil, Privacy would read the folders at once.
+- Assumed: Delete Now has no running state, so a second click runs a second deletion alongside the first. Both end by reading the folders again, so the row still shows only what is left.
 
-**Tests.** [`AppSettingsTests`](../../Tests/SyrupTests/AppSettingsTests.swift): `failedStartupCleanupNeverEnablesGlossaryLearning`. [`HardRuleTests`](../../Tests/SyrupTests/HardRuleTests.swift): `privacyTurningLearningOffDeletesTheRecordingsOrStaysOn` covers the interactive opt-out, which turns learning back on when deletion fails.
+**Tests.** [`RetiredGlossaryLearningTests`](../../Tests/SyrupTests/RetiredGlossaryLearningTests.swift): `launchRemovesTheRecordingsAndComparisonModelAndNothingElse`, `eitherFolderAloneIsRemoved`, `aFolderThatCannotBeDeletedGoesAtTheNextLaunch`, `foldersThatCannotBeInspectedAreReported`, `aLinkInAFoldersPlaceIsRemovedAndItsTargetKept`, `aSupportPathThatIsAFileReportsNothing`, `privacyReadsTheFoldersOnlyAfterTheLaunchCleanup`, `launchWithNothingLeftOverChangesNothing`. [`RetiredLearningCopyTests`](../../Tests/SyrupTests/SettingsCopyTests.swift): `theLeftoverRowNamesOnlyWhatIsLeft`. No test hosts the Privacy row.
 
 **Open questions.** None.
 
@@ -1824,8 +1353,7 @@ These hold state for one call or one object and have no chart.
 |---|---|---|---|---|
 | M10 One-shot converter input callbacks | `SingleBufferInputProvider`, `EndOfStreamInputProvider` | One Bool each: hand over the buffer, or end of stream, once, then report `noDataNow` | [AppleTranscriber.swift L356-L389](../../Sources/Transcription/AppleTranscriber.swift#L356-L389) | Indirect: `AppleTranscriberTests.conversionProducesTargetFormat`, `finishDrainsConverterTailFrames` |
 | M11 Speech metric intervals | `AppleTranscriberMetricsRecorder` | One signpost interval per stage, closed once on success, cancel, or failure; the log line holds stage, outcome, a per-call UUID, and duration | [AppleTranscriber.swift L171-L222](../../Sources/Transcription/AppleTranscriber.swift#L171-L222) | None |
-| M25 Pending-count subscriptions | `RecordingArchive` | `countObservers` and `lastPublishedCount`; each subscriber gets the current count, then changes, newest only. It counts eligible pending entries, not files on disk | [RecordingArchive.swift L55-L56](../../Sources/Learning/RecordingArchive.swift#L55-L56), [L150-L173](../../Sources/Learning/RecordingArchive.swift#L150-L173) | `RecordingArchiveCountTests.archiveCountsFollowCommitsDeletesAndNewSubscribers` |
 | M37 Speech energy filter | `SpeechSegmenter` | High-pass filter history, reset on every call | [SpeechSegmenter.swift L42-L55](../../Sources/Transcription/SpeechSegmenter.swift#L42-L55) | `ParakeetTranscriberTests.roomNoiseWithoutSpeechIsNeverDecoded`, `longerDictationsAreCutInsideARealPause` |
 | M37 Mel spectrogram FFT setup | `CanaryMelSpectrogram` | An FFT setup made in `init` and destroyed in `deinit`; scratch arrays per call | [CanaryModel.swift L245-L326](../../Sources/Transcription/CanaryModel.swift#L245-L326) | `CanaryTests.featuresHaveTheEncoderShapeAndAreNormalizedPerBin` |
-| M37 Scan helpers | Probe, suggestion, judge, and Canary helpers | Seen sets, cursors, and best-so-far values for one call: voice choice, carrier word ranges, suggestion keys, locale keys, reply parsing, logits argmax | [MishearingProbe.swift L11-L26](../../Sources/Learning/MishearingProbe.swift#L11-L26), [L63-L72](../../Sources/Learning/MishearingProbe.swift#L63-L72), [L83-L89](../../Sources/Learning/MishearingProbe.swift#L83-L89); [MishearingSuggestionModel.swift L27-L34](../../Sources/Learning/MishearingSuggestionModel.swift#L27-L34); [MishearingJudge.swift L64-L83](../../Sources/Learning/MishearingJudge.swift#L64-L83); [CanaryModel.swift L215-L224](../../Sources/Transcription/CanaryModel.swift#L215-L224) | `MishearingProbeTests` helper tests; `MishearingJudgeTests.parserDistinguishesGarbageFromAnEmptyFindingSet` |
+| M37 Scan helpers | Probe, suggestion, and Canary helpers | Seen sets, cursors, and best-so-far values for one call: voice choice, carrier word ranges, suggestion keys, locale keys, logits argmax | [MishearingProbe.swift L11-L26](../../Sources/Learning/MishearingProbe.swift#L11-L26), [L63-L72](../../Sources/Learning/MishearingProbe.swift#L63-L72), [L83-L89](../../Sources/Learning/MishearingProbe.swift#L83-L89); [MishearingSuggestionModel.swift L27-L34](../../Sources/Learning/MishearingSuggestionModel.swift#L27-L34); [CanaryModel.swift L215-L224](../../Sources/Transcription/CanaryModel.swift#L215-L224) | `MishearingProbeTextTests` helper tests |
 | M37 FluidAudio logging latch | `FluidAudioLogging` | Sets FluidAudio's process-wide logger to faults only and off the console before any engine works; set again by each engine, never restored | [ParakeetEngine.swift L88-L96](../../Sources/Transcription/ParakeetEngine.swift#L88-L96) | `StreamingSpeechTests.everyWayToBuildAFluidAudioEngineSilencesItsLogging` |
