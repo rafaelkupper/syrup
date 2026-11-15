@@ -35,14 +35,14 @@ tmp_root=${tmp_root%/}
 remove_run_temp() {
     rm -rf "$tmp_root/$host_prefix.$1"
     case $2 in */syrup-tests.??????)
-        find "$tmp_root" -maxdepth 1 -type f -name "*_$(basename "$2")_build_SourcePackages_*.lock" -delete ;;
+        find "$tmp_root" -maxdepth 1 -type f -name "*_$(basename "$2")_build_SourcePackages_*.lock" -delete 2>/dev/null || : ;;
     esac
 }
 
 # remove_run_prefs <token>: one run's test preference files and its host's domain.
 remove_run_prefs() {
     find "$preferences" -maxdepth 1 -type f \
-        \( -name "$domain_prefix.$1.*.plist" -o -name "$host_prefix.$1.plist" \) -delete
+        \( -name "$domain_prefix.$1.*.plist" -o -name "$host_prefix.$1.plist" \) -delete 2>/dev/null || :
 }
 
 # run_is_live <token>: the PID in the run's marker is still running this script.
@@ -53,35 +53,44 @@ run_is_live() {
 
 # Earlier runs that are over: their preference files, their temporary copy, and their marker. A
 # plain `xcodebuild test` has no marker and uses the token "local"; its files go once an hour old.
+# Two runs starting together clean up the same earlier runs, so a file the other one removed first
+# is not an error: each step tolerates it rather than stop this run under `set -e`.
 remove_finished_runs() {
     for marker in "$runs_dir"/*; do
         [ -f "$marker" ] || continue
         token=$(basename "$marker")
         run_is_live "$token" && continue
         remove_run_prefs "$token"
-        root=$(sed -n 2p "$marker")
+        root=$(sed -n 2p "$marker" 2>/dev/null) || continue
         remove_run_temp "$token" "$root"
         case $root in */syrup-tests.??????) rm -rf "$root" ;; esac
         rm -f "$marker"
     done
-    find "$preferences" -maxdepth 1 -type f -mmin +60 -name "$domain_prefix.local.*.plist" -delete
+    find "$preferences" -maxdepth 1 -type f -mmin +60 -name "$domain_prefix.local.*.plist" -delete 2>/dev/null || :
     # A host domain cfprefsd saved after the next run had already removed its run's marker, as
     # back-to-back runs do: gone once ten minutes old, far past cfprefsd's delay, unless its run is live.
     for plist in "$preferences/$host_prefix".*.plist; do
         [ -f "$plist" ] || continue
         token=${plist##*/"$host_prefix".}
         token=${token%.plist}
-        run_is_live "$token" || find "$plist" -mmin +10 -delete
+        run_is_live "$token" || find "$plist" -mmin +10 -delete 2>/dev/null || :
     done
+    # A copy left empty by a run that stopped before writing its marker. A live run fills its copy
+    # within seconds of making it, so one still empty after ten minutes is abandoned.
+    find "$tmp_root" -maxdepth 1 -type d -name 'syrup-tests.??????' -empty -mmin +10 -exec rmdir {} + 2>/dev/null || :
     # Left by runs from before markers covered them: host folders of runs no longer going, and
     # SwiftPM lock files whose temporary copy is gone.
     for folder in "$tmp_root/$host_prefix".*; do
         [ -d "$folder" ] || continue
         run_is_live "${folder##*.}" || rm -rf "$folder"
     done
-    for lock in "$tmp_root"/*syrup-tests.??????_build_SourcePackages_*.lock; do
+    # SwiftPM names a lock after the build folder's physical path, slashes made underscores. Only
+    # locks of copies directly in this temporary folder are checked here; a copy elsewhere, given as
+    # SYRUP_TEST_ROOT, may still be running, and its locks are not this check's to judge.
+    physical_tmp=$(CDPATH= cd -- "$tmp_root" && pwd -P | tr '/' '_')
+    for lock in "$tmp_root/${physical_tmp}_syrup-tests."??????"_build_SourcePackages_"*.lock; do
         [ -f "$lock" ] || continue
-        copy=$(printf '%s' "$lock" | sed -E 's/.*(syrup-tests\.[A-Za-z0-9]{6})_build_SourcePackages_.*\.lock$/\1/')
+        copy=$(printf '%s' "${lock#"$tmp_root/${physical_tmp}_"}" | cut -c1-18)
         [ -d "$tmp_root/$copy" ] || rm -f "$lock"
     done
 }

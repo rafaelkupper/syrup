@@ -71,6 +71,26 @@ class BranchTests(unittest.TestCase):
             self.assertEqual(found, {(name, 2) for name in names} | {("Sources/New.swift", 1)})
 
 
+    def test_changed_lines_are_found_with_literal_pathspecs_and_a_diff_attribute(self):
+        # GIT_LITERAL_PATHSPECS turns a :(literal) prefix into part of the name; `-diff` makes Git
+        # print no hunks. Either once gave zero mutants and a pass.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "Sources").mkdir()
+            (root / "Sources/A.swift").write_text("func f() -> Bool {\n    return false\n}\n", encoding="utf-8")
+            (root / ".gitattributes").write_text("*.swift -diff\n", encoding="utf-8")
+            self.git(root, "init", "-q")
+            self.git(root, "add", ".")
+            self.git(root, "commit", "-q", "--no-verify", "-m", "base")
+            (root / "Sources/A.swift").write_text("func f() -> Bool {\n    return true\n}\n", encoding="utf-8")
+            previous = os.environ.get("GIT_LITERAL_PATHSPECS")
+            os.environ["GIT_LITERAL_PATHSPECS"] = "1"
+            self.addCleanup(lambda: os.environ.pop("GIT_LITERAL_PATHSPECS") if previous is None
+                            else os.environ.__setitem__("GIT_LITERAL_PATHSPECS", previous))
+            found = {(m.path, m.line) for m in mutation.branch_mutants("HEAD", root)[0]}
+            self.assertEqual(found, {("Sources/A.swift", 2)})
+
+
 class MaskTests(unittest.TestCase):
     def test_comments_and_strings_become_spaces_and_columns_stay(self):
         source = 'let a = b == c // d == e\n/* f == g\n /* nested */ h == i */ j == k\nlet s = "x == y"\n'
@@ -115,8 +135,10 @@ class OperatorTests(unittest.TestCase):
         self.assertEqual(mutated("if !ready {"), [("! removed", "if ready {")])
         self.assertEqual(mutated("guard !items.isEmpty, (!a) else {"),
                          [("! removed", "guard items.isEmpty, (!a) else {"), ("! removed", "guard !items.isEmpty, (a) else {")])
-        for line in ["let y = x!.count", "if a != b {", "let s = \"!a\""]:
+        for line in ["let y = x!.count", "if a != b {", "let s = \"!a\"", "let z = x!!.count"]:
             self.assertNotIn("! removed", [operator for operator, _ in mutated(line)], line)
+        self.assertEqual(mutated("if !!ready {"), [("! removed", "if !ready {")])
+        self.assertEqual([m for m in mutated("let off =!on") if m[0] == "! removed"], [("! removed", "let off =on")])
 
     def test_a_bool_literal_that_is_assigned_is_flipped(self):
         self.assertEqual(mutated("let enabled = true"), [("true to false", "let enabled = false")])
@@ -160,10 +182,36 @@ class OperatorTests(unittest.TestCase):
             "final class Model: ObservableObject {",    # 12
             "    func h() -> Bool { a == b }",          # 13
             "}",                                        # 14
+            "class Boxed: Box<any View> {",             # 15: a View only as a generic argument
+            "    func k() -> Bool { a == b }",          # 16
+            "}",                                        # 17
         ])
-        found = mutation.mutants_for_file("A.swift", source, set(range(1, 15)))
-        self.assertEqual(sorted({m.line for m in found}), [10, 13])
+        found = mutation.mutants_for_file("A.swift", source, set(range(1, 18)))
+        self.assertEqual(sorted({m.line for m in found}), [10, 13, 16])
         self.assertEqual(mutation.view_lines(mutation.mask(source)), {1, 2, 3, 4, 5, 6, 7, 8})
+
+    def test_view_code_outside_view_types_is_skipped_and_static_helpers_are_not(self):
+        source = "\n".join([
+            "struct Pane: View {",                                                  # 1
+            "    var body: some View { Text(a == b ? \"x\" : \"y\") }",               # 2
+            "    static func detail(_ x: Int) -> String { x == 1 ? \"a\" : \"b\" }",  # 3: tested helper
+            "}",                                                                     # 4
+            "extension Pane {",                                                      # 5: same-file view
+            "    func pill() -> Int { a == b ? 1 : 2 }",                             # 6
+            "}",                                                                     # 7
+            "struct Bindings {",                                                     # 8
+            "    func row() -> some View { Text(a == b ? \"x\" : \"y\") }",          # 9: a view builder
+            "    func flag() -> Bool { a == b }",                                    # 10
+            "}",                                                                     # 11
+            "struct PrimaryStyle: ButtonStyle {",                                    # 12
+            "    func makeBody(configuration: Configuration) -> Bool { a == b }",    # 13
+            "}",                                                                     # 14
+            "struct Main: App {",                                                    # 15
+            "    func scene() -> Bool { a == b }",                                   # 16
+            "}",                                                                     # 17
+        ])
+        found = mutation.mutants_for_file("A.swift", source, set(range(1, 18)))
+        self.assertEqual(sorted({m.line for m in found}), [3, 10])
 
     def test_only_changed_lines(self):
         source = "a = b == c\nd = e == f\ng = h == i\n"
@@ -187,18 +235,33 @@ class SelectionTests(unittest.TestCase):
         self.assertNotEqual(first.key, second.key)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "equivalent.json"
-            path.write_text(json.dumps({"equivalent": [{"file": "A.swift", "original": "remember(key)", "mutated": "",
-                                                        "occurrence": 2, "before": "func b() {", "after": "}",
-                                                        "reason": "b never runs"}]}))
+            path.write_text(json.dumps({"version": 1, "equivalent": [{"file": "A.swift", "original": "remember(key)", "mutated": "",
+                                                        "scope": "func b()", "occurrence": 1, "before": "func b() {",
+                                                        "after": "}", "reason": "b never runs"}]}))
             self.assertEqual(mutation.load_equivalent(path), {second.key})
 
     def test_an_entry_does_not_move_to_another_line_when_an_identical_line_is_inserted(self):
         source = "func a() {\n    remember(key)\n}\nfunc b() {\n    remember(key)\n}\n"
         listed = mutation.mutants_for_file("A.swift", source, {5})[0]
         changed = "func z() {\n    remember(key)\n}\n" + source
-        keys = {m.key for m in mutation.mutants_for_file("A.swift", changed, {2, 5, 8})}
-        # Each line now has another occurrence number; none may take over the entry for func b.
-        self.assertNotIn(listed.key, keys)
+        matching = [m.line for m in mutation.mutants_for_file("A.swift", changed, {2, 5, 8}) if m.key == listed.key]
+        # The entry for func b still names func b's line, now line 8, and no other.
+        self.assertEqual(matching, [8])
+
+    def test_an_entry_does_not_move_to_an_identical_line_in_another_function(self):
+        # As in OpenAICompatibleTransformer: two functions hold the same line with the same neighbors.
+        def function(name):
+            return "    func %s() {\n        var sends = first\n        var flag = false\n        while true {\n        }\n    }\n" % name
+        source = "struct T {\n" + function("stream") + function("transform") + "}\n"
+        listed = mutation.mutants_for_file("A.swift", source, set(range(1, 20)))
+        listed = [m for m in listed if m.original.strip() == "var flag = false"]
+        self.assertEqual(len(listed), 2)
+        changed = "struct T {\n" + function("added") + function("stream") + function("transform") + "}\n"
+        after = [m for m in mutation.mutants_for_file("A.swift", changed, set(range(1, 30)))
+                 if m.original.strip() == "var flag = false"]
+        keys = {m.key for m in listed}
+        # The two listed lines still match; the new function's line does not take over either entry.
+        self.assertEqual([m.key in keys for m in after], [False, True, True])
 
     def test_selection_does_not_change_when_unrelated_lines_move(self):
         source = "".join("func f%d() -> Bool {\n    return a%d == b\n}\n" % (n, n) for n in range(12))
@@ -211,23 +274,35 @@ class SelectionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "A.swift").write_text("func f() {\n    remember(key)\n}\n", encoding="utf-8")
-            good = {"file": "A.swift", "original": "remember(key)", "mutated": "", "occurrence": 1,
+            good = {"file": "A.swift", "scope": "func f()", "original": "remember(key)", "mutated": "", "occurrence": 1,
                     "before": "func f() {", "after": "}", "reason": "r"}
             moved = dict(good, before="func g() {")
             gone = dict(good, file="Gone.swift")
             path = root / "equivalent.json"
-            path.write_text(json.dumps({"equivalent": [good, moved, gone]}), encoding="utf-8")
+            path.write_text(json.dumps({"version": 1, "equivalent": [good, moved, gone]}), encoding="utf-8")
             self.assertEqual(mutation.stale_entries(path, root), [moved, gone])
 
     def test_equivalent_entries_need_a_reason_and_match_by_text(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "equivalent.json"
-            path.write_text(json.dumps({"equivalent": [
+            path.write_text(json.dumps({"version": 1, "equivalent": [
                 {"file": "A.swift", "original": "  a == b ", "mutated": "a != b", "reason": "a and b are always equal"}]}))
-            self.assertEqual(mutation.load_equivalent(path), {("A.swift", "a == b", "a != b", 1, "", "")})
-            path.write_text(json.dumps({"equivalent": [{"file": "A.swift", "original": "a", "mutated": "b", "reason": " "}]}))
+            self.assertEqual(mutation.load_equivalent(path), {("A.swift", "", "a == b", "a != b", 1, "", "")})
+            path.write_text(json.dumps({"version": 1, "equivalent": [{"file": "A.swift", "original": "a", "mutated": "b", "reason": " "}]}))
             with self.assertRaises(SystemExit):
                 mutation.load_equivalent(path)
+            # A hand-edited entry missing a field is refused with a message, not a traceback.
+            path.write_text(json.dumps({"version": 1, "equivalent": [{"file": "A.swift", "mutated": "b", "reason": "r"}]}))
+            with self.assertRaises(SystemExit):
+                mutation.load_equivalent(path)
+            with self.assertRaises(SystemExit):
+                mutation.stale_entries(path, Path(directory))
+            # Not JSON, or written for a version this tool does not know: refused with a message.
+            for text in ("{not json", json.dumps({"version": 2, "equivalent": []}), json.dumps([])):
+                path.write_text(text, encoding="utf-8")
+                for check in (mutation.load_equivalent, lambda p: mutation.stale_entries(p, Path(directory))):
+                    with self.assertRaises(SystemExit, msg=text):
+                        check(path)
         self.assertEqual(mutation.load_equivalent(Path("/nonexistent/equivalent.json")), set())
 
 
@@ -315,6 +390,49 @@ class RunTests(unittest.TestCase):
         env["SYRUP_MUTANTS"] = "many"
         self.assertEqual(subprocess.run([sys.executable, "-I", str(SCRIPT), "--base", "HEAD", "--list"], env=env,
                                         capture_output=True).returncode, 2)
+
+    def test_stopping_leaves_processes_the_run_did_not_start(self):
+        # Processes that only name the build folder, or a folder whose name begins with it, are not
+        # the run's: someone watching a log there, say.
+        with tempfile.TemporaryDirectory() as directory:
+            scratch = Path(directory)
+            (scratch / "script").mkdir()
+            fake = scratch / "script" / "test-isolated.sh"
+            fake.write_text("#!/bin/sh\nexec sleep 300\n")
+            fake.chmod(0o755)
+            root = scratch / "root"
+            (root / "build").mkdir(parents=True)
+            (root / "build" / "log").write_text("", encoding="utf-8")
+            self.addCleanup(self.kill_naming, str(root))
+            bystanders = [subprocess.Popen(["perl", "-e", "sleep 300", str(root) + "-unrelated"]),
+                          subprocess.Popen(["tail", "-f", str(root / "build" / "log")])]
+            for bystander in bystanders:
+                self.addCleanup(lambda process=bystander: (process.kill(), process.wait()))
+            result, _ = mutation.run_suite(scratch, root, scratch / "run.log", timeout=1)
+            self.assertEqual(result, "timed out")
+            self.assertEqual([bystander.poll() for bystander in bystanders], [None, None])
+
+    def test_stopping_reaches_the_test_host_launched_from_the_build_folder(self):
+        # launchd starts the test host, so it is no descendant of the run; its executable is in the
+        # run's build folder, which only the run builds into.
+        with tempfile.TemporaryDirectory() as directory:
+            scratch = Path(directory)
+            (scratch / "script").mkdir()
+            fake = scratch / "script" / "test-isolated.sh"
+            fake.write_text("#!/bin/sh\nexec sleep 300\n")
+            fake.chmod(0o755)
+            root = scratch / "root"
+            (root / "build").mkdir(parents=True)
+            host = root / "build" / "Host"
+            # Built here rather than copied: macOS kills a copied system binary at launch.
+            subprocess.run(["cc", "-x", "c", "-", "-o", str(host)], check=True, capture_output=True,
+                           input=b"#include <unistd.h>\nint main(void) { for (;;) pause(); }\n")
+            self.addCleanup(self.kill_naming, str(root))
+            launched = subprocess.Popen([str(host), "300"], start_new_session=True)
+            self.addCleanup(lambda: (launched.kill(), launched.wait()))
+            result, _ = mutation.run_suite(scratch, root, scratch / "run.log", timeout=1)
+            self.assertEqual(result, "timed out")
+            self.assertEqual(launched.wait(timeout=5), -signal.SIGTERM)
 
     def run_script(self, *args):
         return subprocess.run([sys.executable, "-I", str(SCRIPT), "--base", "HEAD", "--list", *args],

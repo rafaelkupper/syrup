@@ -137,15 +137,18 @@ class Mutant:
     mutated: str
     operator: str
     # A file can repeat a line in places that behave differently, so a mutant is also known by which
-    # line with this text it is, counting from the top, and by the code lines just before and after.
-    # If either changes, an entry stops matching and the mutant runs again.
+    # line with this text it is within its declarations, counting from the top, and by the code lines
+    # just before and after. If any changes, an entry stops matching and the mutant runs again.
     occurrence: int = 1
     before: str = ""
     after: str = ""
+    # The declarations around the line, such as "struct T > func stream()", so an identical line in
+    # another function never takes over an entry; occurrences are counted within them.
+    scope: str = ""
 
     @property
-    def key(self) -> tuple[str, str, str, int, str, str]:
-        return (self.path, self.original.strip(), self.mutated.strip(), self.occurrence, self.before, self.after)
+    def key(self) -> tuple[str, str, str, str, int, str, str]:
+        return (self.path, self.scope, self.original.strip(), self.mutated.strip(), self.occurrence, self.before, self.after)
 
     @property
     def order(self) -> str:
@@ -155,9 +158,9 @@ class Mutant:
 
     def entry(self) -> str:
         """The mutation-equivalent.json entry that would list this mutant, reason left to fill in."""
-        return json.dumps({"file": self.path, "original": self.original.strip(), "mutated": self.mutated.strip(),
-                           "occurrence": self.occurrence, "before": self.before, "after": self.after, "reason": ""},
-                          ensure_ascii=False)
+        return json.dumps({"file": self.path, "scope": self.scope, "original": self.original.strip(),
+                           "mutated": self.mutated.strip(), "occurrence": self.occurrence, "before": self.before,
+                           "after": self.after, "reason": ""}, ensure_ascii=False)
 
 
 KEYWORDS = {"return", "if", "guard", "let", "var", "case", "switch", "while", "for", "throw", "defer",
@@ -174,7 +177,7 @@ REPLACEMENTS = [
     ("<= to <", re.compile(r"(?<=\s)<=(?=\s)"), "<"),
     ("> to >=", re.compile(r"(?<=\s)>(?=\s)"), ">="),
     (">= to >", re.compile(r"(?<=\s)>=(?=\s)"), ">"),
-    ("! removed", re.compile(r"(?:^|(?<=[\s(\[,{]))!(?=[A-Za-z_(.$\[])"), ""),
+    ("! removed", re.compile(r"(?:^|(?<=[\s(\[,{=]))!(?=[A-Za-z_(.$\[!])"), ""),
 ]
 CALL = re.compile(r"(?:try\s+|await\s+|try\s+await\s+)?([A-Za-z_]\w*)(?:\??\.[A-Za-z_]\w*)*\(.*\)")
 ASSIGNMENT = re.compile(r"(?:self\.)?([A-Za-z_]\w*)(?:\.[A-Za-z_]\w*)*\s*(?:=(?!=)|\+=|-=)\s*\S.*")
@@ -193,48 +196,132 @@ def balanced(text: str) -> bool:
     return True
 
 
-DECLARATION = re.compile(r"\b(?:struct|extension|class|enum)\s+[A-Za-z_][\w.]*")
+DECLARATION_LINE = re.compile(
+    r"^\s*(?:@\w+(?:\([^)]*\))?\s*|(?:public|private|fileprivate|internal|open|static|final|override|mutating|"
+    r"nonmutating|nonisolated|convenience|required|lazy|dynamic|indirect|class)\s+)*"
+    r"(func|init|deinit|subscript|var|struct|class|enum|extension|actor|protocol)\b")
+TYPE_KEYWORDS = {"struct", "class", "enum", "extension", "actor", "protocol"}
+UI_CONFORMANCES = {"View", "SwiftUI.View", "App", "Scene", "ViewModifier"}
+
+
+def declaration(header: str, ui_types: set[str] = frozenset()) -> tuple[str, str] | None:
+    """For the code before a `{`: the declaration it opens, whitespace collapsed, and its kind. "ui" is
+    a SwiftUI type (see `conforms_to_ui`) or an extension of one declared in the same file; "builder"
+    a member returning `some View`; "static" any other static member; "type" and "member" the rest.
+    None for a closure or a control-flow block."""
+    lines = header.split("\n")
+    for index in range(len(lines) - 1, -1, -1):
+        match = DECLARATION_LINE.match(lines[index])
+        if not match:
+            continue
+        text = " ".join(" ".join(lines[index:]).split())
+        keyword = match.group(1)
+        if keyword in TYPE_KEYWORDS:
+            name = re.search(r"\b%s\s+([\w.]+)" % keyword, text)
+            extended = keyword == "extension" and name is not None and name.group(1) in ui_types
+            return text, "ui" if conforms_to_ui(text) or extended else "type"
+        if re.search(r"\bsome\s+View\b", text):
+            return text, "builder"
+        if re.search(r"\bstatic\b", text):
+            return text, "static"
+        return text, "member"
+    return None
+
+
+def conforms_to_ui(text: str) -> bool:
+    """One of the type's own conformances is SwiftUI's: `View`, `App`, `Scene`, `ViewModifier`, or a
+    style such as `ButtonStyle`. A generic argument or constraint does not count, so
+    `struct Box<Content: View>` and `class Model: Box<any View>` are not views."""
+    match = re.match(r".*?\b(?:struct|class|enum|extension|actor|protocol)\s+[\w.]+", text)
+    rest = text[match.end():] if match else text
+    if rest.startswith("<"):  # the type's own generic parameters
+        depth = 0
+        for index, character in enumerate(rest):
+            depth += {"<": 1, ">": -1}.get(character, 0)
+            if depth == 0:
+                rest = rest[index + 1:]
+                break
+    rest = re.split(r"\bwhere\b", rest)[0].strip()
+    if not rest.startswith(":"):
+        return False
+    items, depth, current = [], 0, ""
+    for character in rest[1:]:
+        depth += {"<": 1, "(": 1, "[": 1, ">": -1, ")": -1, "]": -1}.get(character, 0)
+        if character == "," and depth == 0:
+            items.append(current)
+            current = ""
+        else:
+            current += character
+    items.append(current)
+    return any(item.strip() in UI_CONFORMANCES or item.strip().endswith("Style") for item in items)
+
+
+def line_blocks(code: str) -> list[tuple[str, bool]]:
+    """For each line of masked code: the declarations around it, innermost last (the deepest reached on
+    the line, so a one-line function counts as its own scope), and whether it is view code. View code
+    is inside a SwiftUI type or a view builder, unless a static member that builds no view sits in
+    between: such helpers are plain logic that tests can call."""
+    ui_types: set[str] = set()
+    boundary = 0
+    for index, character in enumerate(code):  # first, the file's own SwiftUI types, for extensions
+        if character == "{":
+            found = declaration(code[boundary:index])
+            if found and found[1] == "ui":
+                name = re.search(r"\b(?:struct|class|enum|actor)\s+([\w.]+)", found[0])
+                if name:
+                    ui_types.add(name.group(1))
+        if character in "{};":
+            boundary = index + 1
+
+    result: list[tuple[str, bool]] = []
+    stack: list[tuple[str, str] | None] = []
+    boundary = 0
+
+    def scope() -> tuple[str, bool]:
+        view = False
+        for entry in stack:
+            if entry and entry[1] in ("ui", "builder"):
+                view = True
+            elif entry and entry[1] == "static":
+                view = False
+        return " > ".join(entry[0] for entry in stack if entry), view
+
+    line_scope, line_view = scope()
+    for index, character in enumerate(code):
+        if character == "{":
+            stack.append(declaration(code[boundary:index], ui_types))
+            boundary = index + 1
+            current, view = scope()
+            if len(current) > len(line_scope):  # the deepest declaration on the line decides both
+                line_scope, line_view = current, view
+        elif character == "}":
+            if stack:
+                stack.pop()
+            boundary = index + 1
+        elif character == ";":
+            boundary = index + 1
+        elif character == "\n":
+            result.append((line_scope, line_view))
+            line_scope, line_view = scope()
+    result.append((line_scope, line_view))
+    return result
 
 
 def view_lines(code: str) -> set[int]:
-    """Lines inside a type declared or extended as a SwiftUI `View`, from masked code. No test hosts a
-    view, so mutants there would always survive; docs/QA.md checks views instead."""
-    lines: set[int] = set()
-    for match in DECLARATION.finditer(code):
-        index = match.end()
-        if code.startswith("<", index):  # generic parameters, which may name View as a constraint
-            depth = 0
-            while index < len(code):
-                depth += {"<": 1, ">": -1}.get(code[index], 0)
-                index += 1
-                if depth == 0:
-                    break
-        brace = code.find("{", index)
-        if brace < 0:
-            continue
-        clause = re.split(r"\bwhere\b", code[index:brace])[0]
-        if not clause.lstrip().startswith(":") or not re.search(r"\bView\b", clause):
-            continue
-        depth, end = 0, brace
-        while end < len(code):
-            depth += {"{": 1, "}": -1}.get(code[end], 0)
-            if depth == 0:
-                break
-            end += 1
-        first = code.count("\n", 0, match.start()) + 1
-        lines.update(range(first, code.count("\n", 0, end) + 2))
-    return lines
+    """Lines of SwiftUI view code (see `line_blocks`), from masked code. No test hosts a view, so
+    mutants there would always survive; docs/QA.md checks views instead."""
+    return {number for number, (_, view) in enumerate(line_blocks(code), 1) if view}
 
 
 def mutants_for_line(path: str, number: int, line: str, code: str, occurrence: int = 1,
-                     before: str = "", after: str = "") -> list[Mutant]:
+                     before: str = "", after: str = "", scope: str = "") -> list[Mutant]:
     """Every mutant of one line. `code` is the line masked, so matches are on code only."""
     found: list[Mutant] = []
 
     def add(operator: str, start: int, end: int, replacement: str) -> None:
         mutated = line[:start] + replacement + line[end:]
         if mutated != line:
-            found.append(Mutant(path, number, line, mutated, operator, occurrence, before, after))
+            found.append(Mutant(path, number, line, mutated, operator, occurrence, before, after, scope))
 
     compared = set()
     for match in BOOL_COMPARISON.finditer(code):
@@ -250,7 +337,7 @@ def mutants_for_line(path: str, number: int, line: str, code: str, occurrence: i
     for pattern in (CALL, ASSIGNMENT):
         match = pattern.fullmatch(statement)
         if match and match.group(1) not in KEYWORDS and balanced(statement):
-            found.append(Mutant(path, number, line, indent, "statement deleted", occurrence, before, after))
+            found.append(Mutant(path, number, line, indent, "statement deleted", occurrence, before, after, scope))
             break
     return found
 
@@ -260,17 +347,19 @@ def mutants_for_file(path: str, source: str, lines: set[int]) -> list[Mutant]:
     source_lines = source.split("\n")
     masked = mask(source)
     code_lines = masked.split("\n")
-    views = view_lines(masked)
+    blocks = line_blocks(masked)
     code = [number for number, text in enumerate(code_lines, 1) if text.strip()]
     found: list[Mutant] = []
-    seen: dict[str, int] = {}
+    seen: dict[tuple[str, str], int] = {}
     for number, line in enumerate(source_lines, 1):
-        seen[line.strip()] = seen.get(line.strip(), 0) + 1
-        if number in lines and number not in views:
+        scope, view = blocks[number - 1]
+        seen[(scope, line.strip())] = seen.get((scope, line.strip()), 0) + 1
+        if number in lines and not view:
             position = code.index(number) if number in code else None
             before = source_lines[code[position - 1] - 1].strip() if position else ""
             after = source_lines[code[position + 1] - 1].strip() if position is not None and position + 1 < len(code) else ""
-            found += mutants_for_line(path, number, line, code_lines[number - 1], seen[line.strip()], before, after)
+            found += mutants_for_line(path, number, line, code_lines[number - 1], seen[(scope, line.strip())],
+                                      before, after, scope)
     return found
 
 
@@ -280,15 +369,37 @@ def select(mutants: list[Mutant], limit: int) -> list[Mutant]:
     return sorted(picked, key=lambda mutant: (mutant.path, mutant.line, mutant.operator, mutant.mutated))
 
 
-def load_equivalent(path: Path) -> set[tuple[str, str, str, int, str, str]]:
+REQUIRED_FIELDS = ("file", "original", "mutated", "reason")
+
+
+def read_entries(path: Path) -> list[dict]:
+    """The entries of mutation-equivalent.json, or a message naming what is wrong with it."""
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError as error:
+        raise SystemExit("%s is not valid JSON: %s" % (path.name, error))
+    if not isinstance(document, dict) or document.get("version") != 1 or not isinstance(document.get("equivalent"), list):
+        raise SystemExit("%s must be an object with \"version\": 1 and an \"equivalent\" list." % path.name)
+    return document["equivalent"]
+
+
+def entry_key(entry: dict) -> tuple[str, str, str, str, int, str, str]:
+    missing = [field for field in REQUIRED_FIELDS if not isinstance(entry.get(field), str)]
+    if missing:
+        raise SystemExit("mutation-equivalent.json: an entry lacks %s: %r" % (", ".join(missing), entry))
+    return (entry["file"], entry.get("scope", "").strip(), entry["original"].strip(), entry["mutated"].strip(),
+            int(entry.get("occurrence", 1)), entry.get("before", "").strip(), entry.get("after", "").strip())
+
+
+def load_equivalent(path: Path) -> set[tuple[str, str, str, str, int, str, str]]:
     if not path.exists():
         return set()
-    entries = json.loads(path.read_text(encoding="utf-8"))["equivalent"]
+    entries = read_entries(path)
     for entry in entries:
-        if not entry.get("reason", "").strip():
+        entry_key(entry)
+        if not entry["reason"].strip():
             raise SystemExit("mutation-equivalent.json: every entry needs a reason: %r" % entry)
-    return {(entry["file"], entry["original"].strip(), entry["mutated"].strip(), int(entry.get("occurrence", 1)),
-             entry.get("before", "").strip(), entry.get("after", "").strip()) for entry in entries}
+    return {entry_key(entry) for entry in entries}
 
 
 def stale_entries(path: Path, root: Path = ROOT) -> list[dict]:
@@ -298,16 +409,15 @@ def stale_entries(path: Path, root: Path = ROOT) -> list[dict]:
         return []
     stale = []
     keys: dict[str, set] = {}
-    for entry in json.loads(path.read_text(encoding="utf-8"))["equivalent"]:
+    for entry in read_entries(path):
+        entry_key(entry)
         file = entry["file"]
         if file not in keys:
             source = root / file
             keys[file] = set() if not source.exists() else {
                 mutant.key for mutant in mutants_for_file(file, source.read_text(encoding="utf-8"),
                                                           set(range(1, source.read_text(encoding="utf-8").count("\n") + 2)))}
-        key = (file, entry["original"].strip(), entry["mutated"].strip(), int(entry.get("occurrence", 1)),
-               entry.get("before", "").strip(), entry.get("after", "").strip())
-        if key not in keys[file]:
+        if entry_key(entry) not in keys[file]:
             stale.append(entry)
     return stale
 
@@ -364,8 +474,13 @@ def branch_mutants(base: str, root: Path = ROOT) -> tuple[list[Mutant], int]:
 
     changed: dict[str, set[int]] = {}
     for path in names("diff", "--name-only", "-z", "--no-renames", "--diff-filter=d", base, "--", "Sources"):
-        diff = git("diff", "-U0", "--no-color", "--no-ext-diff", "--no-textconv", "--no-renames", base,
-                   "--", ":(literal)" + path, root=root)
+        # --literal-pathspecs whatever GIT_LITERAL_PATHSPECS says, and --text whatever attributes say,
+        # so a listed file always shows its hunks.
+        diff = git("--literal-pathspecs", "diff", "-U0", "--no-color", "--no-ext-diff", "--no-textconv",
+                   "--text", "--no-renames", base, "--", path, root=root)
+        if "\n@@ " not in "\n" + diff and "\nold mode " not in "\n" + diff:
+            raise SystemExit("git diff lists %s as changed but shows no change to read; run with a plain "
+                             "Git configuration or pass --base." % path)
         changed[path] = changed_lines(diff)
     for path in names("ls-files", "-z", "--others", "--exclude-standard", "--", "Sources"):
         changed[path] = set(range(1, len((root / path).read_text(encoding="utf-8").split("\n")) + 1))
@@ -375,7 +490,9 @@ def branch_mutants(base: str, root: Path = ROOT) -> tuple[list[Mutant], int]:
         if lines and (root / path).exists():
             source = (root / path).read_text(encoding="utf-8")
             mutants += mutants_for_file(path, source, lines)
-            skipped += len(lines & view_lines(mask(source)))
+            masked = mask(source)
+            code_lines = masked.split("\n")
+            skipped += len({number for number in lines & view_lines(masked) if code_lines[number - 1].strip()})
     return mutants, skipped
 
 
@@ -414,42 +531,78 @@ def run_suite(scratch: Path, test_root: Path, log_path: Path, timeout: float,
 STOP_GRACE = 30  # seconds the run's processes get to stop after SIGTERM
 
 
+def process_table() -> dict[int, tuple[int, str, str]]:
+    """Every live process: its parent, its start time, and its executable. A zombie has already
+    exited and only waits for its parent to collect it, so it is left out."""
+    listing = subprocess.run(["ps", "-axww", "-o", "pid=,ppid=,stat=,lstart=,comm="], capture_output=True,
+                             encoding="utf-8", errors="replace").stdout
+    table = {}
+    for line in listing.splitlines():
+        parts = line.split(None, 8)
+        if len(parts) == 9 and parts[0].isdigit() and parts[1].isdigit() and not parts[2].startswith("Z"):
+            table[int(parts[0])] = (int(parts[1]), " ".join(parts[3:8]), parts[8].strip())
+    return table
+
+
+def owned(leader: int, build_folder: str, table: dict[int, tuple[int, str, str]]) -> dict[int, str]:
+    """The processes the run started, by PID with their start times: the leader and its descendants,
+    which include the compilers Xcode starts in process groups of their own, and any process running
+    an executable from the run's build folder: the test host, which launchd starts for xcodebuild.
+    A process that only names the folder, such as one watching a log there, is not the run's."""
+    children: dict[int, list[int]] = {}
+    for pid, (parent, _, _) in table.items():
+        children.setdefault(parent, []).append(pid)
+    found = {leader: table[leader][1]} if leader in table else {}
+    queue = [leader]
+    while queue:
+        for child in children.get(queue.pop(), []):
+            if child not in found:
+                found[child] = table[child][1]
+                queue.append(child)
+    prefixes = {folder.rstrip("/") + "/" for folder in (build_folder, os.path.realpath(build_folder))}
+    for pid, (_, start, executable) in table.items():
+        if any(executable.startswith(prefix) for prefix in prefixes):
+            found[pid] = start
+    found.pop(os.getpid(), None)
+    return found
+
+
+STOP_GRACE = 30  # seconds the run's processes get to stop after SIGTERM
+
+
 def stop(process: subprocess.Popen, build_folder: str) -> None:
-    """Stops the run: every process in its group, not only the leader, and every process naming its
-    build folder. Xcode's build service starts each compiler in a process group of its own, and a
-    compiler that outlives the run would keep writing to the folder the next mutant reuses. The
-    folder is this run's own temporary one, so no other process names it."""
-    def members() -> list[int]:
-        process.poll()  # reap the leader, so only live processes count
-        found = []
+    """Stops every process the run started (see `owned`), not only its leader: a compiler that outlived
+    the run would keep writing to the build folder the next mutant reuses. They are listed before any
+    signal, since a process whose parent has exited no longer shows as a descendant, and each is
+    signalled only while its start time still matches, so a reused PID is never touched."""
+    targets = owned(process.pid, build_folder, process_table())
+
+    def live() -> list[int]:
+        table = process_table()
+        for pid, start in owned(process.pid, build_folder, table).items():
+            targets.setdefault(pid, start)  # started while stopping
+        return [pid for pid, start in targets.items() if pid in table and table[pid][1] == start]
+
+    def send(sig: int) -> None:
         try:
-            os.killpg(process.pid, 0)
-            found.append(-process.pid)
+            os.killpg(process.pid, sig)
         except (ProcessLookupError, PermissionError):
             pass  # macOS answers EPERM for a group whose only member has exited
-        listing = subprocess.run(["ps", "-axww", "-o", "pid=,args="], capture_output=True, text=True).stdout
-        for line in listing.splitlines():
-            pid, _, arguments = line.strip().partition(" ")
-            if build_folder in arguments and int(pid) != os.getpid():
-                found.append(int(pid))
-        return found
-
-    def send(targets: list[int], sig: int) -> None:
-        for target in targets:
+        for pid in live():
             try:
-                os.killpg(-target, sig) if target < 0 else os.kill(target, sig)
+                os.kill(pid, sig)
             except (ProcessLookupError, PermissionError):
                 pass
 
-    send(members(), signal.SIGTERM)
+    send(signal.SIGTERM)
     deadline = time.monotonic() + STOP_GRACE
     while time.monotonic() < deadline:
-        left = members()
-        if not left:
+        process.poll()  # reap the leader, so it no longer counts
+        if not live():
             break
         time.sleep(0.2)
     else:
-        send(members(), signal.SIGKILL)
+        send(signal.SIGKILL)
     process.wait()
 
 
@@ -550,6 +703,12 @@ def main() -> int:
             print("%s: %s:%d (%s)\n  - %s\n  + %s" % (result, mutant.path, mutant.line, mutant.operator, mutant.original.strip(), mutant.mutated.strip()))
             if result == "survived":
                 print("  entry: " + mutant.entry())
+            else:
+                # Name what the compiler or the run reported, so an odd run can be read without its log.
+                number = picked.index(mutant) + 1
+                log = (logs / ("mutant-%d.log" % number)).read_text(encoding="utf-8", errors="replace")
+                for line in [line for line in log.splitlines() if ": error:" in line][:3]:
+                    print("  " + line.strip()[-200:])
         if failing:
             print("Add a test that fails on each survivor. Only if a survivor cannot change behavior, add its entry to %s with the reason."
                   % EQUIVALENT.relative_to(ROOT))
@@ -567,4 +726,5 @@ if __name__ == "__main__":
     try:
         sys.exit(main())
     except KeyboardInterrupt:
-        sys.exit("Interrupted; the run's processes were stopped and its scratch copy removed.")
+        print("Interrupted; any mutant run under way was stopped and its scratch copy removed.", file=sys.stderr)
+        sys.exit(130)

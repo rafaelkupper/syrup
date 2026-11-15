@@ -3,6 +3,7 @@
   "equivalent": [
     {
       "file": "Sources/Translation/OpenAICompatibleTransformer.swift",
+      "scope": "struct OpenAICompatibleTransformer: StreamingTextTransformer > private func stream( _ text: String, instruction: String, endpointHost: String, into continuation: AsyncThrowingStream<String, any Error>.Continuation, answerStarted: @escaping @Sendable () -> Void ) async throws",
       "original": "var rejectionNamedTemperature = false",
       "mutated": "var rejectionNamedTemperature = true",
       "occurrence": 1,
@@ -12,9 +13,10 @@
     },
     {
       "file": "Sources/Translation/OpenAICompatibleTransformer.swift",
+      "scope": "struct OpenAICompatibleTransformer: StreamingTextTransformer > func transformWithUsage( _ text: String, instruction: String ) async throws -> OpenAICompatibleTranslationResult",
       "original": "var rejectionNamedTemperature = false",
       "mutated": "var rejectionNamedTemperature = true",
-      "occurrence": 2,
+      "occurrence": 1,
       "before": "var sendsTemperature = sendsTemperatureFirst",
       "after": "while true {",
       "reason": "In transformWithUsage. Read only when temperature is left out. Before a retry that happens only when this endpoint and model are already remembered (sendsTemperatureFirst), so remembering again inserts a key already in the set; a retry assigns it before it is read."
