@@ -254,7 +254,21 @@ def is_builder(text: str, keyword: str) -> bool:
     statements does not match."""
     if keyword == "var":
         return re.fullmatch(MODIFIERS + r"var\s+" + NAME + r"\s*:\s*" + OPAQUE_VIEW, text) is not None
-    return re.search(r"->\s*" + OPAQUE_VIEW + r"\s*(?:\bwhere\b[^{}]*)?$", text) is not None
+    match = re.search(r"->\s*" + OPAQUE_VIEW + r"\s*(?:\bwhere\b[^{}]*)?$", text)
+    if not match:
+        return False
+    # That arrow must follow the declaration's own parameter list, not a closure type's: in
+    # `func make() -> () -> some View` the function returns a closure, and its body is logic.
+    before = re.sub(r"(?:\s*\b(?:async|reasync|throws|rethrows)\b(?:\s*\([^()]*\))?)+\s*$", "", text[:match.start()])
+    before = before.rstrip()
+    if not before.endswith(")"):
+        return False
+    depth = 0
+    for index in range(len(before) - 1, -1, -1):
+        depth += {")": 1, "(": -1}.get(before[index], 0)
+        if depth == 0:
+            return not before[:index].rstrip().endswith("->")
+    return False
 
 
 def conforms_to_ui(text: str) -> bool:

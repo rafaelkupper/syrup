@@ -304,6 +304,8 @@ class OperatorTests(unittest.TestCase):
         for header in ("class var content: some View", "var `default`: some View", "@ViewBuilder static var v: some View",
                        "package var content: some View", "var content: (some View & Equatable)",
                        "var optional: (some View)?", "func make() -> sending some View",
+                       "func load(make: () -> Int) async throws -> some View", "func f() throws(Failure) -> (some View)",
+                       "func g() -> some View & Swift.Sendable",
                        "func content() -> some View & Sendable", "func content() -> (some View)",
                        "func content() async throws -> some SwiftUI.View where T: Equatable"):
             source = "import SwiftUI\nclass Factory {\n    " + header + body + "\n}"
@@ -312,7 +314,12 @@ class OperatorTests(unittest.TestCase):
         # last parameter is a closure returning a view: its `)` closes the parameter list.
         for header in ("func pair() -> (some View, Bool)",
                        "init(count: Int, @ViewBuilder content: () -> some View)",
-                       "func present(_ count: Int, content: () -> some View)"):
+                       "func present(_ count: Int, content: () -> some View)",
+                       # It returns a closure that builds a view; its own body is logic.
+                       "func make(_ enabled: Bool) -> () -> (some View)",
+                       "func make(_ enabled: Bool) -> () -> some View",
+                       "func make(_ enabled: Bool) -> () -> (some View)?",
+                       "func make(_ enabled: Bool) -> (Int) -> some View & Sendable"):
             source = "import SwiftUI\nclass Factory {\n    " + header + " { if a == b { go() } }\n}"
             self.assertNotEqual(mutation.mutants_for_file("A.swift", source, {3}), [], header)
 
@@ -539,8 +546,14 @@ class RunTests(unittest.TestCase):
             folder = Path(directory)
             (folder / "_T_syrup-mutation.abcd1234_test-root_build_SourcePackages_odd.lock").mkdir()
             (folder / "_T_syrup-mutation.abcd1234_test-root_build_SourcePackages_Package.resolved.lock").touch()
+            target = folder / "kept.txt"
+            target.write_text("not a lock", encoding="utf-8")
+            (folder / "_T_syrup-mutation.abcd1234_test-root_build_SourcePackages_link.lock").symlink_to(target)
             mutation.remove_lock_files(folder, "syrup-mutation.abcd1234")
-            self.assertEqual([p.name for p in folder.iterdir()], ["_T_syrup-mutation.abcd1234_test-root_build_SourcePackages_odd.lock"])
+            self.assertEqual(sorted(p.name for p in folder.iterdir()),
+                             ["_T_syrup-mutation.abcd1234_test-root_build_SourcePackages_link.lock",
+                              "_T_syrup-mutation.abcd1234_test-root_build_SourcePackages_odd.lock", "kept.txt"])
+            self.assertEqual(target.read_text(encoding="utf-8"), "not a lock")
 
     def test_files_are_read_and_written_as_utf8_whatever_the_locale(self):
         # The fault fb5f1c6 fixed in generate.py: open(), read_text(), and write_text() otherwise use
