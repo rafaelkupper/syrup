@@ -226,7 +226,10 @@ def declaration(header: str, ui_types: set[str] = frozenset()) -> tuple[str, str
             name = re.search(r"\b%s\s+([\w.]+)" % keyword, text)
             extended = keyword == "extension" and name is not None and name.group(1) in ui_types
             return text, "ui" if conforms_to_ui(text) or extended else "type"
-        if re.search(r"\bsome\s+(?:View|Scene)\b", declared_type(text, keyword)):
+        # A property's type is read from its own line: a local `var` just before a control-flow block
+        # is part of that block's header text, and so are the statements after it.
+        typed = " ".join(lines[index].split()) if keyword == "var" else text
+        if re.search(r"\bsome\s+(?:SwiftUI\.)?(?:View|Scene)\b", declared_type(typed, keyword)):
             return text, "builder"
         if re.search(r"\bstatic\b", text):
             return text, "static"
@@ -239,12 +242,17 @@ def declared_type(text: str, keyword: str) -> str:
     the type after the `:` of a property. A parameter's type does not count, so
     `func accepts(_ content: some View) -> Bool` builds no view."""
     if keyword == "var":
-        return text.split(":", 1)[1] if ":" in text else ""
+        declared = text.split(":", 1)[1] if ":" in text else ""
+        depth = 0
+        for index, character in enumerate(declared):  # up to a top-level `=`, the initial value
+            depth += {"(": 1, "[": 1, "<": 1, ")": -1, "]": -1, ">": -1}.get(character, 0)
+            if depth == 0 and character == "=" and declared[index + 1:index + 2] != "=":
+                return declared[:index]
+        return declared
+    # Only brackets count for depth: `<` and `>` can be comparisons in a default argument.
     depth = 0
     for index, character in enumerate(text):
-        depth += {"(": 1, "[": 1, "<": 1, ")": -1, "]": -1}.get(character, 0)
-        if character == ">" and text[index - 1:index] != "-":
-            depth -= 1
+        depth += {"(": 1, "[": 1, ")": -1, "]": -1}.get(character, 0)
         if depth == 0 and text.startswith("->", index):
             return text[index + 2:]
     return ""
@@ -285,13 +293,17 @@ def line_blocks(code: str) -> list[tuple[str, bool]]:
     between: such helpers are plain logic that tests can call."""
     # SwiftUI's names count only where SwiftUI is imported; elsewhere a `...Style` or `App` is a
     # protocol of the code's own.
-    swiftui = re.search(r"^\s*(?:@\w+\s+)*import\s+SwiftUI\b", code, re.MULTILINE) is not None
+    swiftui = re.search(r"^\s*(?:@\w+(?:\([^)]*\))?\s+)*(?:(?:public|package|internal|fileprivate|private)\s+)?"
+                        r"import\s+(?:(?:typealias|struct|class|enum|protocol|let|var|func)\s+)?SwiftUI(?![\w])",
+                        code, re.MULTILINE) is not None
     ui_types: set[str] = set()
     boundary = 0
     for index, character in enumerate(code):  # first, the file's own SwiftUI types, for extensions
         if character == "{" and swiftui:
             found = declaration(code[boundary:index])
-            if found and found[1] == "ui":
+            # A conditional conformance (`extension Box: View where T == Int`) makes only some of the
+            # type a view, so it does not make the type's other extensions view code.
+            if found and found[1] == "ui" and not re.search(r"\bwhere\b", found[0]):
                 name = re.search(r"\b(?:struct|class|enum|actor|extension)\s+([\w.]+)", found[0])
                 if name:
                     ui_types.add(name.group(1))
@@ -449,9 +461,12 @@ def stale_entries(path: Path, root: Path = ROOT) -> list[dict]:
         file = entry["file"]
         if file not in keys:
             source = root / file
-            keys[file] = set() if not source.exists() else {
-                mutant.key for mutant in mutants_for_file(file, source.read_text(encoding="utf-8"),
-                                                          set(range(1, source.read_text(encoding="utf-8").count("\n") + 2)))}
+            try:
+                text = source.read_text(encoding="utf-8") if source.is_file() else None
+            except (OSError, UnicodeDecodeError):
+                text = None  # gone, a folder, or not Swift text: nothing the entry could match
+            keys[file] = set() if text is None else {
+                mutant.key for mutant in mutants_for_file(file, text, set(range(1, text.count("\n") + 2)))}
         if entry_key(entry) not in keys[file]:
             stale.append(entry)
     return stale
@@ -567,14 +582,13 @@ def run_suite(scratch: Path, test_root: Path, log_path: Path, timeout: float,
     return classify(exit_code, log_path.read_text(encoding="utf-8", errors="replace"), mutated_file), time.monotonic() - started
 
 
-
-
 def process_table() -> dict[int, tuple[int, str, str]]:
     """Every live process: its parent, its start time, and its executable. A zombie has already
     exited and only waits for its parent to collect it, so it is left out."""
-    # In the C locale `lstart` is always five words; some locales print fewer.
+    # In en_US.UTF-8 `lstart` is always five words, which some locales shorten, and paths come out as
+    # they are, where the C locale escapes every non-ASCII byte.
     listing = subprocess.run(["ps", "-axww", "-o", "pid=,ppid=,stat=,lstart=,comm="], capture_output=True,
-                             encoding="utf-8", errors="replace", env=dict(os.environ, LC_ALL="C")).stdout
+                             encoding="utf-8", errors="replace", env=dict(os.environ, LC_ALL="en_US.UTF-8")).stdout
     table = {}
     for line in listing.splitlines():
         parts = line.split(None, 8)

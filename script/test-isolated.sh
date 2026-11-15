@@ -40,14 +40,18 @@ physical_name() {
 # leaves beside it, named after the temporary copy's full path (Package.resolved, workspace state,
 # and one per binary artifact), so a copy elsewhere with the same name keeps its own. Under a
 # symlinked folder, such as /tmp, SwiftPM names some locks by the path as given and some by the
-# physical one, so both are matched; the trailing slash lets find look inside a symlinked folder.
+# physical one, so both are matched.
 remove_run_temp() {
     rm -rf "$tmp_root/$host_prefix.$1"
     case $2 in */syrup-tests.??????)
         logical=$(printf '%s' "$2" | tr -s '/' | tr '/' '_')
         physical=$(physical_name "$2") || physical=$logical
-        find "$tmp_root/" -maxdepth 1 -type f \( -name "${physical}_build_SourcePackages_*.lock" \
-            -o -name "${logical}_build_SourcePackages_*.lock" \) -delete 2>/dev/null || : ;;
+        # Compared literally: a path may hold characters find -name would read as a pattern.
+        for lock in "$tmp_root"/*_build_SourcePackages_*.lock; do
+            case ${lock##*/} in
+                "${physical}_build_SourcePackages_"*|"${logical}_build_SourcePackages_"*) rm -f "$lock" ;;
+            esac
+        done ;;
     esac
 }
 

@@ -248,6 +248,46 @@ class OperatorTests(unittest.TestCase):
         self.assertEqual({m.line for m in mutation.mutants_for_file("A.swift", button, {1, 2, 3})}, {2})
         self.assertEqual(mutation.mutants_for_file("A.swift", button + "\nimport SwiftUI", {1, 2, 3}), [])
 
+    def test_every_form_of_importing_swiftui_counts(self):
+        body = "\nstruct Pane: View {\n    var body: some View { Text(a == b ? \"x\" : \"y\") }\n}\n"
+        for line in ("import SwiftUI", "public import SwiftUI", "internal import SwiftUI", "package import SwiftUI",
+                     "@preconcurrency import SwiftUI", "@_exported public import SwiftUI", "import struct SwiftUI.Text"):
+            self.assertEqual(mutation.mutants_for_file("A.swift", line + body, {2, 3, 4}), [], line)
+        self.assertNotEqual(mutation.mutants_for_file("A.swift", "import SwiftUIExtras" + body, {2, 3, 4}), [])
+
+    def test_view_builders_and_conditional_conformances(self):
+        source = "\n".join([
+            "import SwiftUI",
+            "struct Checks {",
+            "    func f(n: Int = a > b ? 1 : 2, make: () -> Bool, content: some View) -> Bool { a == b }",  # 3: logic
+            "    func g() -> some SwiftUI.View { Text(a == b ? \"x\" : \"y\") }",                         # 4: a builder
+            "}",
+            "struct Box<T> {}",
+            "extension Box: View where T == Int {",                                                       # 7
+            "    var body: some View { Text(\"x\") }",
+            "}",
+            "extension Box {",
+            "    func h() -> Bool { a == b }",                                                            # 11: any T
+            "}",
+        ])
+        found = sorted({m.line for m in mutation.mutants_for_file("A.swift", source, set(range(1, 13)))})
+        self.assertEqual(found, [3, 11])
+
+    def test_a_local_var_before_a_block_does_not_make_it_a_view(self):
+        source = "\n".join([
+            "import SwiftUI",
+            "func f() -> Bool {",
+            "    var ok: Bool = false",
+            "    let s: some Scene = make()",
+            "    if a == b {",               # 5
+            "        ok = c == d",            # 6
+            "    }",
+            "    return ok",
+            "}",
+        ])
+        found = sorted({m.line for m in mutation.mutants_for_file("A.swift", source, {5, 6})})
+        self.assertEqual(found, [5, 6])
+
     def test_an_extension_that_adds_view_makes_later_extensions_view_code(self):
         source = "\n".join([
             "import SwiftUI",
@@ -328,7 +368,9 @@ class SelectionTests(unittest.TestCase):
             gone = dict(good, file="Gone.swift")
             path = root / "equivalent.json"
             path.write_text(json.dumps({"version": 1, "equivalent": [good, moved, gone]}), encoding="utf-8")
-            self.assertEqual(mutation.stale_entries(path, root), [moved, gone])
+            folder = dict(good, file=".")  # names a folder, not a file
+            path.write_text(json.dumps({"version": 1, "equivalent": [good, moved, gone, folder]}), encoding="utf-8")
+            self.assertEqual(mutation.stale_entries(path, root), [moved, gone, folder])
 
     def test_equivalent_entries_need_a_reason_and_match_by_text(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -504,8 +546,8 @@ class RunTests(unittest.TestCase):
         # launchd starts the test host, so it is no descendant of the run; its executable is in the
         # run's build folder, which only the run builds into.
         with tempfile.TemporaryDirectory() as directory:
-            scratch = Path(directory)
-            (scratch / "script").mkdir()
+            scratch = Path(directory) / "Café"  # ps must report the host's path as it is
+            (scratch / "script").mkdir(parents=True)
             fake = scratch / "script" / "test-isolated.sh"
             fake.write_text("#!/bin/sh\nexec sleep 300\n")
             fake.chmod(0o755)
