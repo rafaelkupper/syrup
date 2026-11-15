@@ -103,6 +103,28 @@ struct FnKeyGestureTests {
 
 @MainActor
 struct FnKeyHotkeyTests {
+    @Test func installingAControllerDoesNotCancelAnExistingShortcutRecording() async throws {
+        let recorder = FakeRecorder()
+        let state = AppState.fixture(
+            settings: makeTestSettings(), audioRecorder: recorder, transcriber: FakeTranscriber(.suspended),
+            maximumRecordingDurationNanoseconds: 0
+        )
+        state.triggerPressed()
+        await eventually { recorder.startCallCount == 1 }
+        let runID = try #require(state.activeRunID)
+        let monitor = FnKeyMonitor(sample: {
+            FnKeySample(isFnDown: false, hasOtherModifiers: false, secondsSinceKeyDown: 100, time: 0)
+        })
+        let controller = HotkeyController(
+            appState: state, registration: FnSilentRegistration(), fnKeyMonitor: monitor, isTypingInSyrup: { false }
+        )
+        state.install(controller)
+        #expect(state.pipelineState == .recording)
+        #expect(state.activeRunID == runID)
+        state.cancelRequested()
+        await state.waitForPendingWork()
+    }
+
     private final class Keys {
         var current = FnKeySample(isFnDown: false, hasOtherModifiers: false, secondsSinceKeyDown: 100, time: 0)
         func set(_ time: TimeInterval, fn: Bool, lastKeyAgo: TimeInterval = 100) {
@@ -312,6 +334,28 @@ struct FnKeyHotkeyTests {
             fixture.controller.setFnKeyEnabled(false)
         }
         #expect(fixture.state.pipelineState == .idle)
+    }
+
+    @Test(arguments: [true, false])
+    func disablingFnClearsTheLatchWhileARecordingIsFinishing(viaPause: Bool) async {
+        let clock = ManualRecordingClock()
+        let fixture = Fixture(clock: clock)
+        defer { fixture.finish() }
+        fixture.tap(at: 1)
+        fixture.tap(at: 1.3)
+        #expect(fixture.state.isFnRecordingLatched)
+        clock.advance(by: .seconds(2))
+        fixture.state.triggerReleased()
+        #expect(fixture.state.pipelineState == .recording)
+        if viaPause {
+            fixture.controller.setListening(false)
+        } else {
+            fixture.controller.setFnKeyEnabled(false)
+        }
+        #expect(fixture.state.pipelineState == .recording)
+        #expect(fixture.state.isFnRecordingLatched == false)
+        fixture.state.cancelRequested()
+        await fixture.state.waitForPendingWork()
     }
 
     @Test func toggleSingleTapWhileIdleDoesNothing() async {

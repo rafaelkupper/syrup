@@ -30,6 +30,116 @@
       "before": "func scheduleErrorReset(for runID: UUID) {",
       "after": "errorResetRunID = runID",
       "reason": "In scheduleErrorReset. The reset task it would cancel cannot act any more: when it wakes, errorResetElapsed requires errorResetRunID to equal its run, and the next line sets errorResetRunID to the new run (cancelErrorReset sets it to nil). No run schedules two resets: finishRunFailed and failRunStart each run once per run, and ResultActions passes a fresh UUID. Without the cancel the replaced task only sleeps on and then returns."
+    },
+    {
+      "file": "Sources/App/StatusIndicator.swift",
+      "scope": "final class StatusIndicator > func cancelSuccess()",
+      "original": "flashTask = nil",
+      "mutated": "",
+      "occurrence": 1,
+      "before": "flashTask?.cancel()",
+      "after": "isShowingSuccess = false",
+      "reason": "In cancelSuccess. The flash task is cancelled immediately before this line. Keeping its handle cannot resume it: showSuccess cancels and replaces it, and clearSuccess or a later cancel only discards or re-cancels it. The next line still clears isShowingSuccess; no output depends on a nil handle."
+    },
+    {
+      "file": "Sources/App/StatusIndicator.swift",
+      "scope": "final class StatusIndicator > private func clearSuccess()",
+      "original": "flashTask = nil",
+      "mutated": "",
+      "occurrence": 1,
+      "before": "isShowingSuccess = false",
+      "after": "}",
+      "reason": "In clearSuccess. This is the flash task finishing its own callback; isShowingSuccess has already been cleared. Retaining the completed task cannot run the callback again. showSuccess replaces it after cancelling it, and cancelSuccess discards or re-cancels it, so no subsequent input can distinguish the retained handle."
+    },
+    {
+      "file": "Sources/App/StatusIndicator.swift",
+      "scope": "final class StatusIndicator > func cancelErrorReset()",
+      "original": "errorResetTask = nil",
+      "mutated": "",
+      "occurrence": 1,
+      "before": "errorResetTask?.cancel()",
+      "after": "errorResetRunID = nil",
+      "reason": "In cancelErrorReset. The task has just been cancelled and the next line still clears errorResetRunID. Keeping the cancelled handle cannot let its callback pass the run-ID guard. A later schedule replaces the handle, and a later cancel only re-cancels it."
+    },
+    {
+      "file": "Sources/App/StatusIndicator.swift",
+      "scope": "final class StatusIndicator > func cancelErrorReset()",
+      "original": "errorResetRunID = nil",
+      "mutated": "",
+      "occurrence": 1,
+      "before": "errorResetTask = nil",
+      "after": "}",
+      "reason": "In cancelErrorReset. The task is cancelled above. If an already-awake sleeper still calls back, AppState refuses to clear while a run owns the pipeline; the cancel, successful copy, and finished-run paths otherwise leave idle before yielding. Every later error schedules a fresh UUID before yielding, so the retained ID cannot clear a newer error."
+    },
+    {
+      "file": "Sources/App/StatusIndicator.swift",
+      "scope": "final class StatusIndicator > private func errorResetElapsed(runID: UUID)",
+      "original": "guard errorResetRunID == runID, source?.clearErrorAfterDelay() == true else { return }",
+      "mutated": "guard errorResetRunID == runID, source?.clearErrorAfterDelay() == false else { return }",
+      "occurrence": 1,
+      "before": "private func errorResetElapsed(runID: UUID) {",
+      "after": "errorResetRunID = nil",
+      "reason": "In errorResetElapsed. Both versions call clearErrorAfterDelay exactly once before comparing its result. Flipping the comparison only chooses whether to discard this finished one-shot task and its ID. The callback never retries; a later schedule or cancel replaces those values, so pipeline and cue behavior are identical for either return value."
+    },
+    {
+      "file": "Sources/App/StatusIndicator.swift",
+      "scope": "final class StatusIndicator > private func errorResetElapsed(runID: UUID)",
+      "original": "errorResetRunID = nil",
+      "mutated": "",
+      "occurrence": 1,
+      "before": "guard errorResetRunID == runID, source?.clearErrorAfterDelay() == true else { return }",
+      "after": "errorResetTask = nil",
+      "reason": "In errorResetElapsed. The one-shot callback has already called clearErrorAfterDelay and will never run again. Retaining its ID cannot trigger another clear; every later schedule sets a new ID and cancelErrorReset clears it. Nothing else reads this ID."
+    },
+    {
+      "file": "Sources/App/StatusIndicator.swift",
+      "scope": "final class StatusIndicator > private func errorResetElapsed(runID: UUID)",
+      "original": "errorResetTask = nil",
+      "mutated": "",
+      "occurrence": 1,
+      "before": "errorResetRunID = nil",
+      "after": "}",
+      "reason": "In errorResetElapsed. The task is finishing its only callback and its run ID has already been cleared. Retaining the completed handle cannot run it again; a later schedule replaces it and a later cancel only cancels or discards a finished task."
+    },
+    {
+      "file": "Sources/Hotkey/HotkeyController.swift",
+      "scope": "final class HotkeyController > private func updateFnKeyMonitor()",
+      "original": "fnStartedToggleRun = false",
+      "mutated": "",
+      "occurrence": 1,
+      "before": "isFnLatched = false",
+      "after": "isFnDoubleTapArmed = false",
+      "reason": "In updateFnKeyMonitor. When this flag is true, stopping Fn either cancels its capturing run, whose idle transition clears the flag in pipelineStateChanged, or leaves a recording already stopping. In the latter case the capturing-phase guard prevents it acting again, and leaving recording clears the flag before any new run can start. The private flag has no other reader."
+    },
+    {
+      "file": "Sources/App/AppState.swift",
+      "scope": "final class AppState > private func finishRun(_ runID: UUID, keepErrorReset: Bool = false)",
+      "original": "status.cancelErrorReset()",
+      "mutated": "",
+      "occurrence": 1,
+      "before": "if keepErrorReset == false {",
+      "after": "}",
+      "reason": "In finishRun with keepErrorReset false. beginRun already cancelled the previous reset. The only paths scheduling a reset for the active run are finishRunFailed and failRunStart, and both pass keepErrorReset true. Copy actions cannot run during recording or processing, or interleave with synchronous error presentation and run cleanup, so this branch has no live reset to cancel."
+    },
+    {
+      "file": "Sources/App/ResultActions.swift",
+      "scope": "final class ResultActions > func pasteLastResult() async",
+      "original": "let target = (pinsTarget || usesSpacing || fitsSentence) ? await captureDeliveryTarget(frontmostApplication(false).processID) : nil",
+      "mutated": "let target = (pinsTarget || usesSpacing || fitsSentence) ? await captureDeliveryTarget(frontmostApplication(true).processID) : nil",
+      "occurrence": 1,
+      "before": "let fitsSentence = settings.matchesSentenceAtCaret && autoPaster.isTrusted",
+      "after": "guard pendingPasteID == pasteID, canCopyLastResult, !Task.isCancelled else { return }",
+      "reason": "In pasteLastResult. The production frontmostApplication closure returns the same process ID for either flag. The flag only includes the app bundle identifier in the tuple, and this call takes only processID; neither routing nor usage recording reads the unused bundle identifier here. Delivery and state are identical."
+    },
+    {
+      "file": "Sources/App/ResultActions.swift",
+      "scope": "final class ResultActions > func pasteLastResult() async",
+      "original": "status.cancelErrorReset()",
+      "mutated": "",
+      "occurrence": 1,
+      "before": "try pasteboard.write(delivered)",
+      "after": "host?.clearErrorAfterCopy()",
+      "reason": "In pasteLastResult after a successful clipboard write. The next call synchronously clears the old pipeline error, so its old reset finds idle. A new run cancels that reset, and every later error schedules a fresh UUID before yielding. The obsolete callback cannot clear a newer error; cancelling it only shortens its remaining sleep."
     }
   ]
 }

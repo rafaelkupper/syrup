@@ -11,6 +11,68 @@ import Testing
 /// given, repeats and leading `.hidden` included, so a missing or extra update shows.
 @MainActor
 struct StatusDisplayCharacterizationTests {
+    @Test(arguments: [false, true])
+    func anOlderFlashCannotHideANewerCopy(startRunBetweenCopies: Bool) async {
+        let flash = ManualResetSleeper()
+        let state = characterizedState(
+            history: historyWithSuccess(),
+            feedbackFlashSleeper: {
+                try await flash.sleep(nanoseconds: $0)
+                try Task.checkCancellation()
+            }
+        )
+        let firstFinished = FlashTaskLifetime.track { state.copyLastResult() }
+        await flash.waitForCallCount(1)
+        if startRunBetweenCopies {
+            state.triggerPressed()
+            state.cancelRequested()
+            await state.waitForPendingWork()
+        }
+        state.copyLastResult()
+        await flash.waitForCallCount(2)
+        await flash.resumeCall(0)
+        await eventually { firstFinished.isSet }
+        #expect(state.menuBarSymbol == "checkmark.circle")
+        await flash.resumeCall(1)
+        await eventually { state.menuBarSymbol == "waveform" }
+    }
+
+    @Test func disabledRecordingCueIsExplicitlyHidden() async {
+        let settings = makeTestSettings(), cue = CueLog()
+        settings.showRecordingCue = false
+        let state = AppState.fixture(settings: settings, recordingCue: cue)
+        state.triggerPressed()
+        #expect(state.pipelineState == .recording)
+        #expect(cue.states == [.hidden, .hidden])
+        state.cancelRequested()
+        await state.waitForPendingWork()
+    }
+
+    @Test func providerCancellationAppliesTheFinalProcessingCueBeforeHiding() async {
+        let cue = CueLog()
+        let state = AppState.fixture(
+            settings: makeTestSettings(), audioRecorder: FakeRecorder(),
+            transcriber: FakeTranscriber(.success("fixture")),
+            transformer: StaticErrorTextTransformer(error: CancellationError()),
+            maximumRecordingDurationNanoseconds: 0, recordingClock: FastForwardClock(), recordingCue: cue
+        )
+        state.triggerPressed()
+        state.triggerReleased()
+        await state.waitForPendingWork()
+        #expect(state.pipelineState == .idle)
+        #expect(cue.states == [.hidden, .recording(caption: nil), .processing, .processing, .processing, .hidden])
+    }
+
+    @Test(arguments: [PipelineState.recording, .transcribing, .translating])
+    func busyMenuBarSymbolsAnimate(state: PipelineState) {
+        #expect(StatusIndicator.isMenuBarSymbolAnimated(for: state))
+    }
+
+    @Test(arguments: [PipelineState.idle, .error("Fixture failure")])
+    func restingMenuBarSymbolsDoNotAnimate(state: PipelineState) {
+        #expect(StatusIndicator.isMenuBarSymbolAnimated(for: state) == false)
+    }
+
     @Test func aSuccessfulRunAppliesEachCueStateInOrder() async {
         let cue = CueLog(), flash = ManualResetSleeper(), reset = ManualResetSleeper()
         let state = cueState(cue: cue, flash: flash, reset: reset)
@@ -127,6 +189,65 @@ struct StatusDisplayCharacterizationTests {
 /// Copy and Paste Last.
 @MainActor
 struct ResultActionsCharacterizationTests {
+    @Test func pasteLastClipboardFailureClearsAfterItsDelay() async {
+        let reset = ManualResetSleeper()
+        let settings = makeTestSettings()
+        settings.autoPasteEnabled = true
+        let state = AppState.fixture(
+            settings: settings, history: historyWithSuccess(), pasteboard: FailingPasteboard(),
+            errorResetSleeper: { try await reset.sleep(nanoseconds: $0) }
+        )
+        await state.pasteLastResult()
+        #expect(state.pipelineState.isError)
+        let resetStarted = await eventually { await reset.observedCallCount() == 1 }
+        guard resetStarted else { return }
+        await reset.resumeCall(0)
+        await eventually { state.pipelineState == .idle }
+    }
+
+    @Test(arguments: [false, true])
+    func pasteLastFitsOnlyWithBothConsentAndTrust(consent: Bool) async {
+        let settings = makeTestSettings()
+        settings.autoPasteEnabled = true
+        settings.smartSpacingEnabled = false
+        settings.pinDeliveryTarget = false
+        settings.matchesSentenceAtCaret = consent
+        let clipboard = SpyPasteboard()
+        var captures = 0
+        let state = AppState.fixture(
+            settings: settings, history: historyWithSuccess(output: "Hello."), pasteboard: clipboard,
+            autoPaster: SpyAutoPaster(isTrusted: !consent), autoPasteDelayNanoseconds: 0,
+            captureDeliveryTarget: { _ in
+                captures += 1
+                return DeliveryTarget(checkCurrent: { true }, contextProbe: {
+                    CaretContext(continuesSentence: true, textFollows: true)
+                })
+            }
+        )
+        await state.pasteLastResult()
+        #expect(clipboard.writes == ["Hello."])
+        #expect(captures == 0)
+    }
+
+    @Test func copyLastSkipsMissingOutputBeforeAFailedRevision() {
+        let history = historyWithSuccess(output: "newest success")
+        history.append(DictationRecord(
+            id: UUID(), finishedAt: .now, transcript: "shorter", output: "older base",
+            transformation: .revision(adjustment: "shorter", instruction: "Shorten"),
+            outcome: .failed(message: "Fixture failure"), provider: .openAICompatible
+        ))
+        history.append(DictationRecord(
+            id: UUID(), finishedAt: .now, transcript: "failed", output: nil,
+            transformation: .translation(targetLanguage: "English", toneInstruction: ""),
+            outcome: .failed(message: "Fixture failure"), provider: .openAICompatible
+        ))
+        let clipboard = SpyPasteboard()
+        let state = AppState.fixture(settings: makeTestSettings(), history: history, pasteboard: clipboard)
+        #expect(state.lastResult == "older base")
+        state.copyLastResult()
+        #expect(clipboard.writes == ["newest success"])
+    }
+
     @Test func aNewerPasteLastSupersedesOneStillWaiting() async {
         let clipboard = SpyPasteboard(), paster = SpyAutoPaster(), sleeper = ManualResetSleeper()
         let state = pastingState(clipboard: clipboard, paster: paster, sleeper: sleeper)
@@ -196,6 +317,24 @@ struct ResultActionsCharacterizationTests {
 @MainActor
 struct OutputVolumeCharacterizationTests {
     private static let original: [UInt32: Float32] = [1: 0.8]
+
+    @Test func releasingRecordingRestoresVolumeWhileTranscriptionStillWaits() async {
+        let volume = VolumeControllerFake(channels: Self.original)
+        defer { volume.cleanUp() }
+        let settings = makeTestSettings()
+        settings.lowerOtherAudioWhileRecording = true
+        let transcriber = FakeTranscriber(.suspended)
+        let state = characterizedState(settings: settings, transcriber: transcriber, outputDucker: volume.makeDucker())
+        state.triggerPressed()
+        await eventually { volume.writes.count == 1 }
+        state.triggerReleased()
+        await eventually { state.pipelineState == .transcribing }
+        await eventually { volume.writes == [[1: 0.8 * 0.3], Self.original] }
+        #expect(state.activeRunID != nil)
+        #expect(await transcriber.finishedCount == 0)
+        state.cancelRequested()
+        await state.waitForPendingWork()
+    }
 
     @Test func crashRecoveryRestoresThroughTheChainThatPendingWorkAwaits() async throws {
         let volume = VolumeControllerFake(channels: Self.original)
@@ -272,7 +411,8 @@ struct SpeechReadinessCharacterizationTests {
         state.refreshWorkflowHotkeys()
         await eventually { manager.assetState(forLocale: "pt-BR") == .failed("pt-BR") }
         state.refreshWorkflowHotkeys()
-        try await Task.sleep(for: .milliseconds(50))
+        // A redundant prepare changes the publicly reported state to checking synchronously.
+        #expect(manager.assetState(forLocale: "pt-BR") == .failed("pt-BR"))
         #expect(await probe.locales == ["pt-BR"])
 
         settings.workflowList.routeApplication("test.app", to: routed.id)
@@ -321,6 +461,24 @@ private final class ChangeFlag: Sendable {
     private let state = Mutex(false)
     var isSet: Bool { state.withLock { $0 } }
     func set() { state.withLock { $0 = true } }
+}
+
+/// Unstructured child tasks inherit task-local values. Releasing this value signals that the
+/// entire flash task has exited, so the test can assert an older timer did nothing after it woke.
+private enum FlashTaskLifetime {
+    @TaskLocal static var probe: Probe?
+
+    @MainActor static func track(_ body: () -> Void) -> ChangeFlag {
+        let finished = ChangeFlag()
+        $probe.withValue(Probe(finished: finished), operation: body)
+        return finished
+    }
+
+    final class Probe: Sendable {
+        let finished: ChangeFlag
+        init(finished: ChangeFlag) { self.finished = finished }
+        deinit { finished.set() }
+    }
 }
 
 @MainActor

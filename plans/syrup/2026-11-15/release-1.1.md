@@ -43,3 +43,5 @@ Ship the AppState split, the state-machine models and statecharts, and the F1 to
 - `script/ci_test.sh` on `1c9cdf2`: passed. 869 tests in 125 suites, 2 known issues; the mutation gate killed 17 with no survivor (3 did not compile); no compiler warnings.
 - Version set to 1.1 build 15.
 
+
+- Follow-up mutation closure: added 14 focused Swift Testing declarations and 11 scoped equivalence entries; strengthened locale idempotence coverage. All 183 mutants against `e09af51` are accounted for, with no open survivor. Final CI passed (883 tests, two expected checker issues). No production code changed. See [the receipt](mutation-closure.md).
