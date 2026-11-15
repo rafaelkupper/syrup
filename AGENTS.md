@@ -14,7 +14,7 @@ The Xcode project is generated — **never edit `Syrup.xcodeproj` directly**. Ed
 brew install xcodegen            # once
 xcodegen                         # regenerate Syrup.xcodeproj after project.yml or file add/remove
 xcodebuild -scheme Syrup -configuration Debug build   # build
-script/ci_test.sh                                      # boundary check, production build, isolated tests
+script/ci_test.sh                                      # boundary check, corpus sync, mutation-tool tests, production build, isolated tests, mutation run
 script/test-isolated.sh                                # tests only
 ```
 

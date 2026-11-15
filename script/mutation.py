@@ -198,7 +198,7 @@ def balanced(text: str) -> bool:
 
 
 DECLARATION_LINE = re.compile(
-    r"^\s*(?:@\w+(?:\([^)]*\))?\s*|(?:public|private|fileprivate|internal|open|static|final|override|mutating|"
+    r"^\s*(?:@\w+(?:\([^)]*\))?\s*|(?:public|private|fileprivate|internal|package|open|static|final|override|mutating|"
     r"nonmutating|nonisolated|convenience|required|lazy|dynamic|indirect|class)\s+)*"
     r"(func|init|deinit|subscript|var|struct|class|enum|extension|actor|protocol)\b")
 TYPE_KEYWORDS = {"struct", "class", "enum", "extension", "actor", "protocol"}
@@ -235,8 +235,14 @@ def declaration(header: str, ui_types: set[str] = frozenset()) -> tuple[str, str
     return None
 
 
-MODIFIERS = r"(?:@\w+(?:\([^)]*\))?\s*|(?:public|private|fileprivate|internal|package|open|static|final|override|nonisolated|lazy|dynamic)\s+)*"
-OPAQUE_VIEW = r"some\s+(?:SwiftUI\.)?(?:View|Scene)"
+MODIFIERS = (r"(?:@\w+(?:\([^)]*\))?\s*|(?:public|private|fileprivate|internal|package|open|static|class|final|"
+             r"override|nonisolated|lazy|dynamic)\s+)*")
+NAME = r"(?:\w+|`[^`]+`)"
+# `some View`, qualified or not, with protocols composed onto it; in parentheses only as a balanced
+# pair, optionally optional, so the `)` closing a parameter list (`content: () -> some View)`) never
+# passes for part of the return type.
+_SOME_VIEW = r"some\s+(?:SwiftUI\.)?(?:View|Scene)(?:\s*&\s*[\w.]+)*"
+OPAQUE_VIEW = r"(?:sending\s+)?(?:" + _SOME_VIEW + r"|\(\s*" + _SOME_VIEW + r"\s*\)\??)"
 
 
 def is_builder(text: str, keyword: str) -> bool:
@@ -247,7 +253,7 @@ def is_builder(text: str, keyword: str) -> bool:
     typed `some View` come before that end and do not count; a local `var` followed by other
     statements does not match."""
     if keyword == "var":
-        return re.fullmatch(MODIFIERS + r"var\s+\w+\s*:\s*" + OPAQUE_VIEW, text) is not None
+        return re.fullmatch(MODIFIERS + r"var\s+" + NAME + r"\s*:\s*" + OPAQUE_VIEW, text) is not None
     return re.search(r"->\s*" + OPAQUE_VIEW + r"\s*(?:\bwhere\b[^{}]*)?$", text) is not None
 
 
@@ -468,7 +474,8 @@ def stale_entries(path: Path, root: Path = ROOT) -> list[dict]:
 def remove_lock_files(folder: Path, scratch_name: str) -> None:
     """SwiftPM leaves lock files named after the build folder in the temporary folder."""
     for lock in folder.glob("*%s_test-root_build_SourcePackages_*.lock" % scratch_name):
-        lock.unlink(missing_ok=True)
+        if lock.is_file() and not lock.is_symlink():  # a folder or link named like a lock is not SwiftPM's
+            lock.unlink(missing_ok=True)
 
 
 # MARK: - Reading a run

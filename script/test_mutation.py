@@ -299,6 +299,23 @@ class OperatorTests(unittest.TestCase):
         found = sorted({m.line for m in mutation.mutants_for_file("A.swift", source, set(range(1, 20)))})
         self.assertEqual(found, [6])
 
+    def test_every_spelling_of_a_view_builder_counts(self):
+        body = " { Text(true ? \"yes\" : \"no\") }"
+        for header in ("class var content: some View", "var `default`: some View", "@ViewBuilder static var v: some View",
+                       "package var content: some View", "var content: (some View & Equatable)",
+                       "var optional: (some View)?", "func make() -> sending some View",
+                       "func content() -> some View & Sendable", "func content() -> (some View)",
+                       "func content() async throws -> some SwiftUI.View where T: Equatable"):
+            source = "import SwiftUI\nclass Factory {\n    " + header + body + "\n}"
+            self.assertEqual(mutation.mutants_for_file("A.swift", source, {3}), [], header)
+        # A tuple holding a view is not a view builder, and neither is a function or initializer whose
+        # last parameter is a closure returning a view: its `)` closes the parameter list.
+        for header in ("func pair() -> (some View, Bool)",
+                       "init(count: Int, @ViewBuilder content: () -> some View)",
+                       "func present(_ count: Int, content: () -> some View)"):
+            source = "import SwiftUI\nclass Factory {\n    " + header + " { if a == b { go() } }\n}"
+            self.assertNotEqual(mutation.mutants_for_file("A.swift", source, {3}), [], header)
+
     def test_an_arrow_before_the_parameter_list_is_not_the_return_type(self):
         source = "\n".join([
             "import SwiftUI",
@@ -516,6 +533,14 @@ class RunTests(unittest.TestCase):
                 (folder / name).touch()
             mutation.remove_lock_files(folder, "syrup-mutation.abcd1234")
             self.assertEqual(sorted(p.name for p in folder.iterdir()), sorted(other))
+
+    def test_lock_cleanup_leaves_a_folder_named_like_a_lock(self):
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            (folder / "_T_syrup-mutation.abcd1234_test-root_build_SourcePackages_odd.lock").mkdir()
+            (folder / "_T_syrup-mutation.abcd1234_test-root_build_SourcePackages_Package.resolved.lock").touch()
+            mutation.remove_lock_files(folder, "syrup-mutation.abcd1234")
+            self.assertEqual([p.name for p in folder.iterdir()], ["_T_syrup-mutation.abcd1234_test-root_build_SourcePackages_odd.lock"])
 
     def test_files_are_read_and_written_as_utf8_whatever_the_locale(self):
         # The fault fb5f1c6 fixed in generate.py: open(), read_text(), and write_text() otherwise use
