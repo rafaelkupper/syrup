@@ -269,7 +269,7 @@ Invariants:
 - The caller never waits past the timeout for the operation. Enforced at [L18-L26](../../Sources/Core/OperationTimeout.swift#L18-L26).
 - A cancelled caller does not accept a value. Enforced at [L27](../../Sources/Core/OperationTimeout.swift#L27).
 - `awaitCancellableValue` cancels the underlying task on caller cancellation; `runWhileMonitoring` is a structured race that joins both children ([L33-L46](../../Sources/Core/OperationTimeout.swift#L33-L46)).
-- Assumed: owners stop the underlying resource themselves when cancellation is not enough ([L3-L6](../../Sources/Core/OperationTimeout.swift#L3-L6)); the quit path accepts losing unfinished writes ([AppState.swift#L375-L379](../../Sources/App/AppState.swift#L375-L379)).
+- Assumed: owners stop the underlying resource themselves when cancellation is not enough ([L3-L6](../../Sources/Core/OperationTimeout.swift#L3-L6)); the quit path accepts losing unfinished writes ([AppState.swift#L374-L378](../../Sources/App/AppState.swift#L374-L378)).
 
 Tests: `OperationTimeoutTests.timeoutReturnsEvenWhenOperationIgnoresCancellation`, `OperationTimeoutTests.frameworkMonitorCannotHoldTimeoutCleanupOpen`.
 
@@ -758,7 +758,7 @@ Open questions: [SH1](#suspected-defects).
 
 Gives the history opt-in exactly one owner, bound once to the store an opt-out must empty: the app's history store. Until it is attached, turning Keep history off is refused, because a file from an earlier launch may be on disk with nothing to delete it.
 
-State: [`AppSettings.privacyOptIns`](../../Sources/Settings/AppSettings.swift#L27) (one lazy owner), [`PrivacyOptIns.settings`](../../Sources/Settings/AppSettings.swift#L697) (unowned), [`PrivacyOptIns.history`](../../Sources/Settings/AppSettings.swift#L698), [`attach(history:)`](../../Sources/Settings/AppSettings.swift#L705-L709), [`detachForTesting`](../../Sources/Settings/AppSettings.swift#L711-L717), and the one production [attach call](../../Sources/App/AppState.swift#L214).
+State: [`AppSettings.privacyOptIns`](../../Sources/Settings/AppSettings.swift#L27) (one lazy owner), [`PrivacyOptIns.settings`](../../Sources/Settings/AppSettings.swift#L697) (unowned), [`PrivacyOptIns.history`](../../Sources/Settings/AppSettings.swift#L698), [`attach(history:)`](../../Sources/Settings/AppSettings.swift#L705-L709), [`detachForTesting`](../../Sources/Settings/AppSettings.swift#L711-L717), and the one production [attach call](../../Sources/App/AppState.swift#L213).
 
 ```mermaid
 stateDiagram-v2
@@ -1511,7 +1511,7 @@ Open questions: [SH5](#suspected-defects).
 
 On the taste page, Syrup holds paste so the first result does not land in its own window, and shows the newest history record that finished after the page opened. A success starts a 3.2 s celebration.
 
-State: [`tasteStartedAt`, `isShowingShortcutPopover`, `showsSprinkles`](../../Sources/Onboarding/OnboardingView.swift#L26-L28), the app-wide [`holdsPasteForOnboarding`](../../Sources/App/AppState.swift#L57), the [step and result `onChange` handlers](../../Sources/Onboarding/OnboardingView.swift#L88-L94), the [taste result](../../Sources/Onboarding/OnboardingView.swift#L835-L837), and the [celebration timer](../../Sources/Onboarding/OnboardingView.swift#L843-L849).
+State: [`tasteStartedAt`, `isShowingShortcutPopover`, `showsSprinkles`](../../Sources/Onboarding/OnboardingView.swift#L26-L28), the app-wide [`holdsPasteForOnboarding`](../../Sources/App/AppState.swift#L56), the [step and result `onChange` handlers](../../Sources/Onboarding/OnboardingView.swift#L88-L94), the [taste result](../../Sources/Onboarding/OnboardingView.swift#L835-L837), and the [celebration timer](../../Sources/Onboarding/OnboardingView.swift#L843-L849).
 
 ```mermaid
 stateDiagram-v2
@@ -1574,7 +1574,7 @@ Invariants:
 
 - Checks are refused during a run, both at the button and in the delegate. Enforced at [L46-L53](../../Sources/App/UpdateController.swift#L46-L53) and [L61-L63](../../Sources/App/UpdateController.swift#L61-L63).
 - A postponed install runs once, after its callback is cleared, and only when no run is active. Enforced at [L55-L59](../../Sources/App/UpdateController.swift#L55-L59).
-- The resume sees the run as ended: every run end sets an inactive pipeline state before or in the same main-actor turn as the activity callback, and the callback defers the resume to a later task. Enforced by call order at [AppState.swift#L603-L607](../../Sources/App/AppState.swift#L603-L607), [L611-L620](../../Sources/App/AppState.swift#L611-L620), [L352-L359](../../Sources/App/AppState.swift#L352-L359), and [L744](../../Sources/App/AppState.swift#L744), with [SyrupApp.swift#L109-L112](../../Sources/App/SyrupApp.swift#L109-L112).
+- The resume sees the run as ended: every run end sets an inactive pipeline state before or in the same main-actor turn as the activity callback, and the callback defers the resume to a later task. Enforced by call order at [AppState.swift#L602-L606](../../Sources/App/AppState.swift#L602-L606), [L610-L619](../../Sources/App/AppState.swift#L610-L619), [L351-L358](../../Sources/App/AppState.swift#L351-L358), and [L743](../../Sources/App/AppState.swift#L743), with [SyrupApp.swift#L109-L112](../../Sources/App/SyrupApp.swift#L109-L112).
 - No automatic downloads or system profile, and no updater without both values. Enforced at [L21-L22](../../Sources/App/UpdateController.swift#L21-L22) and [L29-L33](../../Sources/App/UpdateController.swift#L29-L33).
 - Assumed: Sparkle calls its delegates on the main actor and offers one pending install at a time; a second postpone replaces the first.
 - Assumed: a pending install does not need to survive process death.
@@ -1587,7 +1587,7 @@ Open questions: none.
 
 Every quit (menu, Command-Q, logout, update relaunch) asks the delegate, which answers "terminate later", runs the app's bounded cleanup, and then replies. The cleanup itself, ending the run and waiting up to 2 s for run work and up to 2 s for stats and history writes, is charted in [run-pipeline.md](run-pipeline.md#quitting).
 
-State: [`openMainWindow` and `prepareForTermination`](../../Sources/App/SyrupApp.swift#L31-L32), [`applicationShouldTerminate`](../../Sources/App/SyrupApp.swift#L42-L50), the [arming in `MenuBarLabel`](../../Sources/App/SyrupApp.swift#L67-L75), and [`AppState.prepareForTermination`](../../Sources/App/AppState.swift#L364-L380). AppKit's outstanding terminate-later request is external state.
+State: [`openMainWindow` and `prepareForTermination`](../../Sources/App/SyrupApp.swift#L31-L32), [`applicationShouldTerminate`](../../Sources/App/SyrupApp.swift#L42-L50), the [arming in `MenuBarLabel`](../../Sources/App/SyrupApp.swift#L67-L75), and [`AppState.prepareForTermination`](../../Sources/App/AppState.swift#L363-L379). AppKit's outstanding terminate-later request is external state.
 
 ```mermaid
 stateDiagram-v2
@@ -1613,10 +1613,10 @@ stateDiagram-v2
 Invariants:
 
 - The callback is cleared before its task starts, so one quit runs one cleanup. Enforced at [L43-L49](../../Sources/App/SyrupApp.swift#L43-L49).
-- The cleanup finishes before the reply, and both of its waits are bounded by M05. Enforced at [L45-L47](../../Sources/App/SyrupApp.swift#L45-L47) and [AppState.swift#L371-L379](../../Sources/App/AppState.swift#L371-L379).
+- The cleanup finishes before the reply, and both of its waits are bounded by M05. Enforced at [L45-L47](../../Sources/App/SyrupApp.swift#L45-L47) and [AppState.swift#L370-L378](../../Sources/App/AppState.swift#L370-L378).
 - Assumed: the menu bar label appears before any quit; otherwise quit is immediate and skips the cleanup ([L43](../../Sources/App/SyrupApp.swift#L43), [L67-L75](../../Sources/App/SyrupApp.swift#L67-L75)).
 - Assumed: main-actor tasks keep running while AppKit waits for the reply.
-- Assumed: writes unfinished at the deadline may be lost, as in a crash ([AppState.swift#L375](../../Sources/App/AppState.swift#L375)).
+- Assumed: writes unfinished at the deadline may be lost, as in a crash ([AppState.swift#L374](../../Sources/App/AppState.swift#L374)).
 
 Tests: `PipelineRunTests.quittingEndsTheActiveRun`, `PipelineRunTests.quittingWaitsForACancelledRunToUnwind`, `OutputVolumeCharacterizationTests.quittingWaitsForACancelledRunsVolumeRestore`, `OutputDuckingTests.quittingWaitsForTheVolumeRestore`. No test drives the delegate.
 

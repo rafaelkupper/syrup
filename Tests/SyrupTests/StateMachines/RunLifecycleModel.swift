@@ -13,7 +13,7 @@ import Foundation
 /// decisions through the real `ReleaseTail.decision`, so those are never restated here.
 ///
 /// Left out: selected-text and retry runs, which share the transformation and commit modeled here
-/// but never record; Paste Last; streamed delivery; early transformation; and the learning archive.
+/// but never record; Paste Last; streamed delivery; and early transformation.
 struct RunLifecycleModel: StateMachineModel {
     let hotkeyMode: HotkeyMode
     let autoPaste: Bool

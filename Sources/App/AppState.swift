@@ -14,7 +14,6 @@ typealias AutoPasteSleeper = @Sendable (UInt64) async throws -> Void
 /// - `ResultActions`: Copy and Paste Last, and the result kept after a failed clipboard write.
 /// - `DeliveryCoordinator`: how committed text reaches the editor.
 /// - `SpeechReadiness`: speech locales and models for the workflows a person can start.
-/// - `RecordingFiler`: the opt-in learning archive's entries for voice runs.
 /// - `OutputVolumeChain`: lowering and restoring other audio while recording.
 @MainActor
 @Observable

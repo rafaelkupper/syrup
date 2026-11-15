@@ -164,7 +164,7 @@ xcodebuild -scheme Syrup -configuration Debug -derivedDataPath DerivedData build
 open DerivedData/Build/Products/Debug/Syrup.app
 ```
 
-[IMPLEMENTATION.md](IMPLEMENTATION.md) covers building, testing, and signing. [PRODUCT.md](PRODUCT.md) defines the behavior, [ARCHITECTURE.md](ARCHITECTURE.md) explains the pipeline and decisions, [AGENTS.md](AGENTS.md) lists the development rules, and [docs/UPDATES.md](docs/UPDATES.md) describes how a release is prepared and published.
+[IMPLEMENTATION.md](IMPLEMENTATION.md) covers building, testing, and signing. [PRODUCT.md](PRODUCT.md) defines the behavior, [ARCHITECTURE.md](ARCHITECTURE.md) explains the pipeline and decisions, [AGENTS.md](AGENTS.md) lists the development rules, [docs/UPDATES.md](docs/UPDATES.md) describes how a release is prepared and published, and [docs/state-machines/](docs/state-machines/README.md) charts the app's state machines and how the most important ones are model-checked.
 
 Syrup builds on [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) for global hotkeys, [FluidAudio](https://github.com/FluidInference/FluidAudio) for the downloadable speech models, and [Sparkle](https://github.com/sparkle-project/Sparkle) for updates.
 

@@ -328,8 +328,8 @@ Automated evidence is in `docs/verification/2026-11-01-workflows.md`. These manu
 - With Dictation's shortcut set to Press Fn Twice, confirm a double-tap also starts macOS Dictation, as the caption warns. With another shortcut, it does not.
 - Use Fn+Delete, Fn+arrow, and Fn+F1 in both modes: dictation must not continue or start. Do the same with Fn+Option.
 - Click into a shortcut recorder and press Fn: dictation must not start. Pause the hotkey and turn the option off: Fn does nothing.
-- Turn the Fn option off during a recording Fn started, in both modes and while latched: the recording is cancelled and the clipboard is unchanged. Turn it off during a recording the dictate shortcut started, or during Transcribing: the run goes on and delivers.
-- In Hold to talk, hold Fn, press Esc, then hold the dictate shortcut too and release Fn: the shortcut's recording keeps going until the shortcut is released. Double-tap Fn to latch, press Esc: Home stops showing "Double-tap Fn to finish".
+- Turn the Fn option off during a recording Fn started, in both modes and while latched: the recording is cancelled and the clipboard is unchanged. Turn it off during a recording the dictate shortcut started, or during Transcribing: the run goes on and delivers. Before 1.1 an Fn hold or toggle recording kept going.
+- Double-tap Fn to latch, then press Esc: the run is cancelled and Home stops showing "Double-tap Fn to finish". Latch again and finish with a double-tap: it delivers. This checks that the latch still works; Fn's leftover state after a run ends (F2, F3) needs event orders a real keyboard rarely produces, because any key pressed while Fn is down counts as Fn with another key, so `FnShortcutFixTests` covers it.
 - Test a built-in keyboard and an external Apple keyboard. A external keyboard that does not send Fn sends no Fn event to macOS, so Fn is expected to do nothing there. With “Press globe key to” not set to Do Nothing, confirm the caption describes what happens.
 
 

@@ -22,7 +22,7 @@
 
 `AppState.pipelineState` is what the menu bar icon, the recording cue, and the menu show. `AppState.activeRun` is the run that owns it. Every key, menu, and cancel event goes through the pure `PipelineTransitions.command(for:in:run:hasLastResult:)`, which returns start, stop, cancel, or ignore; `AppState` performs the command, and the run task's completions move the state on.
 
-State: [`AppState.pipelineState`](../../Sources/App/AppState.swift#L37), [`AppState.activeRun`](../../Sources/App/AppState.swift#L108), [`AppState.runTasks`](../../Sources/App/AppState.swift#L112), [`PipelineRun.deliveryCommitted`](../../Sources/App/PipelineRun.swift#L74), the event table in [`PipelineTransitions`](../../Sources/App/PipelineTransitions.swift#L61).
+State: [`AppState.pipelineState`](../../Sources/App/AppState.swift#L36), [`AppState.activeRun`](../../Sources/App/AppState.swift#L107), [`AppState.runTasks`](../../Sources/App/AppState.swift#L111), [`PipelineRun.deliveryCommitted`](../../Sources/App/PipelineRun.swift#L74), the event table in [`PipelineTransitions`](../../Sources/App/PipelineTransitions.swift#L61).
 
 ```mermaid
 stateDiagram-v2
@@ -179,7 +179,7 @@ Tests: `AppStateFailureTests.clipboardFailureMovesToErrorAndDoesNotMarkSuccess`,
 
 Paste Last copies the newest result and, with automatic paste on, pastes it where automatic paste would. It awaits the delivery target, an optional caret read, and the paste delay; a newer Paste Last or any new run supersedes it.
 
-State: [`ResultActions.pendingPasteID`](../../Sources/App/ResultActions.swift#L45), cleared by `cancelPendingPaste()` from [`clearRunTracking`](../../Sources/App/AppState.swift#L726).
+State: [`ResultActions.pendingPasteID`](../../Sources/App/ResultActions.swift#L45), cleared by `cancelPendingPaste()` from [`clearRunTracking`](../../Sources/App/AppState.swift#L725).
 
 ```mermaid
 stateDiagram-v2
@@ -225,7 +225,7 @@ Tests: `AppStateDeliveryTests` (streaming cases), `StreamingTransformerTests`, `
 
 A voice run opens the microphone first; the opt-in selection read and the delivery-target capture run beside it and finish before the instruction is used. A selected-text run reads the selection before anything else and fails fast without one.
 
-State: the outcome of [`resolveRunContext`](../../Sources/App/AppState.swift#L473), `PipelineRun.deliveryTarget`, and three once-per-launch flags from [`didNotifyEmptySelectionContext`](../../Sources/App/AppState.swift#L115) on.
+State: the outcome of [`resolveRunContext`](../../Sources/App/AppState.swift#L472), `PipelineRun.deliveryTarget`, and three once-per-launch flags from [`didNotifyEmptySelectionContext`](../../Sources/App/AppState.swift#L114) on.
 
 ```mermaid
 stateDiagram-v2
@@ -288,7 +288,7 @@ Tests: `OutputDuckingTests`, `OutputDuckerTests`, `OutputVolumeCharacterizationT
 
 ## Quitting
 
-Every quit path ends the run, waits up to two seconds for run tasks and the volume restore, then up to two seconds to flush usage stats and history ([`AppState.prepareForTermination`](../../Sources/App/AppState.swift#L364-L380)).
+Every quit path ends the run, waits up to two seconds for run tasks and the volume restore, then up to two seconds to flush usage stats and history ([`AppState.prepareForTermination`](../../Sources/App/AppState.swift#L363-L379)).
 
 ```mermaid
 stateDiagram-v2
@@ -309,6 +309,6 @@ Tests: `PipelineRunTests.quittingEndsTheActiveRun`, `PipelineRunTests.quittingWa
 | Speech warm-up | [`SpeechReadiness.preparedLocaleIDs`](../../Sources/App/SpeechReadiness.swift#L13) | The bound locales last prepared, so an unchanged set is not prepared again. |
 | Speech fallback notice | [`SpeechReadiness.didShowFallbackNotice`](../../Sources/App/SpeechReadiness.swift#L14) | Whether the model-fallback notice was shown this launch. |
 | Accessibility notice for paste | [`DeliveryCoordinator.didNotifyAutoPasteNotTrusted`](../../Sources/App/DeliveryCoordinator.swift#L24) | Shown once per launch. |
-| Foreground activity | [`AppState.foregroundActivityChanged`](../../Sources/App/AppState.swift#L113), the run's `ProcessInfo` activity | Begun when a run starts, ended in `clearRunTracking`; Suggest checks stop and wait while it is active, and a deferred update install resumes when it ends ([SyrupApp.swift L109-L114](../../Sources/App/SyrupApp.swift#L109-L114)). |
-| Onboarding paste hold | [`AppState.holdsPasteForOnboarding`](../../Sources/App/AppState.swift#L57) | While the onboarding's try-it page is open and Syrup is in front, runs do not paste. |
+| Foreground activity | [`AppState.foregroundActivityChanged`](../../Sources/App/AppState.swift#L112), the run's `ProcessInfo` activity | Begun when a run starts, ended in `clearRunTracking`; Suggest checks stop and wait while it is active, and a deferred update install resumes when it ends ([SyrupApp.swift L109-L114](../../Sources/App/SyrupApp.swift#L109-L114)). |
+| Onboarding paste hold | [`AppState.holdsPasteForOnboarding`](../../Sources/App/AppState.swift#L56) | While the onboarding's try-it page is open and Syrup is in front, runs do not paste. |
 | Recording cue caption | `AppState.recordingCueCaption` | Derived on demand: the revision note, or a workflow other than the active one. |

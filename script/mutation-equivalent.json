@@ -20,6 +20,16 @@
       "before": "var sendsTemperature = sendsTemperatureFirst",
       "after": "while true {",
       "reason": "In transformWithUsage. Read only when temperature is left out. Before a retry that happens only when this endpoint and model are already remembered (sendsTemperatureFirst), so remembering again inserts a key already in the set; a retry assigns it before it is read."
+    },
+    {
+      "file": "Sources/App/StatusIndicator.swift",
+      "scope": "final class StatusIndicator > func scheduleErrorReset(for runID: UUID)",
+      "original": "errorResetTask?.cancel()",
+      "mutated": "",
+      "occurrence": 1,
+      "before": "func scheduleErrorReset(for runID: UUID) {",
+      "after": "errorResetRunID = runID",
+      "reason": "In scheduleErrorReset. The reset task it would cancel cannot act any more: when it wakes, errorResetElapsed requires errorResetRunID to equal its run, and the next line sets errorResetRunID to the new run (cancelErrorReset sets it to nil). No run schedules two resets: finishRunFailed and failRunStart each run once per run, and ResultActions passes a fresh UUID. Without the cancel the replaced task only sleeps on and then returns."
     }
   ]
 }

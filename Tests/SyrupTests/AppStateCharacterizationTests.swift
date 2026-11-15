@@ -280,6 +280,31 @@ struct SpeechReadinessCharacterizationTests {
         await eventually { await probe.locales.count == 3 }
         #expect(await probe.locales.sorted() == ["fr-FR", "pt-BR", "pt-BR"])
     }
+
+    /// At launch the active workflow's locale becomes the one Settings reports on, and a routed
+    /// workflow's locale is prepared too, with no shortcut refresh needed.
+    @Test func refreshingDictationLocalesAtLaunchSelectsTheActiveLocaleAndPreparesRoutedOnes() async {
+        let probe = PreparedLocales()
+        let manager = TranscriberAssetManager(prepare: { locale in
+            await probe.record(locale)
+            return .installed(locale)
+        })
+        let settings = makeTestSettings()
+        let active = Workflow(id: UUID(), name: "Active", kind: .transcribeOnly(cleanup: false),
+                              dictationLocaleID: "pt-BR", translationProvider: nil)
+        let routed = Workflow(id: UUID(), name: "Routed", kind: .transcribeOnly(cleanup: false),
+                              dictationLocaleID: "fr-FR", translationProvider: nil)
+        settings.workflowList = WorkflowList(workflows: [active, routed])
+        settings.workflowList.routeApplication("test.app", to: routed.id)
+        let state = AppState.fixture(settings: settings, transcriberAssetManager: manager)
+
+        await state.refreshDictationLocales()
+        // An unsupported active locale may be replaced first, so read it afterwards.
+        let activeLocale = TranscriberAssetManager.bcp47Identifier(for: Locale(identifier: settings.activeWorkflow.dictationLocaleID))
+        await eventually { manager.selectedLocaleAssetState == .installed(activeLocale) }
+        await eventually { await probe.locales.contains("fr-FR") }
+        #expect(await Set(probe.locales) == [activeLocale, "fr-FR"])
+    }
 }
 
 // MARK: - Helpers
