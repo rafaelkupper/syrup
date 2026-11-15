@@ -12,7 +12,7 @@ import Testing
 @MainActor
 struct StatusDisplayCharacterizationTests {
     @Test(arguments: [false, true])
-    func anOlderFlashCannotHideANewerCopy(startRunBetweenCopies: Bool) async {
+    func aCancelledFlashTimerCannotHideANewerCopy(startRunBetweenCopies: Bool) async {
         let flash = ManualResetSleeper()
         let state = characterizedState(
             history: historyWithSuccess(),

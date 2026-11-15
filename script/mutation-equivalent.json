@@ -43,16 +43,6 @@
     },
     {
       "file": "Sources/App/StatusIndicator.swift",
-      "scope": "final class StatusIndicator > private func clearSuccess()",
-      "original": "flashTask = nil",
-      "mutated": "",
-      "occurrence": 1,
-      "before": "isShowingSuccess = false",
-      "after": "}",
-      "reason": "In clearSuccess. This is the flash task finishing its own callback; isShowingSuccess has already been cleared. Retaining the completed task cannot run the callback again. showSuccess replaces it after cancelling it, and cancelSuccess discards or re-cancels it, so no subsequent input can distinguish the retained handle."
-    },
-    {
-      "file": "Sources/App/StatusIndicator.swift",
       "scope": "final class StatusIndicator > func cancelErrorReset()",
       "original": "errorResetTask = nil",
       "mutated": "",

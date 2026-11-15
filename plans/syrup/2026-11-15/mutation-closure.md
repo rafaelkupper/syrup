@@ -10,47 +10,37 @@ Started at `5ff3afd` on `t3/close-surviving-mutants`. The tool lists 183 mutants
 
 ## Constraints
 
-Tests and equivalence entries only; no production changes, app launch, real microphone, clipboard, hotkeys, paid APIs, delegation, or push. Use isolated tests. Commit as Syrup contributors with the requested co-author trailer.
+Tests and equivalence entries only; no production changes, app launch, real microphone, clipboard, hotkeys, paid APIs, delegation, or push. Use isolated tests. Commit as Syrup contributors. A real product bug is reported, not fixed here.
 
 ## Done when
 
-- Bounded runs account for all 183 mutants with no surviving, unclassified, or unrun mutant.
+- Bounded runs account for all 183 mutants with no surviving, unclassified, or unrun mutant, except where a survivor exposes a production bug.
 - `script/ci_test.sh` passes.
 - Release progress records the added coverage; changes committed locally.
 
 ## Changes
 
-Added 14 Swift Testing declarations, including parameterized cases, and strengthened `anUnchangedSetOfBoundLocalesIsNotPreparedAgain`: the asset manager synchronously publishes `.checking` on a redundant preparation, so its state catches that mutation without a fixed sleep. Added 11 equivalence entries with exact scope, source text, occurrence, and neighboring lines. Production sources and `project.yml` are unchanged.
+Added 14 Swift Testing declarations, including parameterized cases, and strengthened `anUnchangedSetOfBoundLocalesIsNotPreparedAgain`: the asset manager synchronously publishes `.checking` on a redundant preparation, so its state catches that mutation without a fixed sleep. Added 10 equivalence entries with exact scope, source text, occurrence, and neighboring lines. Production sources and `project.yml` are unchanged.
 
-`OwnerBoundaryContractTests` compiles the unmodified `ResultActions.swift` and `OutputVolumeChain.swift` against boundary doubles. It observes the sentence-context request and typed error-code log without real Accessibility or OSLog delivery. Ordinary AppState tests still use `AppState.fixture` and the existing fakes. Flash tests use a task-local lifetime signal to wait for the entire older task to finish before asserting that it cannot hide a newer flash.
+`OwnerBoundaryContractTests` compiles the unmodified `ResultActions.swift` and `OutputVolumeChain.swift` against boundary doubles in `Tests/OwnerBoundaryProbe/`. It observes the sentence-context request and typed error-code log without real Accessibility or OSLog delivery, and costs about 2 seconds. It is a stopgap for the tests-only constraint: it breaks whenever either file uses a new member of the copied types. Once production changes are allowed, replace it with two seams (pass `readsSentence` to `DeliveryTarget`'s `contextProbe`, give `OutputVolumeChain` an injectable log sink) and delete `Tests/OwnerBoundaryProbe`.
+
+`aCancelledFlashTimerCannotHideANewerCopy` uses a task-local lifetime signal to wait for the entire older flash task to finish before asserting that it did not hide a newer flash. Its sleeper honors cancellation after waking, so it covers a timer cancelled while asleep, not one that already woke (see the open survivor below). Deleting the cancel in `showSuccess` (line 113) fails its first case, and deleting the one in `cancelSuccess` (line 129) its second (checked in review).
 
 ## Verification
 
-Final totals: **183 unique mutants: 127 killed, 15 timed out, 29 did not compile, 12 listed as equivalent. Zero survivors, unclassified results, or unrun mutants**.
+Totals: **183 mutants: 127 killed, 15 timed out (counted as killed), 29 did not compile, 11 listed as equivalent, 1 open survivor** (`StatusIndicator.swift:136`, below). None unclassified or unrun.
 
-The final focused confirmation killed all 23 selected mutants: zero timeouts, non-compiling mutants, survivors, or unclassified results. Each recorded the intended assertion failure. [Assertion proofs](../../../.cache/mutation-closure-2026-11-15/proofs.json) contain the test name and failure line for each mutant.
+The final focused confirmation killed all 23 selected mutants, each with its intended assertion failure, and no timeouts. The 15 timed-out mutants in the discovery runs also recorded assertion failures in existing tests, so none is a kill by timeout alone (checked in review).
 
-Final `script/ci_test.sh` passed: boundary check, provider-corpus check, 50 mutation-tool tests, production build, and the isolated Swift suite. Swift Testing reported 883 tests in 127 suites with two expected checker self-test issues. Five optional test declarations were skipped, including tests in two skipped suites: release timing, real mishearing probes, and the available-model smoke test. The follow-up changes no source lines against `main`, so CI's default mutation gate has zero candidates; merge coverage below explicitly uses `--base e09af51`.
+`script/ci_test.sh` passed on `9ebd963`: boundary check, provider-corpus check, 50 mutation-tool tests, production build, and the isolated Swift suite (883 tests in 127 suites, two expected checker self-test issues, five optional declarations skipped). The follow-up changes no source lines against `main`, so CI's default mutation gate has no candidates; the runs above used `--base e09af51`.
 
-[Aggregate dispositions](../../../.cache/mutation-closure-2026-11-15/coverage.json) deduplicate exact mutant identities and use the latest completed result or matching equivalence entry. The original 182 runnable candidates were partitioned without gaps: 57 owners, 58 status/Fn, and 67 result actions. The result run was deliberately interrupted after 39 completed cases to keep it bounded; its unfinished case was discarded and rerun in a 13-case continuation, alongside a separate 15-case continuation. The original listed equivalence supplies the 183rd disposition. Every chunk finished in under 49 minutes, comfortably within the 90-minute limit. Focused confirmations overlap these candidates and are not counted twice.
-
-Every mutation command uses `python3 -I script/mutation.py --base e09af51 --limit 200`, with `--only path:line` selectors saved beside its output. The final list validates all 12 applicable equivalences and leaves no candidate out by the limit. To rerun an individual case, for example:
+The runs were split into bounded chunks (owners, status and Fn, result actions in three parts), each under 49 minutes. Commands had the form:
 
 ```sh
 python3 -I script/mutation.py --base e09af51 --only Sources/App/ResultActions.swift:210
 ```
 
-| Run | Raw results |
-| --- | --- |
-| Owners | [owners.txt](../../../.cache/mutation-closure-2026-11-15/owners.txt) |
-| Status and Fn | [tail.txt](../../../.cache/mutation-closure-2026-11-15/tail.txt) |
-| Result prefix, 39 completed cases | [results.txt](../../../.cache/mutation-closure-2026-11-15/results.txt) |
-| Result continuation A | [results-a.txt](../../../.cache/mutation-closure-2026-11-15/results-a.txt) |
-| Result continuation B | [results-b.txt](../../../.cache/mutation-closure-2026-11-15/results-b.txt) |
-| Final focused confirmation | [closure.txt](../../../.cache/mutation-closure-2026-11-15/closure.txt) |
-| Final CI | [ci-final.txt](../../../.cache/mutation-closure-2026-11-15/ci-final.txt) |
-
-Discovery runs retain their original survivor reports; the following mappings and the aggregate record their closure. Raw per-mutant suite output is in each run's adjacent `*-logs` directory. `aggregate.py --final` asserts complete coverage; `proofs.py --final` requires the named assertion failures for all 23 focused mutants. Evidence is local and ignored, not uploaded.
+The raw run output, per-mutant logs, and aggregation scripts (about 100 MB) stayed in the author's worktree under the git-ignored `.cache/` and were not committed.
 
 ## Survivor mappings
 
@@ -77,11 +67,23 @@ Line numbers are current, confirmed by `--list`. A listed mutation applies only 
 | StatusIndicator:89 | `disabledRecordingCueIsExplicitlyHidden` |
 | HotkeyController:75 | `installingAControllerDoesNotCancelAnExistingShortcutRecording` |
 | HotkeyController:203, deletion | `disablingFnClearsTheLatchWhileARecordingIsFinishing` |
-| StatusIndicator:130,136,160,168, deletions | Equivalent: retaining a canceled or completed task handle cannot run a callback again; subsequent scheduling/cancellation replaces or discards it. |
+| StatusIndicator:130,160,168, deletions | Equivalent: retaining a canceled or completed task handle cannot run a callback again; subsequent scheduling/cancellation replaces or discards it. |
+| StatusIndicator:136, deletion | **Open survivor; exposes a production bug** (below). |
 | StatusIndicator:161, deletion | Equivalent: cancellation paths leave idle or a run that refuses the callback, and subsequent errors replace the retained ID before yielding. |
 | StatusIndicator:165, Bool | Equivalent: both versions call `clearErrorAfterDelay` once; only disposal of the finished task and its ID differs. |
 | StatusIndicator:167, deletion | Equivalent: this one-shot callback has already run; a retained ID cannot trigger it again and later schedules replace it. |
 | HotkeyController:204, deletion | Equivalent: a capturing Fn run is canceled and clears the flag on idle; a stopping run cannot capture again, and leaving recording clears the private flag before a new run. |
 | StatusIndicator:143, existing deletion entry | Equivalent: the superseding UUID prevents the replaced task from acting; each run schedules at most one reset. |
 
-No real product bug was found. All newly added tests pass on unmodified production code.
+## Open: a woken flash timer hides newer flashes
+
+Found in review (Astra and Fable each reproduced it); the commit first listed `StatusIndicator.swift:136` as equivalent, which was wrong.
+
+The success flash task (`StatusIndicator.showSuccess`) calls `clearSuccess()` after its sleep without checking cancellation or identity; the error reset has `errorResetRunID` for this, the flash has nothing. Sequence, three copies within the 1-second flash:
+
+1. Copy A shows the checkmark. A's sleep ends and its hop back to the main actor is queued.
+2. Copy B runs `showSuccess()`: it cancels A, too late, and sets `flashTask` to B.
+3. A runs `clearSuccess()`: it hides B's checkmark at once and sets `flashTask = nil`, dropping B's handle.
+4. Copy C cannot cancel B. When B's timer ends, it hides C's checkmark early.
+
+Deleting line 136 keeps B's handle, so C cancels B: the mutant behaves better than the code, and no test can kill it without pinning the defect. The effect is cosmetic (the menu bar checkmark disappears early); copies, clipboard, and paste are unaffected. The code moved unchanged out of `AppState`, so 1.0 had the same race. The fix is a production change: check `Task.isCancelled` (or a flash generation) before `clearSuccess()`, red-first with the reviewers' test, which blocks the main actor until the first timer has woken and then copies twice more.
