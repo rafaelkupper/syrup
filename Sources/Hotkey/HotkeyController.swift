@@ -63,11 +63,16 @@ final class HotkeyController {
     private let fnKeyMonitor: FnKeyMonitor
     private let isTypingInSyrup: () -> Bool
     private var isFnKeyEnabled = false
+    /// Fn's press started the run and Fn is still held: releasing Fn stops it, and Fn with another
+    /// key cancels it. Ends with the run (`pipelineStateChanged`).
     private var fnStartedRun = false
     /// A double-tap in hold mode keeps recording after Fn is released, until the next double-tap.
+    /// Ends with the recording.
     private var isFnLatched = false {
         didSet { appState?.isFnRecordingLatched = isFnLatched }
     }
+    /// A toggle-mode recording that Fn's double-tap started. Ends with the recording.
+    private var fnStartedToggleRun = false
     /// The first tap of a possible double-tap landed while nothing was running.
     private var isFnDoubleTapArmed = false
 
@@ -193,13 +198,33 @@ final class HotkeyController {
             fnKeyMonitor.start()
         } else {
             fnKeyMonitor.stop()
+            let fnHoldsRecording = fnStartedRun || isFnLatched || fnStartedToggleRun
             fnStartedRun = false
+            isFnLatched = false
+            fnStartedToggleRun = false
             isFnDoubleTapArmed = false
-            if isFnLatched {
-                // Nothing could stop this run with Fn any more, so it must not keep the microphone open.
-                isFnLatched = false
-                appState?.cancelRequested()
+            // Fn could no longer stop a recording it started, so it must not keep the microphone
+            // open. A recording already stopping, or a run past recording, finishes as it would.
+            if fnHoldsRecording, let appState, appState.pipelineState == .recording,
+               appState.activeRun?.recordingPhase == .capturing {
+                appState.cancelRequested()
             }
+        }
+    }
+
+    /// Called by `AppState` on every pipeline change. Esc is attached while a run can be cancelled.
+    /// Fn's flags end with the run Fn started, before any later run can begin, so Fn never stops or
+    /// cancels a run it did not start: every run starts from idle or error. Fn's press flag lasts
+    /// until then, so Fn with another key still cancels its run while it is transcribed or transformed.
+    func pipelineStateChanged() {
+        guard let state = appState?.pipelineState else { return }
+        setCancelShortcutEnabled(state.allowsCancelShortcut)
+        if state != .recording {
+            isFnLatched = false
+            fnStartedToggleRun = false
+        }
+        if state.acceptsNewRun {
+            fnStartedRun = false
         }
     }
 
@@ -219,7 +244,8 @@ final class HotkeyController {
             if fnStartedRun {
                 fnStartedRun = false
                 if completesDoubleTap {
-                    isFnLatched = true
+                    // Only a recording can be kept open; the shortcut or Esc may have ended it.
+                    isFnLatched = appState.pipelineState == .recording
                 } else {
                     appState.triggerReleased()
                 }
@@ -252,6 +278,8 @@ final class HotkeyController {
             // Without the arming check, a double-tap meant to stop would start a new recording once the result landed.
             if completesDoubleTap {
                 if wasArmed, isTypingInSyrup() == false {
+                    // Cleared again by `pipelineStateChanged` if the run does not record.
+                    fnStartedToggleRun = true
                     appState.triggerPressed()
                 }
             } else {

@@ -39,7 +39,7 @@ final class AppState {
             if newValue != .recording { isFnRecordingLatched = false }
         }
         didSet {
-            hotkeyController?.setCancelShortcutEnabled(pipelineState.allowsCancelShortcut)
+            hotkeyController?.pipelineStateChanged()
             status.syncRecordingCue()
         }
     }

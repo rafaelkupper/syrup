@@ -46,29 +46,161 @@ struct FnShortcutConformanceTests {
     }
 }
 
-/// The model's findings, reproduced directly on the real controller and app.
+/// The model's findings F1 to F3, reproduced directly on the real controller and app, and the
+/// behavior their fix keeps.
 @MainActor
-struct FnShortcutFindingTests {
-    @Test func turningTheFnOptionOffDuringAnFnHoldLeavesTheRecordingRunning() async {
-        let harness = FnShortcutHarness(model: FnShortcutModel(hotkeyMode: .hold), fnEnabled: true)
+struct FnShortcutFixTests {
+    private func harness(_ mode: HotkeyMode) -> FnShortcutHarness {
+        FnShortcutHarness(model: FnShortcutModel(hotkeyMode: mode), fnEnabled: true)
+    }
+
+    private func perform(_ actions: [FnShortcutModel.Action], on harness: FnShortcutHarness) async {
+        for action in actions { await harness.perform(action) }
+    }
+
+    /// F1: Fn could no longer end the recording, so it must not keep the microphone open.
+    @Test(arguments: [HotkeyMode.hold, .toggle])
+    func turningTheFnOptionOffCancelsARecordingFnStarted(mode: HotkeyMode) async {
+        let harness = harness(mode)
         defer { harness.tearDown() }
-        await harness.perform(.fnDown)
-        await harness.perform(.tick)
-        await harness.perform(.tick)
-        await harness.perform(.tick)
-        await eventually { harness.state.pipelineState == .recording }
+        // Hold: a press held past the minimum hold. Toggle: a double-tap.
+        await perform(mode == .hold ? [.fnDown, .tick, .tick, .tick] : [.fnDown, .fnUp, .fnDown, .fnUp], on: harness)
+        #expect(harness.state.pipelineState == .recording)
+        await eventually { harness.recorder.isCapturing }
+
         await harness.perform(.fnOptionOff)
         #expect(harness.monitor.isRunning == false)
-        await harness.perform(.fnUp)
-        // The release is never seen, so nothing is pending that would end the run: give the app a
-        // moment, then look.
-        try? await Task.sleep(for: .milliseconds(100))
+        #expect(harness.state.pipelineState == .idle)
+        #expect(harness.recorder.isCapturing == false)
+        await harness.finish()
+    }
 
-        withKnownIssue("F1: Fn can no longer end the recording, so it should have been cancelled") {
-            #expect(harness.state.pipelineState == .idle)
-        }
+    /// F2: a double-tap whose second run the shortcut already ended must not latch, or Home shows
+    /// "Double-tap Fn to finish" with nothing recording.
+    @Test func aDoubleTapDoesNotLatchARunThatAlreadyEnded() async {
+        let harness = harness(.hold)
+        defer { harness.tearDown() }
+        await perform([.fnDown, .fnUp, .fnDown, .dictateRelease], on: harness)
+        #expect(harness.state.pipelineState == .idle)
+        await harness.perform(.fnUp)
+        #expect(harness.state.isFnRecordingLatched == false)
+        #expect(harness.observation().latched == false)
+        await harness.finish()
+    }
+
+    /// F2: a double-tap whose second run the duration limit already stopped must not latch it while
+    /// it is transcribed.
+    @Test func aDoubleTapDoesNotLatchARunBeingTranscribed() async {
+        let harness = harness(.hold)
+        defer { harness.tearDown() }
+        await perform([.fnDown, .fnUp, .fnDown], on: harness)
+        await eventually { harness.recorder.isCapturing && harness.timers.pending(.duration) == 1 }
+        await harness.perform(.durationLimit)
+        await eventually { harness.state.pipelineState == .transcribing }
+
+        await harness.perform(.fnUp)
+        #expect(harness.observation().latched == false)
+        #expect(harness.state.isFnRecordingLatched == false)
+        await harness.finish()
+    }
+
+    /// F2: a latch outlived a run Esc cancelled, and turning the Fn option off then cancelled the
+    /// next run, which the dictate shortcut started.
+    @Test func aLatchEndsWithItsRunSoTurningFnOffSparesTheNextRun() async {
+        let harness = harness(.hold)
+        defer { harness.tearDown() }
+        await perform([.fnDown, .fnUp, .fnDown, .fnUp], on: harness)
+        #expect(harness.state.isFnRecordingLatched)
+        await perform([.escape, .dictatePress], on: harness)
         #expect(harness.state.pipelineState == .recording)
-        #expect(harness.registration.enabled.contains(.cancelDictation), "Esc still ends it")
+        #expect(harness.observation().latched == false)
+
+        await harness.perform(.fnOptionOff)
+        #expect(harness.state.pipelineState == .recording)
+        await harness.finish()
+    }
+
+    /// F2: a latch outlived a run the duration limit stopped, and turning the Fn option off then
+    /// cancelled its transcription, so the dictation was lost.
+    @Test func turningFnOffDoesNotCancelALatchedRunThatIsBeingTranscribed() async {
+        let harness = harness(.hold)
+        defer { harness.tearDown() }
+        await perform([.fnDown, .fnUp, .fnDown, .fnUp], on: harness)
+        await eventually { harness.recorder.isCapturing && harness.timers.pending(.duration) == 1 }
+        await harness.perform(.durationLimit)
+        await eventually { harness.state.pipelineState == .transcribing }
+        #expect(harness.observation().latched == false)
+
+        await harness.perform(.fnOptionOff)
+        #expect(harness.state.pipelineState == .transcribing)
+        await harness.finish()
+    }
+
+    /// F3: Fn's run ended and the shortcut started another while Fn was still held; releasing Fn,
+    /// or pressing another key with it, ended the shortcut's run.
+    @Test(arguments: [FnShortcutModel.Action.dictateRelease, .escape], [FnShortcutModel.Action.fnUp, .keyWhileFnDown])
+    func fnDoesNotEndARunTheShortcutStartedAfterFnsRunEnded(fnRunEnds: FnShortcutModel.Action, fnAction: FnShortcutModel.Action) async {
+        let harness = harness(.hold)
+        defer { harness.tearDown() }
+        await perform([.fnDown, fnRunEnds, .dictatePress], on: harness)
+        #expect(harness.state.pipelineState == .recording)
+
+        await harness.perform(fnAction)
+        #expect(harness.state.pipelineState == .recording)
+        await harness.finish()
+    }
+
+    /// Kept: a recording the shortcut already stopped finishes its release tail and is transcribed,
+    /// even if the Fn option is turned off before the tail ends.
+    @Test func turningFnOffDuringTheReleaseTailLetsTheRunFinish() async {
+        let harness = harness(.hold)
+        defer { harness.tearDown() }
+        await perform([.fnDown, .tick, .tick, .tick], on: harness)
+        await eventually { harness.recorder.isCapturing }
+        // No quiet buffer has arrived, so the stop waits in the release tail.
+        await harness.perform(.dictateRelease)
+        #expect(harness.state.activeRun?.recordingPhase == .releaseTail)
+
+        await harness.perform(.fnOptionOff)
+        #expect(harness.state.pipelineState == .recording)
+        await eventually { harness.clock.sleeping > 0 }
+        harness.clock.advance(by: ReleaseTail.deadline)
+        await eventually { harness.state.pipelineState == .transcribing }
+        await harness.finish()
+    }
+
+    /// Kept: a selection-input run Fn started records nothing, so turning the Fn option off leaves
+    /// it to finish.
+    @Test func turningFnOffLeavesASelectionRunFnStartedToFinish() async {
+        let harness = FnShortcutHarness(model: FnShortcutModel(hotkeyMode: .hold), fnEnabled: true,
+                                        selectionReader: FakeSelectionReader(.text("Selected fixture text")))
+        defer { harness.tearDown() }
+        harness.settings.updateWorkflow(id: harness.settings.activeWorkflow.id) { $0.input = .selection }
+        await harness.perform(.fnDown)
+        #expect(harness.state.pipelineState == .translating)
+
+        await harness.perform(.fnOptionOff)
+        #expect(harness.state.pipelineState == .translating)
+        await eventually { harness.transformer.inFlight == 1 }
+        harness.transformer.resolveNewest(.output(clipboardWorks: true))
+        await eventually { harness.state.pipelineState == .idle && harness.state.activeRun == nil }
+        await harness.finish()
+    }
+
+    /// Kept: Fn with another key still cancels the run Fn's press started after the shortcut
+    /// stopped it, while it is being transcribed.
+    @Test func fnWithAnotherKeyStillCancelsItsOwnRunDuringTranscription() async {
+        let harness = harness(.hold)
+        defer { harness.tearDown() }
+        await perform([.fnDown, .tick, .tick, .tick], on: harness)
+        await eventually { harness.recorder.isCapturing }
+        harness.recorder.yield(dBFS: RunLifecycleModel.quietLevel)
+        await eventually { harness.state.activeRun?.lastBufferWasQuiet == true }
+        await harness.perform(.dictateRelease)
+        await eventually { harness.state.pipelineState == .transcribing }
+
+        await harness.perform(.keyWhileFnDown)
+        #expect(harness.state.pipelineState == .idle)
         await harness.finish()
     }
 }
@@ -79,6 +211,7 @@ struct FnObservation: Equatable, CustomStringConvertible {
     var tapAge: Int?
     var fnStartedRun: Bool
     var latched: Bool
+    var fnStartedToggleRun: Bool
     var armed: Bool
     var latchedMirror: Bool
     var monitorRunning: Bool
@@ -116,7 +249,7 @@ final class FnShortcutHarness {
     private var typing = false
     private var quietBufferSent: Set<UUID> = []
 
-    init(model: FnShortcutModel, fnEnabled: Bool) {
+    init(model: FnShortcutModel, fnEnabled: Bool, selectionReader: any SelectionReading = FakeSelectionReader(.empty)) {
         self.model = model
         let settings = makeTestSettings()
         settings.hotkeyMode = model.hotkeyMode
@@ -137,7 +270,8 @@ final class FnShortcutHarness {
             maximumRecordingDurationNanoseconds: 1,
             recordingDurationSleeper: timers.sleeper(.duration),
             autoPasteSleeper: timers.sleeper(.pasteDelay),
-            recordingClock: clock
+            recordingClock: clock,
+            selectionReader: selectionReader
         )
         var sampleSource: (() -> FnKeySample)?
         monitor = FnKeyMonitor(sample: { sampleSource?() ?? FnKeySample(isFnDown: false, hasOtherModifiers: false, secondsSinceKeyDown: 100, time: 0) })
@@ -204,7 +338,7 @@ final class FnShortcutHarness {
     func expectedObservation(of model: FnShortcutModel.State) -> FnObservation {
         FnObservation(
             app: Self.abstract(model.app), gesture: model.gesture, tapAge: model.tapAge,
-            fnStartedRun: model.fnStartedRun, latched: model.latched, armed: model.armed,
+            fnStartedRun: model.fnStartedRun, latched: model.latched, fnStartedToggleRun: model.fnStartedToggleRun, armed: model.armed,
             latchedMirror: model.latchedMirror, monitorRunning: model.monitorRunning, escapeEnabled: model.escapeAvailable
         )
     }
@@ -239,7 +373,8 @@ final class FnShortcutHarness {
             .flatMap { Mirror(reflecting: $0).children.first?.value as? Double }
         return FnObservation(
             app: app, gesture: gesture, tapAge: lastTap.map(age(since:)),
-            fnStartedRun: flag("fnStartedRun"), latched: flag("isFnLatched"), armed: flag("isFnDoubleTapArmed"),
+            fnStartedRun: flag("fnStartedRun"), latched: flag("isFnLatched"),
+            fnStartedToggleRun: flag("fnStartedToggleRun"), armed: flag("isFnDoubleTapArmed"),
             latchedMirror: state.isFnRecordingLatched, monitorRunning: monitor.isRunning,
             escapeEnabled: registration.enabled.contains(.cancelDictation)
         )

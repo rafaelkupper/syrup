@@ -40,6 +40,7 @@ Find every implicit and explicit state machine in Syrup, document each as a stat
 ## Progress
 
 - 2026-11-14: plan written; three inventory explorers started. All done-when items met on 2026-11-14; F1 to F3 await a decision on whether to fix them.
+- 2026-11-15: F1 to F3 fixed on branch `fn-shortcut-fixes` ([plan](../2026-11-15/fn-shortcut-fixes.md)).
 - Inventory: three explorers (Codex gpt-6.1-sol, max) reported 28 input/output, 37 speech/learning, and 54 providers/persistence/shell machines; the run pipeline has 13 charted and 6 small ones. Reports kept outside the repo; the area documents are curated from them and checked against the source.
 - Validation tool chosen: explicit-state model checking in Swift (`Tests/SyrupTests/StateMachines/ModelChecker.swift`), with conformance replays against the real code. No Java on this Mac, so TLA+ would need a fleet change; not needed.
 - `RunLifecycleModel`: 797 to 1,097 states per configuration (hold and toggle, automatic paste off and on). Every rule holds. Replay: every transition (135,000 steps) matched the real `AppState`; by default every state (6,931 steps, about 2 s).

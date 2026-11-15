@@ -1,8 +1,8 @@
 # State machines
 
-Syrup has 138 state machines, most of them implicit: Bool flags, optional tasks, request IDs, continuations, timers, and files on disk rather than an enum. Each area document below has a statechart for every machine with history worth drawing. The three that guard AGENTS.md's hardest rules are formally validated: the run lifecycle, the Fn key and dictate shortcut, and the glossary-learning opt-out. Each is model-checked exhaustively and replayed against the real code. The run lifecycle and the opt-out keep every rule checked. The Fn machine breaks three, recorded below as findings F1 to F3 and as known issues in its tests.
+Syrup has 138 state machines, most of them implicit: Bool flags, optional tasks, request IDs, continuations, timers, and files on disk rather than an enum. Each area document below has a statechart for every machine with history worth drawing. The three that guard AGENTS.md's hardest rules are formally validated: the run lifecycle, the Fn key and dictate shortcut, and the glossary-learning opt-out. Each is model-checked exhaustively and replayed against the real code. The run lifecycle and the opt-out kept every rule checked. The Fn machine broke three, findings F1 to F3 below; all three were fixed on 2026-11-15, and it now keeps every rule too.
 
-Inventory and validation date: 2026-11-14, on branch `state-machines`.
+Inventory and validation date: 2026-11-14, on branch `state-machines`. F1 to F3 fixed and the Fn model revalidated on 2026-11-15, on branch `fn-shortcut-fixes`.
 
 | Area | Document | Machines | Formally validated |
 | --- | --- | --- | --- |
@@ -26,7 +26,7 @@ A model is only as good as its match with the code, so each one is replayed agai
 | Model | States | Transitions | Replay by default (every state) | Full replay (every transition) |
 | --- | --- | --- | --- | --- |
 | `RunLifecycleModel`, hold and toggle, automatic paste off and on | 797 to 1,097 each | 11,344 to 15,294 each | 6,931 steps | 134,652 steps |
-| `FnShortcutModel`, hold and toggle | 3,204 and 2,142 | 30,616 and 20,052 | 7,302 steps | 184,954 steps |
+| `FnShortcutModel`, hold and toggle | 1,908 and 1,944 | 17,820 and 18,072 | 4,967 steps | 110,697 steps |
 | `LearningOptOutModel` | 340 | 1,588 | 513 steps | 4,039 steps |
 
 Run the default checks with the rest of the suite (`script/test-isolated.sh`). For the full replay, which takes a few minutes, run `TEST_RUNNER_SYRUP_FULL_CONFORMANCE=1 script/test-isolated.sh -only-testing:SyrupTests/RunLifecycleConformanceTests -only-testing:SyrupTests/FnShortcutConformanceTests -only-testing:SyrupTests/LearningOptOutConformanceTests`.
@@ -43,7 +43,7 @@ Run lifecycle, all holding: a run owns the pipeline exactly while one is active;
 
 Learning opt-out, all holding: with learning off and the opt-out done, no recording is on disk; an opt-out never claims success while recordings remain; a recording begins only while learning is on; a recording is committed only while learning is on; a new recording never begins while a failed deletion is unresolved; every opt-out settles; every run ends.
 
-Fn key and dictate shortcut: nothing records while shortcuts are paused, Fn never starts a recording while typing in Syrup, a single short Fn tap never records, and in toggle mode only an armed double-tap starts a recording. F1 to F3 below break the other three.
+Fn key and dictate shortcut, all holding since the F1 to F3 fix: nothing records while shortcuts are paused; Fn, time, and completions alone can always end a recording Fn started (F1); Home shows a latch only while a latched run records, and the latch never outlives its run (F2); Fn's flags belong only to a run Fn started and end with it; Fn never stops or cancels a recording the shortcut started (F3); turning the Fn option off never touches work in flight or a recording Fn did not start; idle is always reachable; Fn never starts a recording while typing in Syrup; a single short Fn tap never records; in toggle mode only an armed double-tap starts a recording.
 
 ### Mutation checks
 
@@ -58,13 +58,27 @@ Each check was shown to fail when the behavior it guards is broken on purpose, t
 | `PrivacyOptIns`: a failed opt-out no longer turns learning back on | Learning replay: learning stays off with recordings on disk |
 | `RecordingFiler`: commits after learning was turned off | Learning replay |
 
+The F1 to F3 fix has its own checks, one break at a time, each restored ([plan](../../plans/syrup/2026-11-15/fn-shortcut-fixes.md#mutation-checks)):
+
+| Broken on purpose | Caught by |
+| --- | --- |
+| `AppState` stops calling `pipelineStateChanged`, as before the fix | Fn replay and the F2 and F3 regression tests |
+| `fnStartedRun` ends when recording stops rather than when the run ends | Fn replay; Fn with another key no longer cancels its run during transcription |
+| Turning Fn off cancels a recording in its release tail | `turningFnOffDuringTheReleaseTailLetsTheRunFinish` |
+| Turning Fn off cancels a run that is not recording | `turningFnOffLeavesASelectionRunFnStartedToFinish` |
+| Turning Fn off ignores a toggle run Fn started | Fn replay and the F1 toggle test |
+| A double-tap latches a run whatever its state | `aDoubleTapDoesNotLatchARunBeingTranscribed` (the default replay missed it; the full replay reaches it) |
+| The latch survives the end of its recording | Fn replay and the F2 regression tests |
+| The toggle flag survives the end of its recording | Fn replay |
+| A toggle double-tap no longer marks its run | Fn replay and the F1 toggle test |
+
 ## Findings
 
-F1 to F3 were found by `FnShortcutModel` and confirmed on the real `HotkeyController` and `AppState` by the replay. They are recorded as known issues in `FnShortcutModelTests`, so the suite passes and a fix shows up as a known issue no longer occurring. None is fixed: each changes behavior and needs a product decision.
+F1 to F3 were found by `FnShortcutModel` on 2026-11-14 and confirmed on the real `HotkeyController` and `AppState` by the replay. All three were fixed on 2026-11-15 (branch `fn-shortcut-fixes`, [plan](../../plans/syrup/2026-11-15/fn-shortcut-fixes.md)). Each fix was test-first: `FnShortcutFixTests` reproduces every finding on the real app and failed before the fix, and the model's rules, known issues until then, are now ordinary expectations. The fix keeps every earlier test and the behavior pinned in `FnShortcutFixTests`: an Fn hold already stopping, a selection run, and work in flight finish as before when the Fn option is turned off, and Fn with another key still cancels the run Fn started while it is transcribed. One edge changes on purpose: a latched run the dictate shortcut already stopped, still in its release tail when the Fn option goes off, now finishes instead of being cancelled.
 
-- **F1, Medium. Turning the Fn option off leaves a recording Fn started running.** `HotkeyController.updateFnKeyMonitor` cancels a latched Fn run when the Fn route goes away, "so it must not keep the microphone open", but not an ordinary Fn hold (`fnStartedRun`) or a toggle-mode run Fn started. Fn can then no longer end it; Esc, the dictate shortcut in toggle mode, or the duration limit must. Shortest trace in hold mode: Fn down, Fn option off. `FnShortcutFindingTests` reproduces it on the real app. Likely fix: cancel any run Fn started when the monitor stops, as for a latched run.
-- **F2, Low. The Fn latch can outlive its run.** In hold mode a double-tap whose run was already stopped or cancelled still latches, and Home shows the latch while idle; a latch also survives a run stopped by the shortcut, Esc, or the duration limit until the next Fn event. Shortest trace: Fn down, Fn up, Fn down, dictate shortcut released, Fn up.
-- **F3, Low. Stale Fn flags can end a run the dictate shortcut started.** `fnStartedRun` and the latch are not tied to a run, so after the shortcut ends Fn's run and starts another, releasing Fn, or a double-tap, stops or cancels the shortcut's run. Shortest trace: Fn down, dictate shortcut released, dictate shortcut pressed, Fn up. Likely fix for F2 and F3 together: tie the Fn flags to the run ID they started.
+- **F1, Medium, fixed. Turning the Fn option off left a recording Fn started running.** `HotkeyController.updateFnKeyMonitor` cancelled a latched Fn run when the Fn route went away, but not an ordinary Fn hold (`fnStartedRun`) or a toggle-mode run Fn started. Fn could then no longer end it; Esc, the dictate shortcut in toggle mode, or the duration limit had to. Shortest trace in hold mode: Fn down, Fn option off. Fix: a new flag, `fnStartedToggleRun`, marks a toggle recording Fn started, and stopping the monitor cancels any recording Fn started, held, latched, or toggled, while it is still capturing.
+- **F2, Low, fixed. The Fn latch could outlive its run.** In hold mode a double-tap whose run was already stopped or cancelled still latched, and Home showed the latch while idle; a latch also survived a run stopped by the shortcut, Esc, or the duration limit until the next Fn event, so turning the Fn option off then cancelled the next run or a transcription. Shortest trace: Fn down, Fn up, Fn down, dictate shortcut released, Fn up. Fix: a double-tap latches only a run still recording, and `AppState` now tells the controller about every pipeline change (`pipelineStateChanged`), which ends the latch with its recording.
+- **F3, Low, fixed. Stale Fn flags could end a run the dictate shortcut started.** `fnStartedRun` and the latch were not tied to a run, so after the shortcut ended Fn's run and started another, releasing Fn, Fn with another key, or a double-tap stopped or cancelled the shortcut's run. Shortest trace: Fn down, dictate shortcut released, dictate shortcut pressed, Fn up. Fix: `pipelineStateChanged` ends `fnStartedRun` when the pipeline returns to idle or error. Every run starts from idle or error, so Fn's flags end before any later run can begin, without recording run IDs.
 
 Documented behavior, not a rule violation: when an opt-out's `deleteAll` fails, learning goes back on, and the run's entry stays on disk as an untracked audio file. New recordings may begin while it is there, which is consistent with learning being on; the archive removes the file at its next reconciliation after a commit.
 

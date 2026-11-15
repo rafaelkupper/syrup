@@ -3,8 +3,8 @@ import Foundation
 
 /// A finite model of starting and stopping recordings with the Fn key and the dictate shortcut:
 /// `FnKeyGesture` (taps, holds, double-taps, combinations), `HotkeyController`'s Fn rules (a run Fn
-/// started, the hold-mode latch, toggle-mode arming), the Fn option, pausing shortcuts, typing in
-/// Syrup's own fields, and `AppState`'s pipeline as these see it.
+/// started, the hold-mode latch, toggle-mode arming, and Fn's flags ending with Fn's run), the Fn
+/// option, pausing shortcuts, typing in Syrup's own fields, and `AppState`'s pipeline as these see it.
 ///
 /// Time moves in ticks of 0.125 s, which is exact in binary and never lands on a threshold, and every
 /// age stops counting at 5 ticks, past the longest threshold. Thresholds are the real constants,
@@ -55,6 +55,8 @@ struct FnShortcutModel: StateMachineModel {
         var tapAge: Int?
         var fnStartedRun = false
         var latched = false
+        /// A toggle-mode recording Fn's double-tap started.
+        var fnStartedToggleRun = false
         var armed = false
         var app = App.idle
         /// `AppState.isFnRecordingLatched`, which Home reads.
@@ -72,6 +74,7 @@ struct FnShortcutModel: StateMachineModel {
             if typingInSyrup { parts.append("typing in Syrup") }
             if fnStartedRun { parts.append("Fn started the run") }
             if latched { parts.append("latched") }
+            if fnStartedToggleRun { parts.append("Fn toggled the run on") }
             if latchedMirror { parts.append("Home shows latched") }
             if armed { parts.append("armed") }
             return parts.joined(separator: ", ")
@@ -233,12 +236,13 @@ private struct FnTransition {
                 poll(keyJustPressed: false)
             }
         } else {
+            // Fn could no longer end a recording it started, so it must not keep the microphone open.
+            let fnHoldsRecording = state.fnStartedRun || state.latched || state.fnStartedToggleRun
             state.fnStartedRun = false
+            state.fnStartedToggleRun = false
             state.armed = false
-            if state.latched {
-                setLatched(false)
-                cancelRequested()
-            }
+            setLatched(false)
+            if fnHoldsRecording, state.app.isRecording { cancelRequested() }
         }
     }
 
@@ -261,7 +265,8 @@ private struct FnTransition {
             if state.fnStartedRun {
                 state.fnStartedRun = false
                 if completesDoubleTap {
-                    setLatched(true)
+                    // Only a recording can be kept open.
+                    setLatched(state.app.isRecording)
                 } else {
                     triggerReleased()
                 }
@@ -289,7 +294,10 @@ private struct FnTransition {
             if heldFor < FnShortcutModel.toggleMaximumTap { triggerPressed(byFn: true) }
         case .idle, .error:
             if completesDoubleTap {
-                if wasArmed, state.typingInSyrup == false { triggerPressed(byFn: true) }
+                if wasArmed, state.typingInSyrup == false {
+                    state.fnStartedToggleRun = true
+                    triggerPressed(byFn: true)
+                }
             } else {
                 state.armed = heldFor < FnKeyGesture.maximumTap
             }
@@ -304,6 +312,13 @@ private struct FnTransition {
         // pipelineState's willSet: leaving recording clears the latch Home shows.
         if app.isRecording == false { state.latchedMirror = false }
         state.app = app
+        // pipelineState's didSet, HotkeyController.pipelineStateChanged: a latch and a toggle run's
+        // flag end with the recording, and Fn's press flag ends with its run.
+        if app.isRecording == false {
+            setLatched(false)
+            state.fnStartedToggleRun = false
+        }
+        if app == .idle || app == .error { state.fnStartedRun = false }
     }
 
     private func command(for event: PipelineEvent) -> PipelineCommand {

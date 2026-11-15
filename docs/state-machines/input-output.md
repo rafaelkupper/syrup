@@ -1,17 +1,17 @@
 # Input and output state machines
 
-The six input and output folders (`Sources/Hotkey`, `Paste`, `Audio`, `RecordingCue`, `Clipboard`, and `Context`) hold 28 state machines: 19 are charted below, and 9 are small enough for one line each. Eleven are High importance, because their own history can break an AGENTS.md hard rule or leave something stuck that the person can see. The three Fn shortcut machines matter most: a recording must never outlive the key that would end it, and model checking found three ways it can (F1 to F3). Next come microphone capture (`AudioRecorder` and its AudioQueue session), which must never leave the microphone open or drop the last words; the output ducker's saved restore record, the only way back from lowered system audio after a crash; typed delivery and the delivery target check, where a late or misdirected key event lands in the wrong app and cannot be taken back; the clipboard write, the one place Syrup replaces the clipboard; and selection capture, which reads text that a provider may receive.
+The six input and output folders (`Sources/Hotkey`, `Paste`, `Audio`, `RecordingCue`, `Clipboard`, and `Context`) hold 28 state machines: 19 are charted below, and 9 are small enough for one line each. Eleven are High importance, because their own history can break an AGENTS.md hard rule or leave something stuck that the person can see. The three Fn shortcut machines matter most: a recording must never outlive the key that would end it, and model checking found three ways it could (F1 to F3), fixed on 2026-11-15. Next come microphone capture (`AudioRecorder` and its AudioQueue session), which must never leave the microphone open or drop the last words; the output ducker's saved restore record, the only way back from lowered system audio after a crash; typed delivery and the delivery target check, where a late or misdirected key event lands in the wrong app and cannot be taken back; the clipboard write, the one place Syrup replaces the clipboard; and selection capture, which reads text that a provider may receive.
 
-Only the three Fn machines are formally validated. `FnShortcutModel` ([model](../../Tests/SyrupTests/StateMachines/FnShortcutModel.swift), [rules](../../Tests/SyrupTests/StateMachines/FnShortcutModelTests.swift)) explores every reachable state of a finite model of them and replays it against the real `HotkeyController`, `FnKeyMonitor`, and `AppState`. It confirmed findings F1 to F3, which are recorded as known issues in `FnShortcutModelTests` and listed in the [index](README.md#findings). Every other machine here was checked against the source by reading and is not formally validated. Three suspected defects found while checking stay unverified; they are listed, with their event sequences, at the [end](#suspected-defects-not-yet-verified).
+Only the three Fn machines are formally validated. `FnShortcutModel` ([model](../../Tests/SyrupTests/StateMachines/FnShortcutModel.swift), [rules](../../Tests/SyrupTests/StateMachines/FnShortcutModelTests.swift)) explores every reachable state of a finite model of them and replays it against the real `HotkeyController`, `FnKeyMonitor`, and `AppState`. It confirmed findings F1 to F3. All three are fixed: the model now holds every rule, `FnShortcutFixTests` reproduces each finding on the real app as a regression test, and the [index](README.md#findings) lists them. Every other machine here was checked against the source by reading and is not formally validated. Three suspected defects found while checking stay unverified; they are listed, with their event sequences, at the [end](#suspected-defects-not-yet-verified).
 
-Checked against the source on 2026-11-14, branch `state-machines` at `c339c8b`. Kind: explicit means an enum names the states, implicit means Bool flags, optionals, tasks, generations, or a saved record encode them, and mixed means both. Importance: High when the machine's own history can break an AGENTS.md hard rule or strand a recording, the system volume, or typed text; Medium when a mistake is visible but a High machine or the caller contains it; Low for cosmetic or per-call state. In the invariants, enforced means a guard, lock, type, or task ownership in the code makes it hold; assumed means it depends on callers, macOS, or a framework.
+Checked against the source on 2026-11-14, branch `state-machines` at `c339c8b`; the Fn sections updated for the F1 to F3 fix on 2026-11-15, branch `fn-shortcut-fixes`. Kind: explicit means an enum names the states, implicit means Bool flags, optionals, tasks, generations, or a saved record encode them, and mixed means both. Importance: High when the machine's own history can break an AGENTS.md hard rule or strand a recording, the system volume, or typed text; Medium when a mistake is visible but a High machine or the caller contains it; Low for cosmetic or per-call state. In the invariants, enforced means a guard, lock, type, or task ownership in the code makes it hold; assumed means it depends on callers, macOS, or a framework.
 
 | Machine | Owner | Kind | Importance | Validation |
 | --- | --- | --- | --- | --- |
-| [Shortcut registration, pause, and Esc](#shortcut-registration-pause-and-esc) | `HotkeyController`, `SystemHotkeyRegistration` | Implicit | High | Model-checked; F1 to F3 confirmed |
-| [Fn gesture](#fn-gesture) | `FnKeyGesture` | Mixed | High | Model-checked; F1 to F3 confirmed |
+| [Shortcut registration, pause, and Esc](#shortcut-registration-pause-and-esc) | `HotkeyController`, `SystemHotkeyRegistration` | Implicit | High | Model-checked; F1 to F3 fixed |
+| [Fn gesture](#fn-gesture) | `FnKeyGesture` | Mixed | High | Model-checked; F1 to F3 fixed |
 | [Fn polling](#fn-polling) | `FnKeyMonitor` | Implicit | Medium | Not formally validated |
-| [Fn hold, latch, and toggle](#fn-hold-latch-and-toggle) | `HotkeyController` | Implicit | High | Model-checked; F1 to F3 confirmed |
+| [Fn hold, latch, and toggle](#fn-hold-latch-and-toggle) | `HotkeyController` | Implicit | High | Model-checked; F1 to F3 fixed |
 | [Typing session](#typing-session) | `StreamingTypist` | Mixed | High | Not formally validated |
 | [Flush order and cadence](#flush-order-and-cadence) | `StreamingTypist` | Implicit | High | Not formally validated |
 | [Streamed text holdback](#streamed-text-holdback) | `StreamingTypist` | Implicit | Medium | Not formally validated |
@@ -43,7 +43,7 @@ Checked against the source on 2026-11-14, branch `state-machines` at `c339c8b`. 
 
 `HotkeyController` decides which global shortcuts are attached: dictate, revise, Paste Last, and one per workflow while listening, none while paused, and Esc only while listening and a run can be cancelled. Key callbacks reach the app as main-actor tasks, so a press queued just before a pause or a workflow removal still runs later; workflow callbacks recheck membership, and `AppState`'s trigger methods recheck the pause.
 
-State: [`HotkeyController.isListening`](../../Sources/Hotkey/HotkeyController.swift#L59), [`HotkeyController.isCancelShortcutEnabled`](../../Sources/Hotkey/HotkeyController.swift#L58), [`HotkeyController.registeredWorkflowIDs`](../../Sources/Hotkey/HotkeyController.swift#L61), [`SystemHotkeyRegistration.keyDownActions`](../../Sources/Hotkey/HotkeyController.swift#L36) and [`keyUpActions`](../../Sources/Hotkey/HotkeyController.swift#L37), the weak [`HotkeyController.appState`](../../Sources/Hotkey/HotkeyController.swift#L62). Driven by [`AppState.isHotkeyPaused`](../../Sources/App/AppState.swift#L64) and [`AppState.pipelineState`](../../Sources/App/AppState.swift#L37), whose `didSet` sets the Esc bit.
+State: [`HotkeyController.isListening`](../../Sources/Hotkey/HotkeyController.swift#L59), [`HotkeyController.isCancelShortcutEnabled`](../../Sources/Hotkey/HotkeyController.swift#L58), [`HotkeyController.registeredWorkflowIDs`](../../Sources/Hotkey/HotkeyController.swift#L61), [`SystemHotkeyRegistration.keyDownActions`](../../Sources/Hotkey/HotkeyController.swift#L36) and [`keyUpActions`](../../Sources/Hotkey/HotkeyController.swift#L37), the weak [`HotkeyController.appState`](../../Sources/Hotkey/HotkeyController.swift#L62). Driven by [`AppState.isHotkeyPaused`](../../Sources/App/AppState.swift#L64) and [`AppState.pipelineState`](../../Sources/App/AppState.swift#L37), whose `didSet` calls [`pipelineStateChanged`](../../Sources/Hotkey/HotkeyController.swift#L219), which sets the Esc bit.
 
 ```mermaid
 stateDiagram-v2
@@ -69,9 +69,9 @@ stateDiagram-v2
 
 Invariants:
 
-- Esc is attached only while listening and the pipeline allows a cancel. Enforced in `setListening` and `setCancelShortcutEnabled` ([L178-182](../../Sources/Hotkey/HotkeyController.swift#L178), [L266-275](../../Sources/Hotkey/HotkeyController.swift#L266)); the Fn replay compares Esc availability after every step.
+- Esc is attached only while listening and the pipeline allows a cancel. Enforced in `setListening` and `setCancelShortcutEnabled` ([L183-187](../../Sources/Hotkey/HotkeyController.swift#L183), [L294-303](../../Sources/Hotkey/HotkeyController.swift#L294)); the Fn replay compares Esc availability after every step.
 - A shortcut never starts or ends a run while paused. Enforced in `AppState`: pausing cancels first ([L64-70](../../Sources/App/AppState.swift#L64)), and `triggerPressed`, `triggerReleased`, and the revise methods return while paused, which also drops callbacks queued before the pause ([L311-329](../../Sources/App/AppState.swift#L311)). Model-checked for Fn and the dictate shortcut ("nothing records while shortcuts are paused").
-- A removed workflow's callback does nothing. Enforced: its shortcut is detached ([L137-139](../../Sources/Hotkey/HotkeyController.swift#L137)) and the queued task checks `registeredWorkflowIDs` ([L145](../../Sources/Hotkey/HotkeyController.swift#L145), [L151](../../Sources/Hotkey/HotkeyController.swift#L151)).
+- A removed workflow's callback does nothing. Enforced: its shortcut is detached ([L142-144](../../Sources/Hotkey/HotkeyController.swift#L142)) and the queued task checks `registeredWorkflowIDs` ([L150](../../Sources/Hotkey/HotkeyController.swift#L150), [L156](../../Sources/Hotkey/HotkeyController.swift#L156)).
 - The handler dictionaries and the KeyboardShortcuts library stay in step. Assumed: `enable` removes and re-adds the handlers ([L45-49](../../Sources/Hotkey/HotkeyController.swift#L45)), and nothing else registers these names.
 - Paste Last and Esc callbacks are not checked against the pause. Assumed harmless: an Esc after a pause finds no run, and a queued Paste Last pastes as if pressed just before.
 
@@ -151,7 +151,7 @@ stateDiagram-v2
 Invariants:
 
 - At most one timer. Enforced by the `timer == nil` guard ([L88](../../Sources/Hotkey/FnKeyMonitor.swift#L88)).
-- Polling runs only while the Fn option is on and shortcuts are listening. Enforced in `HotkeyController.updateFnKeyMonitor` ([L191-204](../../Sources/Hotkey/HotkeyController.swift#L191)).
+- Polling runs only while the Fn option is on and shortcuts are listening. Enforced in `HotkeyController.updateFnKeyMonitor` ([L196-213](../../Sources/Hotkey/HotkeyController.swift#L196)).
 - No new permission. Enforced by construction: `keyState`, `flagsState`, and `secondsSinceLastEventType` on the HID system state ([L109-117](../../Sources/Hotkey/FnKeyMonitor.swift#L109)), not an event tap, which AGENTS.md reserves as a product decision.
 - No event while stopped. Assumed: `poll()` has no running check ([L103-107](../../Sources/Hotkey/FnKeyMonitor.swift#L103)); only tests call it directly.
 
@@ -159,14 +159,14 @@ Tests: `FnKeyHotkeyTests.pollingRunsOnlyWhileEnabledAndListening`. `FnShortcutMo
 
 Open questions:
 
-- Stopping is why F1 happens: the release of a run Fn started is never sampled.
+- Stopping is why F1 happened: the release of a run Fn started is never sampled, so `HotkeyController` now cancels a recording Fn started when it stops the monitor.
 - Turning the Fn option on, or resuming, while Fn is held starts a hold-mode recording at once, because start resets the gesture. The model includes this; whether it is wanted is a product question.
 
 ### Fn hold, latch, and toggle
 
-`HotkeyController` turns Fn events into trigger presses, releases, and cancels. In hold mode a press starts a run, a release stops it, a combination cancels it, and a double-tap latches it so it keeps recording until the next double-tap. In toggle mode presses do nothing: a double-tap starts a run only if its first tap landed while nothing was running, and a tap under 500 ms stops a recording.
+`HotkeyController` turns Fn events into trigger presses, releases, and cancels. In hold mode a press starts a run, a release stops it, a combination cancels it, and a double-tap latches it so it keeps recording until the next double-tap. In toggle mode presses do nothing: a double-tap starts a run only if its first tap landed while nothing was running, and a tap under 500 ms stops a recording. Fn's flags belong to the run Fn started and end with it, and turning the Fn option off cancels a recording Fn started, because Fn could no longer end it.
 
-State: [`HotkeyController.isFnKeyEnabled`](../../Sources/Hotkey/HotkeyController.swift#L65), [`fnStartedRun`](../../Sources/Hotkey/HotkeyController.swift#L66), [`isFnLatched`](../../Sources/Hotkey/HotkeyController.swift#L68), [`isFnDoubleTapArmed`](../../Sources/Hotkey/HotkeyController.swift#L72), [`isListening`](../../Sources/Hotkey/HotkeyController.swift#L59), the toggle limit [`fnToggleMaximumTap`](../../Sources/Hotkey/HotkeyController.swift#L57), and Home's mirror [`AppState.isFnRecordingLatched`](../../Sources/App/AppState.swift#L62), which `pipelineState`'s `willSet` clears when the pipeline leaves recording ([L39](../../Sources/App/AppState.swift#L39)). Each event also reads the live hotkey mode, the pipeline state, and whether the person is typing in Syrup ([L214-215](../../Sources/Hotkey/HotkeyController.swift#L214)). The mode decides which flags matter, so the machine is drawn twice.
+State: [`HotkeyController.isFnKeyEnabled`](../../Sources/Hotkey/HotkeyController.swift#L65), [`fnStartedRun`](../../Sources/Hotkey/HotkeyController.swift#L68), [`isFnLatched`](../../Sources/Hotkey/HotkeyController.swift#L71), [`fnStartedToggleRun`](../../Sources/Hotkey/HotkeyController.swift#L75), [`isFnDoubleTapArmed`](../../Sources/Hotkey/HotkeyController.swift#L77), [`isListening`](../../Sources/Hotkey/HotkeyController.swift#L59), the toggle limit [`fnToggleMaximumTap`](../../Sources/Hotkey/HotkeyController.swift#L57), and Home's mirror [`AppState.isFnRecordingLatched`](../../Sources/App/AppState.swift#L62), which the latch's `didSet` sets and `pipelineState`'s `willSet` also clears when the pipeline leaves recording ([L39](../../Sources/App/AppState.swift#L39)). `pipelineState`'s `didSet` calls [`pipelineStateChanged`](../../Sources/Hotkey/HotkeyController.swift#L219) on every change ([L42](../../Sources/App/AppState.swift#L42)): the latch and `fnStartedToggleRun` end when the pipeline leaves recording, and `fnStartedRun` when it returns to idle or error, which every run passes through before the next one starts. Each event also reads the live hotkey mode, the pipeline state, and whether the person is typing in Syrup ([L239-240](../../Sources/Hotkey/HotkeyController.swift#L239)). The mode decides which flags matter, so the machine is drawn twice.
 
 Hold mode:
 
@@ -175,30 +175,30 @@ stateDiagram-v2
     state "Ready" as Ready
     state "Fn hold recording" as Held
     state "Latched recording" as Latched
-    state "Fn down, its run already ended" as StaleHeld
-    state "Latch left without its run" as StaleLatch
+    state "Fn down, its run stopped and finishing" as Finishing
     state "Fn monitor stopped" as Stopped
     [*] --> Ready
     Ready --> Held: Fn pressed, idle or error, not typing in Syrup / set fnStartedRun, triggerPressed
     Held --> Ready: Fn released, no double-tap / clear fnStartedRun, triggerReleased
     Held --> Ready: combined / clear fnStartedRun, cancelRequested
-    Held --> Latched: Fn released completing a double-tap / clear fnStartedRun, set the latch
+    Held --> Latched: Fn released completing a double-tap / clear fnStartedRun, latch if still recording
     Latched --> Latched: single tap, hold, or combination / ignored
     Latched --> Ready: double-tap completes / clear the latch, triggerReleased
-    Held --> StaleHeld: run ends without Fn, by the shortcut, Esc, the duration limit, or a failure
-    StaleHeld --> Ready: Fn released without a double-tap, or combined / triggerReleased or cancelRequested reaches whatever run records now, F3
-    StaleHeld --> StaleLatch: Fn released completing a double-tap / latch with no run, F2
-    Latched --> StaleLatch: run ends without Fn, by the shortcut, Esc, the duration limit, or a failure
-    StaleLatch --> Ready: next Fn event while nothing records / clear the latch, then handle the event
-    StaleLatch --> Ready: double-tap while another run records / clear the latch, triggerReleased stops that run, F3
+    Held --> Finishing: the shortcut or the duration limit stops the run
+    Finishing --> Ready: Fn released / clear fnStartedRun, nothing to stop or latch
+    Finishing --> Ready: combined / clear fnStartedRun, cancelRequested cancels the run
+    Finishing --> Ready: run finishes or fails / pipelineStateChanged clears fnStartedRun
+    Held --> Ready: Esc or a failure ends the run / pipelineStateChanged clears fnStartedRun
+    Latched --> Ready: the recording ends without Fn, by the shortcut, Esc, the duration limit, or a failure / pipelineStateChanged clears the latch
     Ready --> Stopped: Fn option off or pause
     Held --> Stopped: pause / AppState cancels the run first
-    Held --> Stopped: Fn option off / clear fnStartedRun, the run keeps recording, F1
+    Held --> Stopped: Fn option off / clear fnStartedRun, cancelRequested
     Latched --> Stopped: Fn option off or pause / clear the latch, cancelRequested
+    Finishing --> Stopped: Fn option off / clear fnStartedRun, the run finishes
     Stopped --> Ready: Fn option on while listening / start the monitor, reset the gesture
-    note right of StaleLatch
-        Reached from StaleHeld, Home shows the latch while idle.
-        Reached from Latched, only the controller still holds it.
+    note right of Finishing
+        The run is in its release tail, stopping, or transcribing or transforming.
+        Turning the Fn option off cancels only a recording that is still capturing.
     end note
 ```
 
@@ -208,53 +208,61 @@ Toggle mode:
 stateDiagram-v2
     state "Idle or error, not armed" as Idle
     state "Idle or error, armed" as Armed
-    state "Recording" as Recording
+    state "Recording Fn started" as FnRecording
+    state "Recording the shortcut started" as Recording
     state "Transcribing or translating" as Busy
     state "Fn monitor stopped" as Stopped
     [*] --> Idle
     Idle --> Armed: tap under 300 ms, no double-tap / arm
     Idle --> Idle: double-tap completes without arming / ignored
     Armed --> Armed: another lone tap under 300 ms / arm again
-    Armed --> Recording: double-tap completes, not typing in Syrup / triggerPressed starts a run
+    Armed --> FnRecording: double-tap completes, not typing in Syrup / set fnStartedToggleRun, triggerPressed starts a run
     Armed --> Idle: double-tap while typing in Syrup, or a press of 300 ms or more / disarm
-    Recording --> Busy: release under 500 ms / triggerPressed stops a dictate or Fn run
+    Idle --> Recording: dictate shortcut pressed
+    FnRecording --> Busy: release under 500 ms, or the dictate shortcut / stop, then pipelineStateChanged clears fnStartedToggleRun
+    Recording --> Busy: release under 500 ms / triggerPressed stops it
     Recording --> Recording: release of 500 ms or more, or a workflow or revision run / ignored
+    FnRecording --> Idle: Esc or a failure ends the run / pipelineStateChanged clears fnStartedToggleRun
     Recording --> Idle: Esc or a failure ends the run
     Busy --> Busy: any release / disarm, ignored
     Busy --> Idle: run finishes or fails
     Idle --> Stopped: Fn option off or pause
     Armed --> Stopped: Fn option off or pause / disarm
-    Recording --> Stopped: Fn option off / the run keeps recording, F1 when Fn started it
+    FnRecording --> Stopped: Fn option off / clear fnStartedToggleRun, cancelRequested
+    Recording --> Stopped: Fn option off / the run keeps recording, and the shortcut still ends it
+    Busy --> Stopped: Fn option off / the run finishes
+    FnRecording --> Stopped: pause / AppState cancels the run first
     Recording --> Stopped: pause / AppState cancels the run first
     Stopped --> Idle: Fn option on while listening / start the monitor
-    note right of Recording
+    note right of FnRecording
         Presses and combinations do nothing in toggle mode.
         Every release clears the arming first.
     end note
 ```
 
-Findings, confirmed by `FnShortcutModel` and its replay on the real controller and app (status and likely fixes in the [index](README.md#findings)):
+Findings, confirmed by `FnShortcutModel` and its replay on the real controller and app, fixed on 2026-11-15 (details in the [index](README.md#findings)):
 
-- **F1.** Turning the Fn option off cancels a latched Fn run ([L198-202](../../Sources/Hotkey/HotkeyController.swift#L198)) but leaves an ordinary Fn hold, or a toggle run Fn started, recording; Fn can no longer end it. Shortest trace: Fn down, Fn option off. This confirms the inventory's one suspected defect. `FnShortcutFindingTests` reproduces it on the real app.
-- **F2.** In hold mode, a double-tap that completes after its run was already stopped or cancelled still latches, and Home shows the latch while idle; a latch also outlives a run stopped by the shortcut, Esc, or the duration limit until the next Fn event. Shortest trace: Fn down, Fn up, Fn down, dictate shortcut released, Fn up.
-- **F3.** `fnStartedRun` and the latch are not tied to a run, so Fn can stop or cancel a run the dictate shortcut started. Shortest trace: Fn down, dictate shortcut released, dictate shortcut pressed, Fn up.
+- **F1, fixed.** Turning the Fn option off cancelled a latched Fn run but left an ordinary Fn hold, or a toggle run Fn started, recording with no Fn way to end it. Shortest trace: Fn down, Fn option off. `updateFnKeyMonitor` now cancels any recording Fn started, held, latched, or toggled, while it is still capturing ([L196-213](../../Sources/Hotkey/HotkeyController.swift#L196)). A recording already stopping, a selection run, and work in flight finish; before the fix, a latched run in its release tail was cancelled.
+- **F2, fixed.** In hold mode, a double-tap that completed after its run was already stopped or cancelled still latched, and Home showed the latch while idle; a latch also outlived a run stopped by the shortcut, Esc, or the duration limit until the next Fn event, so turning the Fn option off then cancelled the next run or a transcription. Shortest trace: Fn down, Fn up, Fn down, dictate shortcut released, Fn up. A double-tap now latches only a run still recording ([L248](../../Sources/Hotkey/HotkeyController.swift#L248)), and the latch ends with its recording ([L219-229](../../Sources/Hotkey/HotkeyController.swift#L219)).
+- **F3, fixed.** `fnStartedRun` and the latch were not tied to a run, so Fn could stop or cancel a run the dictate shortcut started. Shortest trace: Fn down, dictate shortcut released, dictate shortcut pressed, Fn up. Fn's flags now end when the pipeline returns to idle or error, before any later run can start.
 
 Invariants:
 
-- A latched run never outlives the Fn route: turning the option off or pausing cancels it. Enforced ([L198-202](../../Sources/Hotkey/HotkeyController.swift#L198)); model-checked.
-- Fn, time, and completions alone can always end a recording Fn started. Not enforced: F1.
-- `fnStartedRun` and the latch belong to the run they started, and Home's mirror shows a latch only while a latched run records. Not enforced: F2 and F3.
-- Fn never starts a recording while the person types in Syrup. Enforced ([L214](../../Sources/Hotkey/HotkeyController.swift#L214), [L254](../../Sources/Hotkey/HotkeyController.swift#L254)); model-checked.
+- A recording Fn started never outlives the Fn route: turning the option off or pausing cancels it while it is capturing. Enforced ([L196-213](../../Sources/Hotkey/HotkeyController.swift#L196)); model-checked.
+- Fn, time, and completions alone can always end a recording Fn started. Enforced; model-checked.
+- Fn's flags belong to the run Fn started and end with it, and Home's mirror shows a latch only while a latched run records. Enforced by `pipelineStateChanged` ([L219-229](../../Sources/Hotkey/HotkeyController.swift#L219)) and the latch check ([L248](../../Sources/Hotkey/HotkeyController.swift#L248)); model-checked. Assumed: the controller is installed in its `AppState` (`AppState.install`), as the app always does; a controller that is not, as in `FnKeyHotkeyTests`, still drops a stale latch at the next Fn event ([L233](../../Sources/Hotkey/HotkeyController.swift#L233)) but keeps `fnStartedRun` until Fn is released.
+- Turning the Fn option off never touches work in flight or a recording Fn did not start. Enforced: the cancel needs Fn's flag and a capturing recording ([L208-209](../../Sources/Hotkey/HotkeyController.swift#L208)); model-checked.
+- Fn never starts a recording while the person types in Syrup. Enforced ([L239](../../Sources/Hotkey/HotkeyController.swift#L239), [L280](../../Sources/Hotkey/HotkeyController.swift#L280)); model-checked.
 - A single short Fn tap never records in hold mode. Enforced by the pipeline discarding holds under `AppState.minimumHold`, which equals `FnKeyGesture.maximumTap`; model-checked, and `theModelUsesTheAppsMinimumHold` keeps the model's copy equal.
-- In toggle mode only an armed double-tap starts a recording, so a double-tap meant to stop never starts another. Enforced: arming happens only in idle or error ([L251-259](../../Sources/Hotkey/HotkeyController.swift#L251)); model-checked, and the toggle replay caught a mutation that armed after any tap.
-- A stray tap never cancels a result on its way. Enforced ([L260-262](../../Sources/Hotkey/HotkeyController.swift#L260)).
+- In toggle mode only an armed double-tap starts a recording, so a double-tap meant to stop never starts another. Enforced: arming happens only in idle or error ([L277-287](../../Sources/Hotkey/HotkeyController.swift#L277)); model-checked, and the toggle replay caught a mutation that armed after any tap.
+- A stray tap never cancels a result on its way. Enforced ([L288-290](../../Sources/Hotkey/HotkeyController.swift#L288)).
 
-Tests: `FnKeyHotkeyTests`: `holdStartsOnPress`, `aCombinationCancelsTheRunItStarted`, `typingInSyrupIgnoresFn`, `holdSingleTapIsStillDiscarded`, `holdDoubleTapKeepsRecordingUntilTheNextDoubleTap`, `tapsAHoldAndCombinationsDoNotStopALatchedRun`, `homeTellsALatchedRunHowToFinishAndForgetsWhenItEnds`, `tapThenHoldIsAnOrdinaryHold`, `aLatchEndsWithItsRun`, `turningFnOffCancelsALatchedRun`, `toggleSingleTapWhileIdleDoesNothing`, `toggleDoubleTapStartsOnTheSecondRelease`, `toggleSingleTapStopsARecordingAndDelivers`, `toggleSingleTapAlsoStopsARunFromTheDictateShortcut`, `toggleSlowSecondTapDoesNotStart`, `toggleLongPressesAreNotTaps`, `toggleLongPressDoesNotStopARecording`, `toggleIgnoresCombinationsWhenIdleAndWhileRecording`, `toggleDoubleTapToStopDoesNotStartAgain`, `toggleTapsDoNotCancelAResultOnItsWay`, `toggleDoubleTapDoesNotStartWhileTypingInSyrup`. `FnShortcutModelTests`: `theFnKeyCanAlwaysEndARecordingItStarted` (F1 as a known issue), `everyReachableStateKeepsTheShortcutRules` (F2), `everyStepKeepsTheShortcutRules` (F3), `theModelUsesTheAppsMinimumHold`. `FnShortcutConformanceTests.theRealControllerTakesEveryTransitionAsTheModelDoes`, `FnShortcutFindingTests.turningTheFnOptionOffDuringAnFnHoldLeavesTheRecordingRunning`.
+Tests: `FnKeyHotkeyTests`: `holdStartsOnPress`, `aCombinationCancelsTheRunItStarted`, `typingInSyrupIgnoresFn`, `holdSingleTapIsStillDiscarded`, `holdDoubleTapKeepsRecordingUntilTheNextDoubleTap`, `tapsAHoldAndCombinationsDoNotStopALatchedRun`, `homeTellsALatchedRunHowToFinishAndForgetsWhenItEnds`, `tapThenHoldIsAnOrdinaryHold`, `aLatchEndsWithItsRun`, `turningFnOffCancelsALatchedRun`, `toggleSingleTapWhileIdleDoesNothing`, `toggleDoubleTapStartsOnTheSecondRelease`, `toggleSingleTapStopsARecordingAndDelivers`, `toggleSingleTapAlsoStopsARunFromTheDictateShortcut`, `toggleSlowSecondTapDoesNotStart`, `toggleLongPressesAreNotTaps`, `toggleLongPressDoesNotStopARecording`, `toggleIgnoresCombinationsWhenIdleAndWhileRecording`, `toggleDoubleTapToStopDoesNotStartAgain`, `toggleTapsDoNotCancelAResultOnItsWay`, `toggleDoubleTapDoesNotStartWhileTypingInSyrup`. `FnShortcutModelTests`: `theFnKeyCanAlwaysEndARecordingItStarted` (F1), `everyReachableStateKeepsTheShortcutRules` (F2, and Fn's flags ending with their run), `everyStepKeepsTheShortcutRules` (F3, and the Fn option sparing other work), `theModelUsesTheAppsMinimumHold`. `FnShortcutConformanceTests.theRealControllerTakesEveryTransitionAsTheModelDoes`. `FnShortcutFixTests`, each failing before the fix: `turningTheFnOptionOffCancelsARecordingFnStarted` (F1, hold and toggle), `aDoubleTapDoesNotLatchARunThatAlreadyEnded`, `aDoubleTapDoesNotLatchARunBeingTranscribed`, `aLatchEndsWithItsRunSoTurningFnOffSparesTheNextRun`, `turningFnOffDoesNotCancelALatchedRunThatIsBeingTranscribed` (F2), `fnDoesNotEndARunTheShortcutStartedAfterFnsRunEnded` (F3); and pinning what the fix keeps: `turningFnOffDuringTheReleaseTailLetsTheRunFinish`, `turningFnOffLeavesASelectionRunFnStartedToFinish`, `fnWithAnotherKeyStillCancelsItsOwnRunDuringTranscription`.
 
 Open questions:
 
-- Suspected, unverified: switching the hotkey mode from toggle to hold during a toggle recording Fn started leaves Fn unable to end it. Sequence: toggle mode; Fn double-tap (recording starts); set the hotkey mode to hold; Fn tap or hold. A press needs an idle pipeline and a release needs `fnStartedRun`, a latch, or toggle mode, so both are ignored; Esc, the dictate shortcut, and the duration limit still end the run. The model fixes the mode per configuration, and a fix for F1 that cancels when the monitor stops would not cover this case, because the monitor keeps running.
-- Hold handling reads the live hotkey mode, while the pipeline uses the mode the run started with ([PipelineTransitions.swift L71-82](../../Sources/App/PipelineTransitions.swift#L71)). Tying the Fn flags to the run ID they started, the likely fix for F2 and F3, could also carry the run's mode.
+- Suspected, unverified: switching the hotkey mode from toggle to hold during a toggle recording Fn started leaves Fn unable to end it. Sequence: toggle mode; Fn double-tap (recording starts); set the hotkey mode to hold; Fn tap or hold. A press needs an idle pipeline and a release needs `fnStartedRun`, a latch, or toggle mode, so both are ignored; Esc, the dictate shortcut, and the duration limit still end the run. The model fixes the mode per configuration, and the F1 fix cancels only when the monitor stops, which it does not here.
+- Hold handling reads the live hotkey mode, while the pipeline uses the mode the run started with ([PipelineTransitions.swift L71-82](../../Sources/App/PipelineTransitions.swift#L71)). The F2 and F3 fix ends Fn's flags with their run rather than recording the run, so it does not carry the run's mode; a fix for the mode switch above would need it.
 
 ## Typed delivery
 
@@ -927,7 +935,7 @@ Open questions:
 
 ## Suspected defects not yet verified
 
-The inventory's one suspicion, turning the Fn option off during an ordinary Fn hold, is now F1 and confirmed. These three came up while checking the code for this document. None has been reproduced, and no model covers them.
+The inventory's one suspicion, turning the Fn option off during an ordinary Fn hold, became F1, confirmed and fixed. These three came up while checking the code for this document. None has been reproduced, and no model covers them.
 
 - **Removing a workflow during its hold drops the release.** Section: [Shortcut registration, pause, and Esc](#shortcut-registration-pause-and-esc). Sequence: hold mode; press workflow W's shortcut (recording starts); remove W from the workflow list while holding; release. `rebuildWorkflowShortcuts` detaches W and the membership guard drops a queued release, so recording continues until Esc, pausing, or the duration limit.
 - **A key pressed within one Fn poll of Fn reads as Fn alone.** Section: [Fn gesture](#fn-gesture). Sequence: hold mode, idle; Fn down; another key down less than 30 ms later, before the next poll; hold both 300 ms or more; release both. The press is dated at the first poll that sees Fn, after the key, so no combination is seen and the release delivers a dictation. In toggle mode the same chord released within 500 ms stops a recording.
