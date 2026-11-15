@@ -131,8 +131,8 @@ struct OpenAICompatibleTransformerTests {
     }
 
     /// Some models accept only their default temperature. The request is sent once more without it,
-    /// streamed or not, and nothing else is retried. Hand-built shapes: no provider publishes a
-    /// temperature rejection body (OpenAI, OpenRouter, Mistral, Groq, DeepSeek, vLLM, LM Studio, and
+    /// streamed or not, and nothing else is retried. Hand-built shapes: none of the documentation
+    /// checked publishes a temperature rejection body (OpenAI, OpenRouter, Mistral, Groq, DeepSeek, vLLM, LM Studio, and
     /// Ollama documentation checked 2026-11-14; see `ProviderCorpus`).
     @Test(arguments: [true, false], [
         #"{"error":{"message":"Only the default (1) value is supported.","type":"invalid_request_error","param":"temperature","code":"unsupported_value"}}"#,
@@ -307,6 +307,7 @@ struct OpenAICompatibleTransformerTests {
         (#"{"object":"error","message":"Invalid value","type":"invalid_request_error","param":"temperature","code":"invalid_value"}"#, true),
         (#"{"error":{"message":"bad temperature value","param":" temperature "}}"#, true),
         (#"{"error":{"message":"bad temperature value","param":"Temperature"}}"#, true),
+        (#"{"error":{"message":"bad temperature value","param":"\ntemperature\n"}}"#, true),
         (#"{"error":{"message":"bad temperature value","param":"generation_config.temperature"}}"#, true),
         (#"{"error":{"message":"temperature is not allowed","param":""}}"#, true),
         // A flat body whose top-level `param` blames another parameter.

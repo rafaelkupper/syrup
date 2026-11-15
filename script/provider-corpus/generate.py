@@ -15,7 +15,7 @@ import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
 OUTPUT = HERE.parent.parent / "Tests" / "SyrupTests" / "ProviderCorpus.swift"
-corpus = json.loads((HERE / "corpus.json").read_text())
+corpus = json.loads((HERE / "corpus.json").read_text(encoding="utf-8"))
 ENTRIES = corpus["entries"]
 # The tables below are keyed by entry position. If corpus.json gains, loses, or reorders entries, the
 # positions no longer match; recheck every table, then update this digest of the entries' labels.
@@ -140,8 +140,8 @@ out = [
     "// examples copied from provider documentation on %s. Do not edit by hand; edit the script and rerun it." % corpus["retrieved"],
     "// Each case keeps its source and a phrase from the page, so it can be found again, and a note on what,",
     "// if anything, was changed to put the documented example on the wire. Groq and LM Studio publish no",
-    "// raw OpenAI-compatible stream chunk (SDK code and prose only), and no provider publishes a body",
-    "// rejecting `temperature`, so neither appears here.",
+    "// raw OpenAI-compatible stream chunk (SDK code and prose only), and none of the documentation checked",
+    "// publishes a body rejecting `temperature`, so neither appears here.",
     "",
     "enum ProviderCorpus {",
     '    static let retrieved = "%s"' % corpus["retrieved"],
@@ -188,9 +188,9 @@ out += ["    ]", "}"]
 text = "\n".join(out) + "\n"
 if "--check" in sys.argv:
     # CI: the checked-in Swift file must be what this script makes from corpus.json.
-    if OUTPUT.read_text() != text:
+    if OUTPUT.read_text(encoding="utf-8") != text:
         sys.exit("ProviderCorpus.swift is out of date; run python3 -I script/provider-corpus/generate.py")
     print("ProviderCorpus.swift matches corpus.json")
 else:
-    OUTPUT.write_text(text)
+    OUTPUT.write_text(text, encoding="utf-8")
     print("%d streams, %d errors, %d excluded -> %s" % (len(STREAMS), len(ERRORS), len(EXCLUDED), OUTPUT))

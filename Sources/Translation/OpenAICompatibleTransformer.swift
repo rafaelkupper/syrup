@@ -399,7 +399,7 @@ struct OpenAICompatibleTransformer: StreamingTextTransformer {
         guard let body = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return true }
         let error = body["error"] as? [String: Any]
         // An empty name, or a proxy writing its own null as "None" or "null", names no parameter.
-        let params = [error?["param"], body["param"]].compactMap { ($0 as? String)?.trimmingCharacters(in: .whitespaces) }
+        let params = [error?["param"], body["param"]].compactMap { ($0 as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { ["", "none", "null"].contains($0.lowercased()) == false }
         // A dotted path such as `generation_config.temperature` blames its last part.
         return params.isEmpty || params.contains {

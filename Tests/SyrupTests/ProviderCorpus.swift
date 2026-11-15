@@ -2,8 +2,8 @@
 // examples copied from provider documentation on 2026-11-14. Do not edit by hand; edit the script and rerun it.
 // Each case keeps its source and a phrase from the page, so it can be found again, and a note on what,
 // if anything, was changed to put the documented example on the wire. Groq and LM Studio publish no
-// raw OpenAI-compatible stream chunk (SDK code and prose only), and no provider publishes a body
-// rejecting `temperature`, so neither appears here.
+// raw OpenAI-compatible stream chunk (SDK code and prose only), and none of the documentation checked
+// publishes a body rejecting `temperature`, so neither appears here.
 
 enum ProviderCorpus {
     static let retrieved = "2026-11-14"
