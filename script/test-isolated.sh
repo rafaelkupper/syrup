@@ -48,6 +48,7 @@ remove_run_temp() {
         physical=$(physical_name "$2") || physical=$logical
         # Compared literally: a path may hold characters find -name would read as a pattern.
         for lock in "$tmp_root"/*_build_SourcePackages_*.lock; do
+            [ -f "$lock" ] || continue
             case ${lock##*/} in
                 "${physical}_build_SourcePackages_"*|"${logical}_build_SourcePackages_"*) rm -f "$lock" ;;
             esac

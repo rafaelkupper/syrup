@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import unicodedata
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -273,6 +274,42 @@ class OperatorTests(unittest.TestCase):
         found = sorted({m.line for m in mutation.mutants_for_file("A.swift", source, set(range(1, 13)))})
         self.assertEqual(found, [3, 11])
 
+    def test_builders_are_read_from_where_the_declaration_ends(self):
+        source = "\n".join([
+            "import SwiftUI",
+            "protocol Producer<Output> { associatedtype Output }",
+            "func check<T: Producer<() -> Bool>>(",
+            "    _ producer: T, content: some View, a: Int, b: Int",
+            ") -> Bool {",
+            "    return a == b",                                    # 6: logic
+            "}",
+            "struct Factory {",
+            "    var content:",
+            "        some View {",
+            "        Text(true ? \"yes\" : \"no\")",              # 11: a view builder over two lines
+            "    }",
+            "}",
+            "struct Pane<T>: View where T: Equatable {",          # 14: a view for every T
+            "    var body: some View { Text(\"x\") }",
+            "}",
+            "extension Pane {",
+            "    func helper() -> Int { a == b ? 1 : 2 }",          # 18: view code
+            "}",
+        ])
+        found = sorted({m.line for m in mutation.mutants_for_file("A.swift", source, set(range(1, 20)))})
+        self.assertEqual(found, [6])
+
+    def test_an_arrow_before_the_parameter_list_is_not_the_return_type(self):
+        source = "\n".join([
+            "import SwiftUI",
+            "struct Ops {",
+            "    func f<S: Sequence<(Int) -> Void>>(_ s: S, v: some View) -> Bool { a == b }",  # 3
+            "    static func <-> (l: Int, r: some View) -> Bool { a == b }",                  # 4
+            "    static func --> (l: Int, r: some View) -> Bool { a == b }",                  # 5
+            "}",
+        ])
+        self.assertEqual(sorted({m.line for m in mutation.mutants_for_file("A.swift", source, {3, 4, 5})}), [3, 4, 5])
+
     def test_a_local_var_before_a_block_does_not_make_it_a_view(self):
         source = "\n".join([
             "import SwiftUI",
@@ -287,6 +324,19 @@ class OperatorTests(unittest.TestCase):
         ])
         found = sorted({m.line for m in mutation.mutants_for_file("A.swift", source, {5, 6})})
         self.assertEqual(found, [5, 6])
+        # A local `var` typed `some View` with an initial value, before a block or a closure.
+        for opener in ("if a == b {", "let check = {"):
+            local = "\n".join([
+                "import SwiftUI",
+                "func f() -> Bool {",
+                "    var v: some View = make()",
+                "    " + opener,
+                "        ok = c == d",              # 5
+                "    }",
+                "    return ok",
+                "}",
+            ])
+            self.assertIn(5, {m.line for m in mutation.mutants_for_file("A.swift", local, {4, 5})}, opener)
 
     def test_an_extension_that_adds_view_makes_later_extensions_view_code(self):
         source = "\n".join([
@@ -367,7 +417,6 @@ class SelectionTests(unittest.TestCase):
             moved = dict(good, before="func g() {")
             gone = dict(good, file="Gone.swift")
             path = root / "equivalent.json"
-            path.write_text(json.dumps({"version": 1, "equivalent": [good, moved, gone]}), encoding="utf-8")
             folder = dict(good, file=".")  # names a folder, not a file
             path.write_text(json.dumps({"version": 1, "equivalent": [good, moved, gone, folder]}), encoding="utf-8")
             self.assertEqual(mutation.stale_entries(path, root), [moved, gone, folder])
@@ -558,7 +607,9 @@ class RunTests(unittest.TestCase):
             subprocess.run(["cc", "-x", "c", "-", "-o", str(host)], check=True, capture_output=True,
                            input=b"#include <unistd.h>\nint main(void) { for (;;) pause(); }\n")
             self.addCleanup(self.kill_naming, str(root))
-            launched = subprocess.Popen([str(host), "300"], start_new_session=True)
+            # Started through the decomposed (NFD) spelling of its path, as launchd's can be; the
+            # folder was made with the composed one.
+            launched = subprocess.Popen([unicodedata.normalize("NFD", str(host)), "300"], start_new_session=True)
             self.addCleanup(lambda: (launched.kill(), launched.wait()))
             result, _ = mutation.run_suite(scratch, root, scratch / "run.log", timeout=1)
             self.assertEqual(result, "timed out")

@@ -22,6 +22,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -226,10 +227,7 @@ def declaration(header: str, ui_types: set[str] = frozenset()) -> tuple[str, str
             name = re.search(r"\b%s\s+([\w.]+)" % keyword, text)
             extended = keyword == "extension" and name is not None and name.group(1) in ui_types
             return text, "ui" if conforms_to_ui(text) or extended else "type"
-        # A property's type is read from its own line: a local `var` just before a control-flow block
-        # is part of that block's header text, and so are the statements after it.
-        typed = " ".join(lines[index].split()) if keyword == "var" else text
-        if re.search(r"\bsome\s+(?:SwiftUI\.)?(?:View|Scene)\b", declared_type(typed, keyword)):
+        if is_builder(text, keyword):
             return text, "builder"
         if re.search(r"\bstatic\b", text):
             return text, "static"
@@ -237,25 +235,20 @@ def declaration(header: str, ui_types: set[str] = frozenset()) -> tuple[str, str
     return None
 
 
-def declared_type(text: str, keyword: str) -> str:
-    """What a member gives back: the return type after a top-level `->` of a function or subscript,
-    the type after the `:` of a property. A parameter's type does not count, so
-    `func accepts(_ content: some View) -> Bool` builds no view."""
+MODIFIERS = r"(?:@\w+(?:\([^)]*\))?\s*|(?:public|private|fileprivate|internal|package|open|static|final|override|nonisolated|lazy|dynamic)\s+)*"
+OPAQUE_VIEW = r"some\s+(?:SwiftUI\.)?(?:View|Scene)"
+
+
+def is_builder(text: str, keyword: str) -> bool:
+    """The declaration gives back `some View` or `some Scene`, read from where it ends rather than
+    parsed: the header text stops where the block opens, so a function's return type is what follows
+    its last `->` (with a `where` clause at most after it), and a property is exactly
+    `var name: some View`. Generic clauses, closure parameters, default values, and a parameter
+    typed `some View` come before that end and do not count; a local `var` followed by other
+    statements does not match."""
     if keyword == "var":
-        declared = text.split(":", 1)[1] if ":" in text else ""
-        depth = 0
-        for index, character in enumerate(declared):  # up to a top-level `=`, the initial value
-            depth += {"(": 1, "[": 1, "<": 1, ")": -1, "]": -1, ">": -1}.get(character, 0)
-            if depth == 0 and character == "=" and declared[index + 1:index + 2] != "=":
-                return declared[:index]
-        return declared
-    # Only brackets count for depth: `<` and `>` can be comparisons in a default argument.
-    depth = 0
-    for index, character in enumerate(text):
-        depth += {"(": 1, "[": 1, ")": -1, "]": -1}.get(character, 0)
-        if depth == 0 and text.startswith("->", index):
-            return text[index + 2:]
-    return ""
+        return re.fullmatch(MODIFIERS + r"var\s+\w+\s*:\s*" + OPAQUE_VIEW, text) is not None
+    return re.search(r"->\s*" + OPAQUE_VIEW + r"\s*(?:\bwhere\b[^{}]*)?$", text) is not None
 
 
 def conforms_to_ui(text: str) -> bool:
@@ -301,12 +294,12 @@ def line_blocks(code: str) -> list[tuple[str, bool]]:
     for index, character in enumerate(code):  # first, the file's own SwiftUI types, for extensions
         if character == "{" and swiftui:
             found = declaration(code[boundary:index])
-            # A conditional conformance (`extension Box: View where T == Int`) makes only some of the
-            # type a view, so it does not make the type's other extensions view code.
-            if found and found[1] == "ui" and not re.search(r"\bwhere\b", found[0]):
-                name = re.search(r"\b(?:struct|class|enum|actor|extension)\s+([\w.]+)", found[0])
-                if name:
-                    ui_types.add(name.group(1))
+            if found and found[1] == "ui":
+                name = re.search(r"\b(struct|class|enum|actor|extension)\s+([\w.]+)", found[0])
+                # A conditional conformance (`extension Box: View where T == Int`) makes only some of
+                # the type a view; a `where` on the type's own declaration does not.
+                if name and not (name.group(1) == "extension" and re.search(r"\bwhere\b", found[0])):
+                    ui_types.add(name.group(2))
         if character in "{};":
             boundary = index + 1
 
@@ -613,9 +606,12 @@ def owned(leader: int, build_folder: str, table: dict[int, tuple[int, str, str]]
             if child not in found:
                 found[child] = table[child][1]
                 queue.append(child)
-    prefixes = {folder.rstrip("/") + "/" for folder in (build_folder, os.path.realpath(build_folder))}
+    # Compared in one Unicode form: launchd can report a path in decomposed form (NFD) where the run
+    # spelled it composed (NFC), and APFS takes both as the same folder.
+    prefixes = {unicodedata.normalize("NFC", folder.rstrip("/") + "/")
+                for folder in (build_folder, os.path.realpath(build_folder))}
     for pid, (_, start, executable) in table.items():
-        if any(executable.startswith(prefix) for prefix in prefixes):
+        if any(unicodedata.normalize("NFC", executable).startswith(prefix) for prefix in prefixes):
             found[pid] = start
         elif pid not in found:
             # The leader starts a session of its own, so everything in it came from the run, even a
