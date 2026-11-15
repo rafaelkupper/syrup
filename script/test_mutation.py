@@ -83,12 +83,16 @@ class BranchTests(unittest.TestCase):
             self.git(root, "add", ".")
             self.git(root, "commit", "-q", "--no-verify", "-m", "base")
             (root / "Sources/A.swift").write_text("func f() -> Bool {\n    return true\n}\n", encoding="utf-8")
-            previous = os.environ.get("GIT_LITERAL_PATHSPECS")
-            os.environ["GIT_LITERAL_PATHSPECS"] = "1"
-            self.addCleanup(lambda: os.environ.pop("GIT_LITERAL_PATHSPECS") if previous is None
-                            else os.environ.__setitem__("GIT_LITERAL_PATHSPECS", previous))
-            found = {(m.path, m.line) for m in mutation.branch_mutants("HEAD", root)[0]}
-            self.assertEqual(found, {("Sources/A.swift", 2)})
+            (root / "Sources/Empty.swift").write_text("", encoding="utf-8")
+            self.git(root, "add", "Sources/Empty.swift")  # a new empty file shows no hunk
+            for variable in ("GIT_LITERAL_PATHSPECS", "GIT_GLOB_PATHSPECS", "GIT_ICASE_PATHSPECS"):
+                previous = os.environ.get(variable)
+                os.environ[variable] = "1"
+                try:
+                    found = {(m.path, m.line) for m in mutation.branch_mutants("HEAD", root)[0]}
+                finally:
+                    os.environ.pop(variable) if previous is None else os.environ.__setitem__(variable, previous)
+                self.assertEqual(found, {("Sources/A.swift", 2)}, variable)
 
 
 class MaskTests(unittest.TestCase):
@@ -185,6 +189,7 @@ class OperatorTests(unittest.TestCase):
             "class Boxed: Box<any View> {",             # 15: a View only as a generic argument
             "    func k() -> Bool { a == b }",          # 16
             "}",                                        # 17
+            "import SwiftUI",                           # 18
         ])
         found = mutation.mutants_for_file("A.swift", source, set(range(1, 18)))
         self.assertEqual(sorted({m.line for m in found}), [10, 13, 16])
@@ -207,11 +212,54 @@ class OperatorTests(unittest.TestCase):
             "    func makeBody(configuration: Configuration) -> Bool { a == b }",    # 13
             "}",                                                                     # 14
             "struct Main: App {",                                                    # 15
-            "    func scene() -> Bool { a == b }",                                   # 16
+            "    func launch() -> Bool { a == b }",                                  # 16: launch wiring, not a view
             "}",                                                                     # 17
+            "struct Checks {",                                                       # 18
+            "    func accepts(_ content: some View) -> Bool { a == b }",            # 19: takes a view, returns logic
+            "    var preview: some View { Text(a == b ? \"x\" : \"y\") }",           # 20: a view builder
+            "}",                                                                     # 21
+            "import SwiftUI",                                                        # 22
         ])
-        found = mutation.mutants_for_file("A.swift", source, set(range(1, 18)))
-        self.assertEqual(sorted({m.line for m in found}), [3, 10])
+        found = mutation.mutants_for_file("A.swift", source, set(range(1, 22)))
+        self.assertEqual(sorted({m.line for m in found}), [3, 10, 16, 19])
+
+    def test_an_app_skips_only_its_scenes(self):
+        source = "\n".join([
+            "import SwiftUI",
+            "struct Main: App {",                                               # 2
+            "    init() { if a == b { restore() } }",                          # 3: launch logic
+            "    var body: some Scene { WindowGroup { Text(a == b ? \"x\" : \"y\") } }",  # 4
+            "}",                                                                # 5
+            "struct Fancy: ShapeStyle { func f() -> Bool { a == b } }",       # 6: not a view style
+        ])
+        self.assertEqual(sorted({m.line for m in mutation.mutants_for_file("A.swift", source, set(range(1, 7)))}), [3, 6])
+
+    def test_view_rules_apply_only_where_swiftui_is_imported(self):
+        # A style or app protocol of one's own, in a file without SwiftUI, is plain logic.
+        source = "\n".join([
+            "struct Plain: FormattingStyle {",          # 1
+            "    func format() -> Bool { a == b }",     # 2
+            "}",                                        # 3
+        ])
+        self.assertEqual({m.line for m in mutation.mutants_for_file("A.swift", source, {1, 2, 3})}, {2})
+        # With SwiftUI imported, only SwiftUI's own style protocols count.
+        self.assertEqual({m.line for m in mutation.mutants_for_file("A.swift", source + "\nimport SwiftUI", {1, 2, 3})}, {2})
+        button = source.replace("FormattingStyle", "ButtonStyle")
+        self.assertEqual({m.line for m in mutation.mutants_for_file("A.swift", button, {1, 2, 3})}, {2})
+        self.assertEqual(mutation.mutants_for_file("A.swift", button + "\nimport SwiftUI", {1, 2, 3}), [])
+
+    def test_an_extension_that_adds_view_makes_later_extensions_view_code(self):
+        source = "\n".join([
+            "import SwiftUI",
+            "struct Pane {}",                           # 2
+            "extension Pane: View {",                   # 3
+            "    var body: some View { Text(\"x\") }",  # 4
+            "}",                                        # 5
+            "extension Pane {",                         # 6
+            "    func pill() -> Bool { a == b }",       # 7
+            "}",                                        # 8
+        ])
+        self.assertEqual(mutation.mutants_for_file("A.swift", source, set(range(1, 9))), [])
 
     def test_only_changed_lines(self):
         source = "a = b == c\nd = e == f\ng = h == i\n"
@@ -297,8 +345,17 @@ class SelectionTests(unittest.TestCase):
                 mutation.load_equivalent(path)
             with self.assertRaises(SystemExit):
                 mutation.stale_entries(path, Path(directory))
+            # Entries that are not objects, or whose optional fields have the wrong type.
+            for entry in (None, {"file": "A.swift", "original": "a", "mutated": "b", "reason": "r", "scope": None},
+                          {"file": "A.swift", "original": "a", "mutated": "b", "reason": "r", "occurrence": "two"},
+                          {"file": "A.swift", "original": "a", "mutated": "b", "reason": "r", "occurrence": 0}):
+                path.write_text(json.dumps({"version": 1, "equivalent": [entry]}), encoding="utf-8")
+                for check in (mutation.load_equivalent, lambda p: mutation.stale_entries(p, Path(directory))):
+                    with self.assertRaises(SystemExit, msg=repr(entry)):
+                        check(path)
             # Not JSON, or written for a version this tool does not know: refused with a message.
-            for text in ("{not json", json.dumps({"version": 2, "equivalent": []}), json.dumps([])):
+            for text in ("{not json", json.dumps({"version": 2, "equivalent": []}), json.dumps([]),
+                         json.dumps({"version": True, "equivalent": []})):
                 path.write_text(text, encoding="utf-8")
                 for check in (mutation.load_equivalent, lambda p: mutation.stale_entries(p, Path(directory))):
                     with self.assertRaises(SystemExit, msg=text):
@@ -390,6 +447,37 @@ class RunTests(unittest.TestCase):
         env["SYRUP_MUTANTS"] = "many"
         self.assertEqual(subprocess.run([sys.executable, "-I", str(SCRIPT), "--base", "HEAD", "--list"], env=env,
                                         capture_output=True).returncode, 2)
+
+    def test_a_time_out_stops_a_process_that_left_the_tree_but_not_the_session(self):
+        # Xcode's build service can start a compiler after xcodebuild has died; it then descends
+        # from nothing of the run's, but it stays in the run's session.
+        with tempfile.TemporaryDirectory() as directory:
+            scratch = Path(directory)
+            (scratch / "script").mkdir()
+            fake = scratch / "script" / "test-isolated.sh"
+            fake.write_text("#!/bin/sh\n"
+                            "perl -e 'if (fork) { exit } setpgrp(0, 0); $SIG{TERM} = \"IGNORE\"; sleep 300' "
+                            "\"$SYRUP_TEST_ROOT/build\"\nexec sleep 300\n")
+            fake.chmod(0o755)
+            grace = mutation.STOP_GRACE
+            mutation.STOP_GRACE = 1
+            self.addCleanup(setattr, mutation, "STOP_GRACE", grace)
+            root = scratch / "root"
+            self.addCleanup(self.kill_naming, str(root))
+            result, _ = mutation.run_suite(scratch, root, scratch / "run.log", timeout=2)
+            self.assertEqual(result, "timed out")
+            self.assertEqual(self.kill_naming(str(root)), [])
+
+    def test_the_process_table_reads_the_same_in_any_locale(self):
+        # Some locales print the start time in fewer words.
+        previous = os.environ.get("LC_ALL")
+        os.environ["LC_ALL"] = "ja_JP.UTF-8"
+        try:
+            table = mutation.process_table()
+        finally:
+            os.environ.pop("LC_ALL") if previous is None else os.environ.__setitem__("LC_ALL", previous)
+        self.assertIn(os.getpid(), table)
+        self.assertIn("python", table[os.getpid()][2].lower())
 
     def test_stopping_leaves_processes_the_run_did_not_start(self):
         # Processes that only name the build folder, or a folder whose name begins with it, are not

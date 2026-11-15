@@ -29,14 +29,35 @@ runs_dir="$HOME/Library/Caches/$domain_prefix/runs"
 tmp_root=${TMPDIR:-/tmp}
 tmp_root=${tmp_root%/}
 
+# physical_name <folder>: the folder's physical path with slashes made underscores, as SwiftPM names
+# its lock files. The folder itself may be gone; its parent must exist.
+physical_name() {
+    parent=$(CDPATH= cd -- "$(dirname -- "$1")" 2>/dev/null && pwd -P) || return 1
+    printf '%s/%s' "$parent" "$(basename -- "$1")" | tr '/' '_'
+}
+
 # remove_run_temp <token> <temporary copy>: the host's temporary folder, and the lock files SwiftPM
-# leaves beside it, named after the temporary copy (Package.resolved, workspace state, and one per
-# binary artifact).
+# leaves beside it, named after the temporary copy's full path (Package.resolved, workspace state,
+# and one per binary artifact), so a copy elsewhere with the same name keeps its own. Under a
+# symlinked folder, such as /tmp, SwiftPM names some locks by the path as given and some by the
+# physical one, so both are matched; the trailing slash lets find look inside a symlinked folder.
 remove_run_temp() {
     rm -rf "$tmp_root/$host_prefix.$1"
     case $2 in */syrup-tests.??????)
-        find "$tmp_root" -maxdepth 1 -type f -name "*_$(basename "$2")_build_SourcePackages_*.lock" -delete 2>/dev/null || : ;;
+        logical=$(printf '%s' "$2" | tr -s '/' | tr '/' '_')
+        physical=$(physical_name "$2") || physical=$logical
+        find "$tmp_root/" -maxdepth 1 -type f \( -name "${physical}_build_SourcePackages_*.lock" \
+            -o -name "${logical}_build_SourcePackages_*.lock" \) -delete 2>/dev/null || : ;;
     esac
+}
+
+# live_copy <folder name>: a live run's marker names a copy with this name.
+live_copy() {
+    for marker in "$runs_dir"/*; do
+        [ -f "$marker" ] || continue
+        [ "$(basename -- "$(sed -n 2p "$marker" 2>/dev/null)")" = "$1" ] && run_is_live "$(basename "$marker")" && return 0
+    done
+    return 1
 }
 
 # remove_run_prefs <token>: one run's test preference files and its host's domain.
@@ -76,22 +97,31 @@ remove_finished_runs() {
         run_is_live "$token" || find "$plist" -mmin +10 -delete 2>/dev/null || :
     done
     # A copy left empty by a run that stopped before writing its marker. A live run fills its copy
-    # within seconds of making it, so one still empty after ten minutes is abandoned.
-    find "$tmp_root" -maxdepth 1 -type d -name 'syrup-tests.??????' -empty -mmin +10 -exec rmdir {} + 2>/dev/null || :
+    # within seconds of making it, so one still empty after ten minutes is abandoned, unless a live
+    # run's marker names it, as for a run paused in a debugger.
+    for copy in "$tmp_root"/syrup-tests.??????; do
+        [ -d "$copy" ] || continue
+        [ -n "$(find "$copy" -maxdepth 0 -empty -mmin +10 2>/dev/null)" ] || continue
+        live_copy "$(basename -- "$copy")" || rmdir "$copy" 2>/dev/null || :
+    done
     # Left by runs from before markers covered them: host folders of runs no longer going, and
     # SwiftPM lock files whose temporary copy is gone.
     for folder in "$tmp_root/$host_prefix".*; do
         [ -d "$folder" ] || continue
         run_is_live "${folder##*.}" || rm -rf "$folder"
     done
-    # SwiftPM names a lock after the build folder's physical path, slashes made underscores. Only
-    # locks of copies directly in this temporary folder are checked here; a copy elsewhere, given as
+    # SwiftPM names a lock after the build folder's path, slashes made underscores: the physical
+    # path, or under a symlinked folder such as /tmp sometimes the path as given. Only locks of
+    # copies directly in this temporary folder are checked here; a copy elsewhere, given as
     # SYRUP_TEST_ROOT, may still be running, and its locks are not this check's to judge.
     physical_tmp=$(CDPATH= cd -- "$tmp_root" && pwd -P | tr '/' '_')
-    for lock in "$tmp_root/${physical_tmp}_syrup-tests."??????"_build_SourcePackages_"*.lock; do
-        [ -f "$lock" ] || continue
-        copy=$(printf '%s' "${lock#"$tmp_root/${physical_tmp}_"}" | cut -c1-18)
-        [ -d "$tmp_root/$copy" ] || rm -f "$lock"
+    logical_tmp=$(printf '%s' "$tmp_root" | tr -s '/' | tr '/' '_')
+    for prefix in "$physical_tmp" "$logical_tmp"; do
+        for lock in "$tmp_root/${prefix}_syrup-tests."??????"_build_SourcePackages_"*.lock; do
+            [ -f "$lock" ] || continue
+            copy=$(printf '%s' "${lock#"$tmp_root/${prefix}_"}" | cut -c1-18)
+            [ -d "$tmp_root/$copy" ] || rm -f "$lock"
+        done
     done
 }
 

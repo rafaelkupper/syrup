@@ -201,7 +201,13 @@ DECLARATION_LINE = re.compile(
     r"nonmutating|nonisolated|convenience|required|lazy|dynamic|indirect|class)\s+)*"
     r"(func|init|deinit|subscript|var|struct|class|enum|extension|actor|protocol)\b")
 TYPE_KEYWORDS = {"struct", "class", "enum", "extension", "actor", "protocol"}
-UI_CONFORMANCES = {"View", "SwiftUI.View", "App", "Scene", "ViewModifier"}
+# SwiftUI's view protocols and its style protocols, by name. An `App` or `Scene` is not listed: its
+# `body` returns `some Scene` and is skipped as a builder, while its `init` is launch logic.
+UI_CONFORMANCES = {"View", "ViewModifier"} | {name + "Style" for name in (
+    "Button", "PrimitiveButton", "Toggle", "Label", "Menu", "ProgressView", "GroupBox", "DisclosureGroup",
+    "LabeledContent", "TextField", "TextEditor", "Picker", "List", "Table", "Form", "ControlGroup", "Gauge",
+    "DatePicker", "NavigationSplitView", "TabView", "Window", "WindowToolbar", "IndexView", "MenuBarExtra")}
+UI_CONFORMANCES |= {"SwiftUI." + name for name in UI_CONFORMANCES}
 
 
 def declaration(header: str, ui_types: set[str] = frozenset()) -> tuple[str, str] | None:
@@ -220,7 +226,7 @@ def declaration(header: str, ui_types: set[str] = frozenset()) -> tuple[str, str
             name = re.search(r"\b%s\s+([\w.]+)" % keyword, text)
             extended = keyword == "extension" and name is not None and name.group(1) in ui_types
             return text, "ui" if conforms_to_ui(text) or extended else "type"
-        if re.search(r"\bsome\s+View\b", text):
+        if re.search(r"\bsome\s+(?:View|Scene)\b", declared_type(text, keyword)):
             return text, "builder"
         if re.search(r"\bstatic\b", text):
             return text, "static"
@@ -228,9 +234,25 @@ def declaration(header: str, ui_types: set[str] = frozenset()) -> tuple[str, str
     return None
 
 
+def declared_type(text: str, keyword: str) -> str:
+    """What a member gives back: the return type after a top-level `->` of a function or subscript,
+    the type after the `:` of a property. A parameter's type does not count, so
+    `func accepts(_ content: some View) -> Bool` builds no view."""
+    if keyword == "var":
+        return text.split(":", 1)[1] if ":" in text else ""
+    depth = 0
+    for index, character in enumerate(text):
+        depth += {"(": 1, "[": 1, "<": 1, ")": -1, "]": -1}.get(character, 0)
+        if character == ">" and text[index - 1:index] != "-":
+            depth -= 1
+        if depth == 0 and text.startswith("->", index):
+            return text[index + 2:]
+    return ""
+
+
 def conforms_to_ui(text: str) -> bool:
-    """One of the type's own conformances is SwiftUI's: `View`, `App`, `Scene`, `ViewModifier`, or a
-    style such as `ButtonStyle`. A generic argument or constraint does not count, so
+    """One of the type's own conformances is SwiftUI's: `View`, `ViewModifier`, or a style such as
+    `ButtonStyle` (see `UI_CONFORMANCES`). A generic argument or constraint does not count, so
     `struct Box<Content: View>` and `class Model: Box<any View>` are not views."""
     match = re.match(r".*?\b(?:struct|class|enum|extension|actor|protocol)\s+[\w.]+", text)
     rest = text[match.end():] if match else text
@@ -253,7 +275,7 @@ def conforms_to_ui(text: str) -> bool:
         else:
             current += character
     items.append(current)
-    return any(item.strip() in UI_CONFORMANCES or item.strip().endswith("Style") for item in items)
+    return any(item.strip() in UI_CONFORMANCES for item in items)
 
 
 def line_blocks(code: str) -> list[tuple[str, bool]]:
@@ -261,13 +283,16 @@ def line_blocks(code: str) -> list[tuple[str, bool]]:
     the line, so a one-line function counts as its own scope), and whether it is view code. View code
     is inside a SwiftUI type or a view builder, unless a static member that builds no view sits in
     between: such helpers are plain logic that tests can call."""
+    # SwiftUI's names count only where SwiftUI is imported; elsewhere a `...Style` or `App` is a
+    # protocol of the code's own.
+    swiftui = re.search(r"^\s*(?:@\w+\s+)*import\s+SwiftUI\b", code, re.MULTILINE) is not None
     ui_types: set[str] = set()
     boundary = 0
     for index, character in enumerate(code):  # first, the file's own SwiftUI types, for extensions
-        if character == "{":
+        if character == "{" and swiftui:
             found = declaration(code[boundary:index])
             if found and found[1] == "ui":
-                name = re.search(r"\b(?:struct|class|enum|actor)\s+([\w.]+)", found[0])
+                name = re.search(r"\b(?:struct|class|enum|actor|extension)\s+([\w.]+)", found[0])
                 if name:
                     ui_types.add(name.group(1))
         if character in "{};":
@@ -289,7 +314,10 @@ def line_blocks(code: str) -> list[tuple[str, bool]]:
     line_scope, line_view = scope()
     for index, character in enumerate(code):
         if character == "{":
-            stack.append(declaration(code[boundary:index], ui_types))
+            found = declaration(code[boundary:index], ui_types)
+            if found and not swiftui and found[1] in ("ui", "builder"):
+                found = (found[0], "type" if found[1] == "ui" else "member")
+            stack.append(found)
             boundary = index + 1
             current, view = scope()
             if len(current) > len(line_scope):  # the deepest declaration on the line decides both
@@ -378,15 +406,22 @@ def read_entries(path: Path) -> list[dict]:
         document = json.loads(path.read_text(encoding="utf-8"))
     except ValueError as error:
         raise SystemExit("%s is not valid JSON: %s" % (path.name, error))
-    if not isinstance(document, dict) or document.get("version") != 1 or not isinstance(document.get("equivalent"), list):
+    version = document.get("version") if isinstance(document, dict) else None
+    if type(version) is not int or version != 1 or not isinstance(document.get("equivalent"), list):
         raise SystemExit("%s must be an object with \"version\": 1 and an \"equivalent\" list." % path.name)
     return document["equivalent"]
 
 
 def entry_key(entry: dict) -> tuple[str, str, str, str, int, str, str]:
+    if not isinstance(entry, dict):
+        raise SystemExit("mutation-equivalent.json: an entry is not an object: %r" % (entry,))
     missing = [field for field in REQUIRED_FIELDS if not isinstance(entry.get(field), str)]
-    if missing:
-        raise SystemExit("mutation-equivalent.json: an entry lacks %s: %r" % (", ".join(missing), entry))
+    wrong = [field for field in ("scope", "before", "after") if field in entry and not isinstance(entry[field], str)]
+    occurrence = entry.get("occurrence", 1)
+    if not isinstance(occurrence, int) or isinstance(occurrence, bool) or occurrence < 1:
+        wrong.append("occurrence")
+    if missing or wrong:
+        raise SystemExit("mutation-equivalent.json: an entry lacks %s: %r" % (", ".join(missing + wrong), entry))
     return (entry["file"], entry.get("scope", "").strip(), entry["original"].strip(), entry["mutated"].strip(),
             int(entry.get("occurrence", 1)), entry.get("before", "").strip(), entry.get("after", "").strip())
 
@@ -461,8 +496,11 @@ def classify(exit_code: int, log: str, mutated_file: str | None = None) -> str:
 
 
 def git(*args: str, root: Path = ROOT) -> str:
+    # GIT_GLOB_PATHSPECS and the like conflict with --literal-pathspecs, so they are left out.
+    environment = {key: value for key, value in os.environ.items()
+                   if not (key.startswith("GIT_") and key.endswith("_PATHSPECS"))}
     return subprocess.run(["git", "-C", str(root), *args], check=True, capture_output=True,
-                          encoding="utf-8", errors="surrogateescape").stdout
+                          encoding="utf-8", errors="surrogateescape", env=environment).stdout
 
 
 def branch_mutants(base: str, root: Path = ROOT) -> tuple[list[Mutant], int]:
@@ -478,7 +516,8 @@ def branch_mutants(base: str, root: Path = ROOT) -> tuple[list[Mutant], int]:
         # so a listed file always shows its hunks.
         diff = git("--literal-pathspecs", "diff", "-U0", "--no-color", "--no-ext-diff", "--no-textconv",
                    "--text", "--no-renames", base, "--", path, root=root)
-        if "\n@@ " not in "\n" + diff and "\nold mode " not in "\n" + diff:
+        empty = (root / path).exists() and (root / path).stat().st_size == 0
+        if "\n@@ " not in "\n" + diff and "\nold mode " not in "\n" + diff and not empty:
             raise SystemExit("git diff lists %s as changed but shows no change to read; run with a plain "
                              "Git configuration or pass --base." % path)
         changed[path] = changed_lines(diff)
@@ -528,14 +567,14 @@ def run_suite(scratch: Path, test_root: Path, log_path: Path, timeout: float,
     return classify(exit_code, log_path.read_text(encoding="utf-8", errors="replace"), mutated_file), time.monotonic() - started
 
 
-STOP_GRACE = 30  # seconds the run's processes get to stop after SIGTERM
 
 
 def process_table() -> dict[int, tuple[int, str, str]]:
     """Every live process: its parent, its start time, and its executable. A zombie has already
     exited and only waits for its parent to collect it, so it is left out."""
+    # In the C locale `lstart` is always five words; some locales print fewer.
     listing = subprocess.run(["ps", "-axww", "-o", "pid=,ppid=,stat=,lstart=,comm="], capture_output=True,
-                             encoding="utf-8", errors="replace").stdout
+                             encoding="utf-8", errors="replace", env=dict(os.environ, LC_ALL="C")).stdout
     table = {}
     for line in listing.splitlines():
         parts = line.split(None, 8)
@@ -546,8 +585,9 @@ def process_table() -> dict[int, tuple[int, str, str]]:
 
 def owned(leader: int, build_folder: str, table: dict[int, tuple[int, str, str]]) -> dict[int, str]:
     """The processes the run started, by PID with their start times: the leader and its descendants,
-    which include the compilers Xcode starts in process groups of their own, and any process running
-    an executable from the run's build folder: the test host, which launchd starts for xcodebuild.
+    which include the compilers Xcode starts in process groups of their own, any process in the
+    leader's session, and any process running an executable from the run's build folder: the test
+    host, which launchd starts for xcodebuild.
     A process that only names the folder, such as one watching a log there, is not the run's."""
     children: dict[int, list[int]] = {}
     for pid, (parent, _, _) in table.items():
@@ -563,6 +603,14 @@ def owned(leader: int, build_folder: str, table: dict[int, tuple[int, str, str]]
     for pid, (_, start, executable) in table.items():
         if any(executable.startswith(prefix) for prefix in prefixes):
             found[pid] = start
+        elif pid not in found:
+            # The leader starts a session of its own, so everything in it came from the run, even a
+            # compiler Xcode's build service starts after xcodebuild has died.
+            try:
+                if os.getsid(pid) == leader:
+                    found[pid] = start
+            except OSError:
+                pass
     found.pop(os.getpid(), None)
     return found
 
@@ -580,7 +628,12 @@ def stop(process: subprocess.Popen, build_folder: str) -> None:
     def live() -> list[int]:
         table = process_table()
         for pid, start in owned(process.pid, build_folder, table).items():
-            targets.setdefault(pid, start)  # started while stopping
+            if pid not in targets:  # started while stopping: asked to stop at once, like the rest
+                targets[pid] = start
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                except (ProcessLookupError, PermissionError):
+                    pass
         return [pid for pid, start in targets.items() if pid in table and table[pid][1] == start]
 
     def send(sig: int) -> None:
