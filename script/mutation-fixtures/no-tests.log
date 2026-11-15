@@ -1,0 +1,14 @@
+Test Suite 'SyrupTests.xctest' passed at 2026-11-14 21:16:41.326.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-14 21:16:41.326.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+2026-11-14 21:16:41.600 xcodebuild[58697:19586210] [MT] IDETestOperationsObserverDebug: 1.050 elapsed -- Testing started completed.
+2026-11-14 21:16:41.600 xcodebuild[58697:19586210] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-14 21:16:41.600 xcodebuild[58697:19586210] [MT] IDETestOperationsObserverDebug: 1.050 sec, +1.050 sec -- end
+
+Test session results, code coverage, and logs:
+	$TMPDIR/syrup-capture.d_wmrebw/test-root/build/Logs/Test/Test-Syrup-2026.11.14_21-16-39--0300.xcresult
+
+** TEST SUCCEEDED **
+
+Testing started

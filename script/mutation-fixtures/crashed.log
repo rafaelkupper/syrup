@@ -1,0 +1,591 @@
+Restarting after unexpected exit, crash, or test timeout; summary will include totals from previous launches.
+
+Test Suite 'Selected tests' started at 2026-11-14 21:15:45.319.
+Test Suite 'Selected tests' passed at 2026-11-14 21:15:45.319.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+◇ Test run started.
+↳ Testing Library Version: 2403
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite OpenAICompatibleTransformerTests started.
+◇ Test environmentConfigurationRequiresURLAPIKeyAndModel() started.
+✔ Test environmentConfigurationRequiresURLAPIKeyAndModel() passed after 0.001 seconds.
+◇ Test userSettingsConfigurationTrimsValuesAndRejectsInvalidInput() started.
+✔ Test userSettingsConfigurationTrimsValuesAndRejectsInvalidInput() passed after 0.001 seconds.
+◇ Test environmentConfigurationRejectsNonHTTPBaseURLs(rawURL:) started.
+◇ Test case passing 1 argument rawURL → "example.com/v1" to environmentConfigurationRejectsNonHTTPBaseURLs(rawURL:) started.
+​◇ Test case passing 1 argument rawURL → "ftp://example.com/v1" to environmentConfigurationRejectsNonHTTPBaseURLs(rawURL:) started.
+​✔ Test environmentConfigurationRejectsNonHTTPBaseURLs(rawURL:) with 2 test cases passed after 0.001 seconds.
+◇ Test settingsResolverUsesTypedAPIKeyBeforeSavedKeyAndEnvironment() started.
+✔ Test settingsResolverUsesTypedAPIKeyBeforeSavedKeyAndEnvironment() passed after 0.001 seconds.
+◇ Test settingsResolverUsesSavedAPIKeyBeforeEnvironment() started.
+✔ Test settingsResolverUsesSavedAPIKeyBeforeEnvironment() passed after 0.001 seconds.
+◇ Test settingsResolverFallsBackToCompleteEnvironmentWhenNoSavedAPIKeyExists() started.
+✔ Test settingsResolverFallsBackToCompleteEnvironmentWhenNoSavedAPIKeyExists() passed after 0.001 seconds.
+◇ Test releaseBuildsIgnoreTheEnvironmentFallback() started.
+✔ Test releaseBuildsIgnoreTheEnvironmentFallback() passed after 0.001 seconds.
+◇ Test settingsResolverKeepsManualNoKeySettingsWhenEnvironmentIsIncomplete() started.
+✔ Test settingsResolverKeepsManualNoKeySettingsWhenEnvironmentIsIncomplete() passed after 0.001 seconds.
+◇ Test appSettingsProviderFallsBackToEnvironmentWhenSavedAPIKeyIsEmpty() started.
+✔ Test appSettingsProviderFallsBackToEnvironmentWhenSavedAPIKeyIsEmpty() passed after 0.001 seconds.
+◇ Test appSettingsProviderIgnoresIncompleteEnvironmentWhenSavedAPIKeyIsEmpty() started.
+✔ Test appSettingsProviderIgnoresIncompleteEnvironmentWhenSavedAPIKeyIsEmpty() passed after 0.001 seconds.
+◇ Test appSettingsProviderUsesSavedSettingsAndLocalAPIKeyBeforeEnvironment() started.
+✔ Test appSettingsProviderUsesSavedSettingsAndLocalAPIKeyBeforeEnvironment() passed after 0.001 seconds.
+◇ Test runsAndConnectionTestTreatAWhitespaceSavedKeyTheSame() started.
+✔ Test runsAndConnectionTestTreatAWhitespaceSavedKeyTheSame() passed after 0.001 seconds.
+◇ Test documentedErrorsMapToTheirErrorsWithoutARetry(_:streamed:) started.
+◇ Test case passing 2 arguments example → OpenAI: error envelope with type, code, message, param (Agents API files guide, not Chat Completions), streamed → true to documentedErrorsMapToTheirErrorsWithoutARetry(_:streamed:) started.
+​◇ Test case passing 2 arguments example → OpenAI: error envelope with type, code, message, param (Agents API files guide, not Chat Completions), streamed → false to documentedErrorsMapToTheirErrorsWithoutARetry(_:streamed:) started.
+​◇ Test case passing 2 arguments example → OpenAI: rate limit error envelope with null param (Agents API errors guide, not Chat Completions), streamed → true to documentedErrorsMapToTheirErrorsWithoutARetry(_:streamed:) started.
+​◇ Test case passing 2 arguments example → OpenAI: rate limit error envelope with null param (Agents API errors guide, not Chat Completions), streamed → false to documentedErrorsMapToTheirErrorsWithoutARetry(_:streamed:) started.
+​◇ Test case passing 2 arguments example → OpenRouter: error before the response is committed, streamed → true to documentedErrorsMapToTheirErrorsWithoutARetry(_:streamed:) started.
+​◇ Test case passing 2 arguments example → OpenRouter: error before the response is committed, streamed → false to documentedErrorsMapToTheirErrorsWithoutARetry(_:streamed:) started.
+​◇ Test case passing 2 arguments example → OpenRouter: budget limit rejection with metadata, streamed → true to documentedErrorsMapToTheirErrorsWithoutARetry(_:streamed:) started.
+​◇ Test case passing 2 arguments example → OpenRouter: budget limit rejection with metadata, streamed → false to documentedErrorsMapToTheirErrorsWithoutARetry(_:streamed:) started.
+​◇ Test case passing 2 arguments example → OpenRouter: guardrail block, streamed → true to documentedErrorsMapToTheirErrorsWithoutARetry(_:streamed:) started.
+​◇ Test case passing 2 arguments example → OpenRouter: guardrail block, streamed → false to documentedErrorsMapToTheirErrorsWithoutARetry(_:streamed:) started.
+​◇ Test case passing 2 arguments example → OpenRouter: non-streaming response with error embedded in the choice, streamed → true to documentedErrorsMapToTheirErrorsWithoutARetry(_:streamed:) started.
+​◇ Test case passing 2 arguments example → OpenRouter: non-streaming response with error embedded in the choice, streamed → false to documentedErrorsMapToTheirErrorsWithoutARetry(_:streamed:) started.
+​◇ Test case passing 2 arguments example → Groq: invalid tool call generated, with failed_generation, streamed → true to documentedErrorsMapToTheirErrorsWithoutARetry(_:streamed:) started.
+​◇ Test case passing 2 arguments example → Groq: invalid tool call generated, with failed_generation, streamed → false to documentedErrorsMapToTheirErrorsWithoutARetry(_:streamed:) started.
+​◇ Test case passing 2 arguments example → Groq: model blocked at the organization level, streamed → true to documentedErrorsMapToTheirErrorsWithoutARetry(_:streamed:) started.
+​◇ Test case passing 2 arguments example → Groq: model blocked at the organization level, streamed → false to documentedErrorsMapToTheirErrorsWithoutARetry(_:streamed:) started.
+​◇ Test case passing 2 arguments example → Groq: model blocked at the project level, streamed → true to documentedErrorsMapToTheirErrorsWithoutARetry(_:streamed:) started.
+​◇ Test case passing 2 arguments example → Groq: model blocked at the project level, streamed → false to documentedErrorsMapToTheirErrorsWithoutARetry(_:streamed:) started.
+​✔ Test documentedErrorsMapToTheirErrorsWithoutARetry(_:streamed:) with 18 test cases passed after 0.010 seconds.
+✔ Suite OpenAICompatibleTransformerTests passed after 0.019 seconds.
+✔ Test run with 13 tests in 1 suite passed after 0.019 seconds.
+2026-11-14 21:15:56.556 xcodebuild[50718:19569091] [MT] IDETestOperationsObserverDebug: 72.910 elapsed -- Testing started completed.
+2026-11-14 21:15:56.556 xcodebuild[50718:19569091] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-14 21:15:56.556 xcodebuild[50718:19569091] [MT] IDETestOperationsObserverDebug: 72.910 sec, +72.910 sec -- end
+
+Test session results, code coverage, and logs:
+	$TMPDIR/syrup-capture.d_wmrebw/test-root/build/Logs/Test/Test-Syrup-2026.11.14_21-14-39--0300.xcresult
+
+Failing tests:
+	LocalePreparationTests.localePreparationsAreIndependentAndDeduplicated()
+	RetiredGlossaryLearningTests.privacyReadsTheFoldersOnlyAfterTheLaunchCleanup()
+	AppStateFailureTests.contextualFailureNotificationExposesNoFallbackOrRetryActions()
+	AppStateFailureTests.speechPermissionFailureMovesToSpecificErrorAndDoesNotWriteClipboard()
+	AppStateFailureTests.transformationFailureAppendsFailedHistoryRecord()
+	AppStateFailureTests.recorderFailureMovesToErrorAndDoesNotWriteClipboard()
+	AppStateFailureTests.translationFailureOffersExplicitTranscriptFallback()
+	AppStateFailureTests.microphonePermissionFailureMovesToSpecificErrorAndDoesNotWriteClipboard()
+	AppStateFailureTests.transcriptFallbackCopyFailureKeepsFallbackAvailable()
+	AppStateFailureTests.timedOutTranslationShowsMappedErrorAndPreservesTranscriptFallback()
+	AppStateFailureTests.transformerFailureMovesToErrorAndDoesNotWriteClipboard()
+	AppStateFailureTests.unreachableEndpointShowsMappedErrorAndPreservesTranscriptFallback()
+	AppStateFailureTests.clipboardFailureMovesToErrorAndDoesNotMarkSuccess()
+	AppStateFailureTests.revisionAndContextualFailuresNeverExposeTranscriptFallback()
+	AppStateFailureTests.transcriberFailureMovesToErrorAndDoesNotWriteClipboard()
+	AppStateFailureTests.languageModelDownloadInProgressMovesToSpecificErrorAndDoesNotWriteClipboard()
+	-[LastSuccessfulResultTests lastResultActionsIgnoreAFailedRetryOfAnOlderRevision(paste:)]
+	-[CorrectionBoundaryRegressionTests correctionsDistinguishPossessivesFromContractions(input:expected:)]
+	-[CorrectionBoundaryRegressionTests correctionsMatchWholeWordsBeforeApostropheOrHyphen(text:)]
+	DeliveryTargetPinningTests.editorChangeDuringPasteDelayFallsBackToClipboard()
+	DeliveryTargetPinningTests.sameApplicationFieldChangeStopsStreaming()
+	DeliveryTargetPinningTests.switchingAppsDuringTheFocusReadFailsTheCheck()
+	OperationTimeoutTests.frameworkMonitorCannotHoldTimeoutCleanupOpen()
+	OperationTimeoutTests.timeoutReturnsEvenWhenOperationIgnoresCancellation()
+	HistorySafeguardTests.historyDeletionFailurePreservesOptInAndRecords()
+	HistorySafeguardTests.aLeftoverHistoryFileGoesAtLaunchOnlyWhenKeepHistoryIsOff()
+	HistorySafeguardTests.aLeftoverHistoryFileThatCannotBeDeletedIsShownWithARetry()
+	HistorySafeguardTests.notificationFallbackUsesOriginatingRecordAndIgnoresMissingID()
+	HistorySafeguardTests.historyDeletionWaitsForQueuedWrites()
+	-[CaretFitDeliveryTests fittedClipboardKeepsExactHistory(strategy:)]
+	CaretFitDeliveryTests.preferenceIsRawDefaultOffAndCapturedAtTrigger()
+	CaretFitDeliveryTests.aStreamThatTypedNothingFitsTheClipboardAfresh()
+	CaretFitDeliveryTests.contextTimeoutAndChangedTargetFallBack()
+	CaretFitDeliveryTests.failedTypingKeepsTheFittedCopyAndReportsFailure()
+	CaretFitDeliveryTests.unavailableContextLeavesDeliveryUntouched()
+	CaretFitDeliveryTests.automaticPasteOffStillFitsTheClipboard()
+	CaretFitDeliveryTests.withoutAccessibilityTheClipboardKeepsTheExactResult()
+	-[CaretFitDeliveryTests onboardingTasteHoldsTheFit(holdsPaste:)]
+	-[CaretFitDeliveryTests pasteLastFitsAgainFromTheExactHistory(autoPaste:)]
+	-[CaretFitDeliveryTests streamingClipboardMatchesTheTypedText(autoPaste:)]
+	-[CaretFitDeliveryTests unchangedTextUsesCommandV(enabled:)]
+	ClipboardWriterTests.failedWriteDoesNotRestoreUnsupportedNonStringItem()
+	ClipboardWriterTests.anItemPastTheLimitIsLostButTheItemsThatFitComeBack()
+	ClipboardWriterTests.failedWriteRestoresTextWhenExistingPasteboardIsWithinSnapshotLimit()
+	ClipboardWriterTests.writeStoresStringOnInjectedPasteboard()
+	ClipboardWriterTests.failedWriteDoesNotSnapshotLargeUnsupportedExistingPasteboard()
+	ClipboardWriterTests.failedWriteRestoresTextFromMixedRichItem()
+	ClipboardWriterTests.writeDoesNotRequestPromisedRichDataDuringSnapshot()
+	ClipboardWriterTests.aRefusedRestoreReportsThePreviousClipboardAsLost()
+	ClipboardWriterTests.failedWriteDoesNotRestoreOversizedTextSnapshot()
+	ClipboardWriterTests.failedWriteRestoresPreviousString()
+	-[CaretFitStreamingTests finishOnlyUsesSameFit(input:)]
+	-[CaretFitStreamingTests preservesNamesAndAbbreviationsAcrossDeltas(threshold:)]
+	-[CaretFitStreamingTests waitsForCompleteFirstWordAndDropsFinalPeriod(threshold:)]
+	-[CaretFitStreamingTests protectsGlossaryPhrasesAcrossDeltas(matchesTerm:)]
+	SpeechModelManagerTests.removeUnloadsAndDeletesTheModel()
+	SpeechModelManagerTests.loadIfDownloadedNeverDownloads()
+	SpeechModelManagerTests.aParakeetV3DownloadIsRemovedAndUltraDownloadsInItsPlace()
+	SpeechModelManagerTests.aCompleteModelAtTheDestinationIsKeptAndNothingDownloads()
+	SpeechModelManagerTests.withoutAParakeetV3DownloadNothingDownloads()
+	SpeechModelManagerTests.deleteDuringAStartedLoadStillRemovesTheModel()
+	SpeechModelManagerTests.retryAfterADownloadFailureDownloadsAgain()
+	SpeechModelManagerTests.failuresAreReportedAndRetryable()
+	SpeechModelManagerTests.downloadRightAfterDeleteStartsFromNothing()
+	SpeechModelManagerTests.loadIfDownloadedLoadsAModelAlreadyOnDisk()
+	SpeechModelManagerTests.unsupportedMacsNeverDownloadOrLoad()
+	SpeechModelManagerTests.aLoadAskedForRightAfterDeleteDoesNotKeepTheModel()
+	SpeechModelManagerTests.cancellingTheUltraHandoverDeletesV3SoTheNextLaunchDoesNotStartItAgain()
+	SpeechModelManagerTests.downloadIsExplicitReportsProgressAndLoads()
+	SpeechModelManagerTests.cancelStopsTheDownload()
+	SpeechModelManagerTests.aDownloadReplacesAnIncompleteModelFolder()
+	SpeechModelManagerTests.removeLeavesOtherModelsInPlaceAndClearsItsUnfinishedDownload()
+	SpeechModelManagerTests.aNewDownloadWaitsForACancelledOneToStop()
+	SpeechModelManagerTests.deleteWhileDownloadingCancelsTheDownloadThenRemovesWhatItFetched()
+	SpeechModelManagerTests.aFailedUltraDownloadKeepsParakeetV3SoTheNextLaunchTriesAgain()
+	SpeechModelManagerTests.retryAfterALoadFailureLoadsAgainInsteadOfDownloading()
+	UsageStatsStoreTests.aDeleteAfterManyWritesAlwaysLandsLast()
+	UsageStatsStoreTests.survivesARestartWithAPrivateFileAndDeletes()
+	UsageStatsStoreTests.aFailedDeleteShowsTheStatsStillOnDiskAndSaysSo()
+	UsageStatsStoreTests.aDamagedFileStartsEmptyInsteadOfFailing()
+	PipelineLifecycleRegressionTests.earlyRecognitionFailureMustStopRecordingWithoutRelease()
+	PipelineLifecycleRegressionTests.cancellationDuringPermissionMustNotLeaveCaptureRunning()
+	DictationOptionsSettingsTests.runInstructionFollowsTheSettings()
+	DictationOptionsSettingsTests.bothDefaultOffAndPersistSeparately()
+	-[DictationOptionsSettingsTests onlyCapableProvidersGetSpokenEdits(_:)]
+	DictationOptionsSettingsTests.selectedTextNeverGetsSpokenBehavior()
+	DictationOptionsSettingsTests.appleOnDeviceRunsLeaveSpokenEditsOutEvenWhenOn()
+	-[ParakeetPipelineTests appleRunsWithFastResultsOnlyAsAParakeetPreview(engine:fastResults:)]
+	ParakeetPipelineTests.parakeetDeliversItsTranscriptWhileApplePreviews()
+	-[ParakeetPipelineTests livePartialsComeFromStreamingModelsOrApple(engine:appleGetsPartials:modelGetsPartials:)]
+	HardRuleTests.settingsAnUnreadableBlobKeepsItsNewestBackup()
+	HardRuleTests.settingsANewerBuildsBlobsLoadEmptyOrAsTheDefaultWorkflowAndAreNeverOverwritten()
+	SpeechModelRegressionTests.retryAfterAFailedDeleteDeletesAgain()
+	SpeechModelRegressionTests.cancelAsTheFilesLandLeavesAStateThatAgreesWithTheDisk()
+	SpeechModelRegressionTests.deleteRightAfterALoadRequestSkipsTheLoad()
+	-[SpeechModelRegressionTests aJobOvertakenAfterItBeganDoesNoWork(_:)]
+	SpeechModelRegressionTests.cancelRightAfterDownloadDownloadsNothing()
+	SpeechModelRegressionTests.lateProgressFromACancelledDownloadDoesNotMoveTheNextOne()
+	SpeechModelRegressionTests.replacingWithTheModelAlreadyOnDiskDeletesTheOlderFolderAtOnce()
+	SpeechModelRegressionTests.aPartialDownloadIsReportedAndDeleteRemovesIt()
+	AutoPasterTests.pasteReportsEventCreationFailure()
+	AutoPasterTests.pasteRequiresAccessibilityTrust()
+	AutoPasterTests.requestTrustUsesInjectedRequester()
+	AutoPasterTests.resolvesCurrentLayoutForEveryPaste()
+	AutoPasterTests.pasteRefusesSecureInput()
+	AppStateConfigurationTests.cancelDuringPreparedTextTransformerResolutionDoesNotStartTranslationMetrics()
+	AppStateConfigurationTests.providerSelectionUsesCurrentSettingsForEachRun()
+	AppStateConfigurationTests.successfulRunRecordsPrivacySafeLatencyStages()
+	AppStateConfigurationTests.transformationReceivesTrimmedTranscriptAndInstruction()
+	AppStateConfigurationTests.transformerProviderResolutionStartsBeforeRelease()
+	AppStateConfigurationTests.latencyRegressionGateStartsTranscriptionAndProviderPreparationBeforeRelease()
+	AppStateConfigurationTests.transformationInstructionIsSnapshottedAtRecordingStart()
+	RecoveryReliabilityTests.retryPreservesPrivateProviderDespiteWorkflowAndGlobalChanges()
+	RecoveryReliabilityTests.legacyFailureNeedsExplicitProviderChoice()
+	-[RecoveryReliabilityTests incompleteResponseNeverCommitsOutput(streaming:)]
+	RecoveryReliabilityTests.incompleteDirectTypingWarnsAboutAlreadyPostedPrefix()
+	-[RecoveryReliabilityTests interruptedOrMalformedStreamNeverRetries(malformed:)]
+	OfferedProviderTests.claudeCodeIsOfferedOnlyWhenInstalledOrAlreadyInUse()
+	OfferedProviderTests.commandLineProvidersNeverSendUnfinishedTranscripts()
+	GlossaryTests.composedSpeechVocabularyNeverExceedsTheDefaultLimit()
+	GlossaryTests.composedSpeechVocabularyPrioritizesUserTermsAtTheCap()
+	GlossaryTests.aNewerBlobGetsNoBackup()
+	GlossaryTests.persistedDuplicateRemainsRejectedWhileExistingEditorDraftIsCleared()
+	GlossaryTests.exportDocumentProducesDecodableGlossaryJSON()
+	GlossaryTests.unknownProposalVersionSurvivesNewProposals()
+	GlossaryTests.storedProposalsAndDismissalsAreCapped()
+	GlossaryTests.composedSpeechVocabularyDeduplicatesCaseInsensitively()
+	GlossaryTests.onlyTheNewestBackupPerKeyIsKept()
+	GlossaryTests.codableRoundTripPreservesGlossary()
+	GlossaryTests.appSettingsPersistsAndReloadsNormalizedGlossaryBlob()
+	-[GlossaryTests unusableBlobsSurviveTheFirstEdit(key:blob:)]
+	GlossaryTests.olderBackupsGoEvenWhenTheCurrentOneAlreadyExists()
+	GlossaryTests.unknownVersionRunsEmptyWithoutReplacingStoredBlob()
+	GlossaryTests.modelTrimsRejectsEmptyTermsAndKeepsFirstCaseInsensitiveDuplicate()
+	GlossaryTests.corruptBlobRecoversWithEmptyGlossary()
+	GlossaryTests.composedSpeechVocabularyExcludesBuiltInsWhenDisabled()
+	StreamingSpeechTests.refusesToRunBeforeLoading()
+	StreamingSpeechTests.aNewRunWaitsForTheChunkACancelledRunIsStillProcessing()
+	StreamingSpeechTests.aStreamingModelCountsAsInstalledOnlyWithEveryFileItLoads()
+	StreamingSpeechTests.modelFoldersMatchFluidAudio()
+	StreamingSpeechTests.theSameAudioUncancelledDrainsTheConverterBeforeFinishing()
+	StreamingSpeechTests.aCancelledRunCannotFeedItsLastSamplesToTheNextRun()
+	StreamingSpeechTests.aCallFromAnEarlierSessionIsRefused()
+	StreamingSpeechTests.feedsEveryBufferReportsPartialsAndTrimsTheResult()
+	StreamingSpeechTests.eachEngineReportsItsLanguages()
+	StreamingSpeechTests.everyWayToBuildAFluidAudioEngineSilencesItsLogging()
+	StreamingSpeechTests.aRawValueFromANewerBuildFallsBackToApple()
+	AudioRecorderTests.closedLidFailureNeverCreatesCaptureSession()
+	AudioRecorderTests.closedLidUsesReplacementFormatWithoutChangingPreference()
+	AudioRecorderTests.startDoesNotRetryFailedCaptureSessionStart()
+	AudioRecorderTests.selectedDeviceResolutionTreatsEmptySelectionAsSystemDefault()
+	AudioRecorderTests.deniedMicrophonePermissionDoesNotCreateCaptureSession()
+	AudioRecorderTests.normalFinishPreservesFinalCallbackWhileCancelDiscardsIt()
+	AudioRecorderTests.recordingFormatFallsBackToDefaultInputWhenSelectionIsMissing()
+	AudioRecorderTests.selectedDeviceResolutionFallsBackWhenDeviceIsMissing()
+	AudioRecorderTests.selectedDeviceResolutionUsesCatalogMatch()
+	AudioRecorderTests.recordingFormatUsesSelectedDeviceFormat()
+	OutputDuckingTests.lowersAfterRecordingStartsAndRestoresOnceAfterTheTail()
+	OutputDuckingTests.quittingWaitsForTheVolumeRestore()
+	OutputDuckingTests.stuckVolumeChangeStillFinishesTheRun()
+	OutputDuckingTests.cancelDuringTheTailRestoresOnce()
+	OutputDuckingTests.failureWhileRecordingRestoresOnce()
+	OutputDuckingTests.turningTheSettingOffMidRunStillRestores()
+	OutputDuckingTests.slowVolumeChangesNeverDelayDeliveryButPrecedeTheSuccessSound()
+	OutputDuckingTests.failingVolumeControlNeverFailsTheRun()
+	OutputDuckingTests.disabledSettingNeverTouchesTheController()
+	-[TextSafetyRegressionTests defaultTranscribeKeepsOrdinaryWords(locale:spoken:)]
+	SmokeTests.preferenceDomainsCarryTheRunToken()
+	SmokeTests.idleMenuBarSymbolUsesWaveform()
+	SmokeTests.unitTestsRunInTheInertHost()
+	OpenAISSEParsingTests.aStreamThatEndsWithoutStopOrDoneIsADroppedConnection()
+	OpenAISSEParsingTests.aLineThatNeverEndsStopsAtTheByteLimit()
+	-[OpenAISSEParsingTests streamCompletesWithSupportedLineEndings(ending:)]
+	-[OpenAISSEParsingTests sseAcceptsLineEndingsSplitAcrossChunks(ending:)]
+	OpenAISSEParsingTests.mistralThinkingChunksAreProgressButNotAnswerText()
+	OpenAISSEParsingTests.aReplyWithoutOneEventGoesBackToTheCallerUnlessItIsEmpty()
+	OpenAISSEParsingTests.aFinalChunkWithoutADeltaIsAccepted()
+	-[OpenAISSEParsingTests chunksCarryingNothingAreNotProgress(chunk:)]
+	OpenAISSEParsingTests.manySmallDeltasStopAtTheByteLimit()
+	OpenAISSEParsingTests.aChunkWithoutChoicesOrAnErrorIsSkipped()
+	OpenAISSEParsingTests.aStopFinishReasonMarksTheAnswerCompleteWithoutDone()
+	OpenAISSEParsingTests.aStreamThatEndsOnStopWithoutDoneSucceeds()
+	OpenAISSEParsingTests.sseAcceptsCRLFLikeLF()
+	-[OpenAISSEParsingTests anErrorPartwayThroughIsAFailureEvenWhenDoneFollows(errorChunk:)]
+	SmartSpacingTests.aSlowReadTimesOutWithoutHoldingDelivery()
+	-[SmartSpacingTests streamingPrefixesOnceAndCopyOnlyNeverReads(autoPaste:)]
+	-[SmartSpacingTests classifiesOnlyOnePrecedingUnit(text:expected:)]
+	-[SmartSpacingTests atomicDeliveryKeepsClipboardExact(enabled:precedingWord:strategy:)]
+	AppStateResultTests.retryTranslationUsesFailedRecordSnapshotCurrentGlossaryAndRecordedProvider()
+	AppStateResultTests.successFeedbackFlashClearsAfterDelay()
+	AppStateResultTests.canceledRunKeepsPreviousLastResultAvailable()
+	AppStateResultTests.successSoundRespectsSettingsToggle()
+	AppStateResultTests.failedRunKeepsPreviousLastResultAvailableForRecopy()
+	AppStateResultTests.copyLastResultRewritesClipboardAndShowsFeedback()
+	AppStateResultTests.copyingLastResultDuringActiveRunIsNoop()
+	-[PasteStrategyTests choosesStrategyFromFrameworkVersions(versions:typesText:)]
+	PasteStrategyTests.followsAnInPlaceBrowserUpdateAndKeepsLayoutCurrent()
+	PasteStrategyTests.appsWithoutChromiumFrameworkKeepCommandV()
+	PasteStrategyTests.versionFilesAreNotTreatedAsVersions()
+	CommandRunnerTests.aHelperThatKeepsTheOutputOpenDoesNotHoldTheResult()
+	CommandRunnerTests.codexErrorsIgnoreTheUsersWordsInTheEchoedPrompt()
+	CommandRunnerTests.theTimeoutBoundsTheCallEvenWhenAHelperKeepsTheOutputOpen()
+	CommandRunnerTests.stderrKeepsItsEndWhereFailureMessagesAre()
+	CommandRunnerTests.aHelperThatIgnoresSIGTERMIsKilledAfterTheGracePeriod()
+	CommandRunnerTests.aTimeoutAfterTheCLIExitedStillStopsItsHelper()
+	CommandRunnerTests.aTimeoutAlsoStopsTheHelpersTheCLIStarted()
+	CommandRunnerTests.runawayOutputIsStoppedAtTheLimit()
+	CommandRunnerTests.aScriptLauncherFindsAnInterpreterBesideIt()
+	CanaryTests.longDictationIsCutIntoWindowsTheModelCanSee()
+	CanaryTests.silenceIsNeverDecoded()
+	CanaryTests.featuresHaveTheEncoderShapeAndAreNormalizedPerBin()
+	HomeStatusTests.navigationOpensAWorkflowAndKeepsItAcrossTabs()
+	HomeStatusTests.onlyWarningsChangeTheStatus()
+	HomeStatusTests.recentDetailSaysWhereTheResultCameFrom()
+	HomeStatusTests.historyFromOlderBuildsDecodesWithoutADuration()
+	HomeStatusTests.voicePermissionsAndLanguageDoNotMatterForSelectionWorkflows()
+	HomeStatusTests.missingAccessibilityOnlyMattersWhenPasting()
+	HomeStatusTests.suggestionCountReadsNaturally()
+	HomeStatusTests.providerSetupProblemsOpenModels()
+	HomeStatusTests.destinationNamesWhereTextGoes()
+	HomeStatusTests.recentColorsFollowWhatTheRunDid()
+	HomeStatusTests.outcomeSaysWhereTheResultGoes()
+	HomeStatusTests.headlineMatchesHowTheShortcutWorks()
+	HomeStatusTests.destinationNamesADevelopmentOverrideRunsActuallyUse()
+	-[SpeechModelSequenceTests everySequenceLeavesTheManagerAgreeingWithTheDisk(startsOnDisk:)]
+	AudioLevelTapTests.forwardsEveryBufferAndReportsLevels()
+	EarlyTransformationNoteTests.speechModelGetsASecondLineOnlyWhenItIsTheBlocker()
+	EarlyTransformationNoteTests.providerDecidesWhetherTheToggleIsAvailable()
+	EarlyTransformationNoteTests.overridesUseTheGlobalEndpoint()
+	EarlyTransformationNoteTests.availableNoteNamesWhatItReachesAndSkips()
+	EarlyTransformationNoteTests.transcribeAndSelectionWorkflowsAreNotCounted()
+	-[InputResolutionTests resolvesDeviceWithoutChangingOrdinaryFallback(_:_:)]
+	BluetoothInputResolutionTests.settingIsARawDefaultOnBoolean()
+	-[BluetoothInputResolutionTests defaultsAvoidBluetoothWithoutOverridingSavedChoices(_:)]
+	MishearingCheckCopyTests.descriptionNamesTheLanguagesAndBlockedStates()
+	MishearingCheckCopyTests.issuesAreListedOnceWithTheirFix()
+	MishearingCheckCopyTests.statusLineCoversEveryState()
+	MishearingCheckCopyTests.summaryCountsOnlyWhatWasChecked()
+	MishearingCheckCopyTests.everydayFormsAreLabeledAndConfirmed()
+	MishearingCheckCopyTests.tableTextIsShortAndDetailCarriesTheReason()
+	StreamingTypistTests.aFieldChangeStopsTheNextFlush()
+	StreamingTypistTests.unavailableInitialTargetPreventsEventPosting()
+	StreamingTypistTests.aSlowFocusCheckKeepsTextInOrder()
+	StreamingTypistTests.focusChangeStopsTypingPermanently()
+	StreamingTypistTests.splitCRLFDeltasProduceOneLineBreak()
+	StreamingTypistTests.bufferSizeFlushesWithoutWaitingForCadence()
+	StreamingTypistTests.unicodeChunksNeverSplitSurrogatePairsOrGraphemes()
+	-[StreamingTypistTests cadenceRetainsUndecidedQuoteAndWhitespaceSuffix(input:prefix:expected:)]
+	StreamingTypistTests.checksTheFocusedFieldOncePerFlushNotPerStep()
+	-[StreamingTypistTests rechecksAppAndSecureInputBetweenSteps(secureInput:)]
+	-[StreamingTypistTests sizeThresholdRetainsUndecidedQuoteAndWhitespaceSuffix(input:prefix:expected:)]
+	-[StreamingTypistTests finishAppliesStreamingQuoteAndTailNormalization(input:expected:)]
+	StreamingTypistTests.secureInputAppearingMidStreamStopsTyping()
+	StreamingTypistTests.mixedTextUsesExplicitLineBreaks()
+	-[StreamingTypistTests requestedQuotesSurviveIncrementalAndForcedFlush(sizeThreshold:)]
+	StreamingTypistTests.surrogateAtChunkBoundaryStaysIntact()
+	StreamingTypistTests.typedTextCarriesNoHeldModifiers()
+	StreamingTypistTests.cancelDuringAFocusCheckPostsNothing()
+	StreamingTypistTests.cadenceCoalescesDeltasAndKeepsTwoCharacterTail()
+	-[RetryGlossaryTests anOlderCustomRecordHasItsGlossaryBlockReplaced(base:enforcesContract:)]
+	-[RetryGlossaryTests aCustomRetryComposesTheWorkflowsInstructionWithTheCurrentGlossary(base:enforcesContract:)]
+	-[FillerSymbolRegressionTests fillersBeforeSymbols(locale:input:expected:)]
+	MishearingSuggestionModelTests.idleAndLocaleOrderReflectCurrentVoiceWorkflows()
+	MishearingSuggestionModelTests.sequentialProgressStatesAndSharedVocabulary()
+	-[MishearingSuggestionModelTests cancellationRestoresStateAndForegroundBlocksStarts(_:)]
+	MishearingSuggestionModelTests.unavailableFailedAndDiscardedStates()
+	MishearingSuggestionModelTests.viewsReadingAnUncheckedTermHearItsFirstCheck()
+	MishearingSuggestionModelTests.editsDuringProbeDiscardStaleResultsAndAcceptanceMergesCurrentHints()
+	MishearingSuggestionModelTests.acceptancePersistsThroughSettingsAndDismissalOnlyLivesInMemory()
+	MishearingSuggestionModelTests.callerCancellationReachesOwnedTask()
+	AppStateSelectionTests.failedVoiceWorkflowWithoutAccessibilityKeepsRetryAndFallback()
+	AppStateSelectionTests.cancelingSelectionInputDoesNotWriteClipboardOrHistory()
+	AppStateSelectionTests.voiceWorkflowAttachesSelectedTextAsContext()
+	AppStateSelectionTests.selectionInputFailsFastWhenNothingIsSelected()
+	AppStateSelectionTests.selectionInputIgnoresHoldAndToggleReleaseSemantics()
+	AppStateSelectionTests.voiceWorkflowProceedsWithoutEmptyContextAndNotifiesOnce()
+	AppStateSelectionTests.failedVoiceContextCannotCopyFromHistory()
+	AppStateSelectionTests.failedVoiceWorkflowWithEmptyContextKeepsRetryAndFallback()
+	AppStateSelectionTests.selectionInputSkipsRecordingAndTranscription()
+	AppStateSelectionTests.selectionInputWithoutAccessibilityPromptsForTrustOncePerSession()
+	AppStateSelectionTests.historyCopyActionsAreIgnoredWhileRunIsActive()
+	AppStateSelectionTests.failedSelectionInputStoresNoSelectionAndOffersNoFallbackOrRetry()
+	RecordingDurationDetentsTests.nearestIndexSnapsToTheClosestDetent()
+	RecordingDurationDetentsTests.labelsAreRoundAndReadable()
+	RecordingDurationDetentsTests.detentsSpanTheAllowedRangeInAscendingOrder()
+	TranscriberAssetManagerTests.installedStateHasNoProgressValue()
+	TranscriberAssetManagerTests.downloadingStateExposesMessageAndProgress()
+	TranscriberAssetManagerTests.installedLocaleCacheReturnsNormalizedLocale()
+	TranscriberAssetManagerTests.bcp47ComparisonTreatsUnderscoreAndHyphenLocaleIDsAsEquivalent()
+	-[OpenAICompatibleTransformerTests requestedQuotesSurviveAtomicAndJSONStreamResponses(streaming:)]
+	OpenAICompatibleTransformerTests.anAtomicResponseLargerThanTheLimitIsRejected()
+	OpenAICompatibleTransformerTests.aTemperatureRejectionIsRememberedForTheModel()
+	-[OpenAICompatibleTransformerTests aTemperatureRejectionInAnotherShapeIsRetried(body:)]
+	OpenAICompatibleTransformerTests.aPlainJSONAnswerUnderAnotherContentTypeStillDecodes()
+	OpenAICompatibleTransformerTests.aProxyPageInsteadOfAnAnswerIsAnInvalidResponse()
+	OpenAICompatibleTransformerTests.endpointTesterOmitsMaxTokensForOpenRouterCompatibility()
+	OpenAICompatibleTransformerTests.emptyAPIKeyOmitsAuthorizationHeader()
+	OpenAICompatibleTransformerTests.responseIsTrimmedAndMatchingQuotesAreStripped()
+	OpenAICompatibleTransformerTests.missingChoicesThrowEmptyResponse()
+	StreamingTransformerTests.chunksWithoutTextDoNotResetTheInactivityDeadline()
+	StreamingTransformerTests.doneStopsConsumptionBeforeBufferedTransportFailure()
+	StreamingTransformerTests.aChunkWithoutAnswerTextStillResetsTheInactivityDeadline()
+	StreamingTransformerTests.inactivityDeadlineIgnoresNonDeltaTrafficAndInterruptsAnOpenStream()
+	-[SpeechModelExplorerTests everyInterleavingKeepsTheInvariants(modelOnDisk:)]
+	SpeechModelExplorerTests.anUnsupportedModelStaysUnsupported()
+	LaunchAtLoginControllerTests.refreshMirrorsManagerStatus()
+	LaunchAtLoginControllerTests.setEnabledFailureKeepsRefreshedStateAndShowsError()
+	LaunchAtLoginControllerTests.setEnabledDelegatesAndRefreshesState()
+	CodexModelChoiceTests.newSettingsUseTheAccountDefaultModel()
+	-[OnboardingLogicTests anyExistingSetupSkipsIt(key:)]
+	OnboardingLogicTests.aFreshInstallStaysPendingUntilDone()
+	OnboardingLogicTests.creatingSettingsCountsAsExistingForTheNextDecision()
+	OnboardingLogicTests.aRenamedWorkflowKeepsItsName()
+	OnboardingLogicTests.theRecipeSwitchesBetweenTranslateAndTranscribe()
+	OnboardingLogicTests.customWorkflowsHaveNoTargetToChange()
+	OnboardingLogicTests.transcribeSkipsFlavor()
+	OnboardingLogicTests.anEnglishSpeakerStartsWithoutTranslatingToEnglish()
+	AppStateRevisionTests.failedRevisionLeavesPreviousResultAndClipboardUntouched()
+	AppStateRevisionTests.revisionDeliveryCommitsBeforeAutoPasteDelayAndIgnoresPostCommitCancel()
+	AppStateRevisionTests.failedRevisionPreservesLastResultAfterHistoryEvictsOriginalSuccess()
+	AppStateRevisionTests.startRevisionWithoutSuccessfulHistoryIsNoop()
+	AppStateRevisionTests.cancelMidRevisionLeavesPreviousResultAndClipboardUntouched()
+	AppStateRevisionTests.startRevisionIsRefusedWhileAnyRunIsActive()
+	AppStateRevisionTests.cancelBeforeRevisionDeliveryCommitSkipsClipboardHistoryAndAutoPasteDelay()
+	AppStateRevisionTests.successfulRevisionBecomesTheBaseForTheNextRevision()
+	AppStateRevisionTests.dictationReleaseDoesNotStopRevisionRecording()
+	AppStateRevisionTests.menuRevisionActionStartsAndFinishesRevision()
+	HistoryStoreTests.revisionSnapshotCodableRoundTripPreservesAdjustmentAndInstruction()
+	HistoryStoreTests.preWaveZeroRecordBlobStillDecodesAfterSnapshotCasesAreAdded()
+	HistoryStoreTests.recordCodableRoundTripPreservesSnapshot()
+	HistoryStoreTests.appendOrdersNewestFirstAndTrimsCapacity()
+	HistoryStoreTests.corruptFileLoadsAsEmpty()
+	HistoryStoreTests.disablingPersistenceDeletesFile()
+	HistoryStoreTests.clearRemovesMemoryAndPersistedFile()
+	HistoryStoreTests.turningPersistenceOnKeepsOnlyResultsMadeAfterwards()
+	HistoryStoreTests.persistenceRoundTripsOnlyWhenEnabled()
+	HistoryStoreTests.providerMetadataRoundTripsAndLegacyFailureRemainsReadable()
+	HistoryStoreTests.snapshotCasesGuardFallbackAndRetryBehavior()
+	PipelineRunTests.clipboardRecoveryDeliversTheFittedTextAndKeepsTheExactResultInHistory()
+	PipelineRunTests.aFailureBeforeTransformationNeverOffersAnOlderRecordsActions()
+	PauseTransformationPolicyTests.preferenceDefaultsOffAndPersistsAsBool()
+	PauseTransformationPolicyTests.resolvedEndpointControlsEligibilityAndIsFrozen()
+	-[PauseTransformationPolicyTests loopbackURLsAreLocal(_:)]
+	-[PauseTransformationPolicyTests otherURLsAreNotLocal(_:)]
+	ParakeetTranscriberTests.longerDictationsAreCutInsideARealPause()
+	ParakeetTranscriberTests.withoutAPauseNoCutComesBeforeAMinuteAndNoDecodeExceeds75Seconds()
+	ParakeetTranscriberTests.roomNoiseLeftAfterTheLastCutAddsNoWords()
+	ParakeetTranscriberTests.dictationsUpToAMinuteDecodeOnceEvenAcrossPauses()
+	ReleaseTailPipelineTests.finishingARevisionFromTheMenuStopsWithoutATail()
+	ReleaseTailPipelineTests.continuousSpeechAfterReleaseFinishesAtTheDeadline()
+	ReleaseTailPipelineTests.releaseToRecorderStoppedSpansTheTail()
+	ReleaseTailPipelineTests.releaseAfterAQuietBufferStopsWithoutWaiting()
+	ReleaseTailPipelineTests.durationLimitStopsWithoutATail()
+	-[ReleaseTailPipelineTests secondHotkeyPressDuringTheTailChangesNothing(mode:)]
+	ReleaseTailPipelineTests.failureDuringTheTailEndsItAtOnce()
+	ReleaseTailPipelineTests.quietBufferAfterReleaseFinishesRecordingOnThatBuffer()
+	ReleaseTailPipelineTests.speechAfterAQuietBufferStillTakesTheTail()
+	ReleaseTailPipelineTests.escapeDuringTheTailDiscardsTheRun()
+	ReleaseTailPipelineTests.theResultRecordsTheTimeFromReleaseToClipboard()
+	CodexCLITransformerTests.stdinFeederDeliversEverythingThenEndOfFile()
+	CodexCLITransformerTests.processRunnerCancellationTerminatesRunningProcess()
+	CodexCLITransformerTests.processRunnerTimeoutTerminatesStubbornProcess()
+	CodexCLITransformerTests.runsThatNeverReadTheirPromptStillEndAtTheTimeout()
+	CodexCLITransformerTests.processRunnerDrainsChattyOutputWhileProcessRuns()
+	-[CodexCLITransformerTests stderrMapsKnownCodexFailures(stderr:expectedError:)]
+	SelectionReaderTests.captureDoesNotReadSelectedTextFromSecureField()
+	SelectionReaderTests.untrustedReaderReturnsNotTrustedWithoutReading()
+	SelectionReaderTests.fieldChangeDuringSelectionReadDiscardsTextAndIdentity()
+	-[SelectionReaderTests missingOrWhitespaceSelectionIsEmpty(selected:)]
+	SelectionReaderTests.validatedSelectionRetainsItsSourceAndCharacterCap()
+	SelectionReaderTests.changedForegroundProcessDoesNotReadSelection()
+	HotkeyPauseTests.pauseUnregistersShortcutsAndResumeUsesCurrentWorkflows()
+	HotkeyPauseTests.appPauseKeepsEditedWorkflowShortcutsDetached()
+	SpeechEngineTests.workflowsSavedBeforeEngineChoiceDecodeAsApple()
+	-[SpeechEngineTests parakeetRejectsOtherLanguagesAndAppleTakesThem(localeID:)]
+	-[SpeechEngineTests parakeetSupportsTheModelCardLanguages(localeID:)]
+	SpeechEngineTests.workflowsThatChoseParakeetV3NowUseUltra()
+	SpeechEngineTests.runsAndDuplicatesCarryTheWorkflowEngine()
+	SpeechEngineTests.anUnknownEngineDecodesAsAppleWithoutLosingTheList()
+	SpeechEngineTests.parakeetPersistsAndUnsupportedLanguagesKeepApple()
+	SpeechEngineTests.canaryLanguagesMatchTheModel()
+	LivePreviewTests.passivePreviewStreamsWithoutPastingAndCancelPreservesClipboard()
+	LivePreviewTests.previewAndFastRecognitionPreferencesAreIndependent()
+	AppStateTriggerTests.whitespaceTranscriptShortCircuitsTranslation()
+	AppStateTriggerTests.cancelShortcutIsOnlyAvailableDuringActivePipelineStates()
+	AppStateTriggerTests.menuBarSymbolTracksPipelineState()
+	AppStateTriggerTests.pausingDuringRecordingCancelsWithoutWritingClipboard()
+	AppStateTriggerTests.cancelBeforeRecordingStartsDoesNotStartRecorderOrWriteClipboard()
+	AppStateTriggerTests.cancelDuringTranslatingDoesNotWriteClipboard()
+	AppStateTriggerTests.pausedHotkeyIgnoresTriggerPresses()
+	AppStateTriggerTests.holdModeStartsTranscribingBeforeRelease()
+	AppStateTriggerTests.cancelDuringActiveRecordingStopsRecorderAndDoesNotWriteClipboard()
+	AppStateTriggerTests.recordingDurationLimitStopsRecordingAndCompletesPipeline()
+	AppStateTriggerTests.canceledStaleErrorResetDoesNotClearNewError()
+	AppStateTriggerTests.rapidDoublePressInHoldModeDoesNotStartTwoRecordings()
+	AppStateTriggerTests.releaseFromErrorIsNoop()
+	AppStateTriggerTests.errorAutoReturnsToIdle()
+	AppStateTriggerTests.idleReleaseAndCancelAreNoops()
+	AppStateTriggerTests.pressingFromErrorStartsFreshRecording()
+	AppStateTriggerTests.pressingDuringTranscribingCancels()
+	AppStateTriggerTests.cancelDuringTranscribingDoesNotWriteClipboard()
+	AppStateTriggerTests.cancelFromErrorReturnsToIdle()
+	AppStateTriggerTests.toggleModeStartsTranscribingBeforeSecondPressAndReleaseIsNoop()
+	AppStateTriggerTests.cancelDuringRecordingCancelsRecordingDurationLimit()
+	AppStateTriggerTests.releaseDuringTranslatingIsNoop()
+	AppStateTriggerTests.pressingDuringTranslatingCancels()
+	AudioFailureTests.productionLevelTapOverflowAfterReleaseMustPreventDelivery()
+	AudioFailureTests.recognitionFailureCancelsAudioFeedBeforeRelease()
+	AudioFailureTests.lateCaptureOverflowMustPreventDelivery()
+	AudioFailureTests.stereoMeterHandlesProductionInterleavedFormat()
+	AudioFailureTests.audioStagesPreserveUpstreamFailure()
+	AudioFailureTests.audioBufferOverflowFailsExplicitlyAndBoundsQueue()
+	-[PauseTransformationTests hiddenTranscriptDoesNotPreventPass(cueVisible:)]
+	PauseTransformationTests.hitUsesFreshTransformerAndCommitsExactlyOnce()
+	PauseTransformationTests.canonicallyEqualFinalWithDifferentBytesMisses()
+	PauseTransformationTests.failureDuringAttemptCancelsWithoutDelivery()
+	PauseTransformationTests.startsAtQuietDeadlineWithoutAnyLiveTranscript()
+	PauseTransformationTests.triggerSnapshotsPreference()
+	PauseTransformationTests.speechResumptionRestartsQuietTimer()
+	PauseTransformationTests.capStopsNewPasses()
+	PauseTransformationTests.releaseCancelsPendingPassAndFallsBack()
+	PauseTransformationTests.offlinePassUsesFrozenLocaleVocabularyAndMode()
+	PauseTransformationTests.failedAttemptFallsBackWithoutFailedHistory()
+	PauseTransformationTests.loudAudioCancelsPassAndNextQuietStartsAnother()
+	-[PauseTransformationTests nonlocalProvidersNeverSpeculate(_:)]
+	PauseTransformationTests.releaseTailCannotStartAnAttempt()
+	PauseTransformationTests.sameInputAcrossQuietPeriodsKeepsAttemptAndDifferentInputReplaces()
+	PauseTransformationTests.escapeDuringAttemptNeverDelivers()
+	PauseTransformationTests.settingOffStillRecordsQuietTime()
+	-[PauseTransformationTests unusableOfflinePassFallsBackWithoutRetry(fails:)]
+	PauseTransformationTests.mismatchCancelsAttemptAndUsesPreparedTransformer()
+	PauseTransformationTests.onlyAppleVoiceDictationIsEligible()
+	SettingsWindowFocusControllerTests.refocusActivatesAppAndOrdersVisibleWindowsOnly()
+	AppStateDeliveryTests.disabledStreamingSettingUsesAtomicDelivery()
+	AppStateDeliveryTests.secureInputAtStreamStartUsesAtomicDelivery()
+	AppStateDeliveryTests.successfulRunAppendsHistoryRecord()
+	AppStateDeliveryTests.successWritesTranslatedTextExactlyOnce()
+	AppStateDeliveryTests.autoPasteFailureDegradesWithoutFailingRun()
+	AppStateDeliveryTests.midStreamProviderErrorWritesNoClipboardAndRecordsFailure()
+	AppStateDeliveryTests.nonAppendOnlyStreamAfterVisiblePrefixUsesClipboardOnlyFallback()
+	AppStateDeliveryTests.disabledAutoPasteUsesAtomicDelivery()
+	-[AppStateDeliveryTests successfulStreamTypesDeltasWritesClipboardOnceAndSkipsAtomicPaste(chromium:)]
+	AppStateDeliveryTests.focusChangeDowngradesToClipboardOnlyCompletion()
+	AppStateDeliveryTests.cancelSynchronouslyStopsPendingStreamingCadence()
+	-[AppStateDeliveryTests pasteLastUsesExistingDeliveryAndPreservesHistory(strategy:trusted:)]
+	AppStateDeliveryTests.transformerWithoutStreamingCapabilityUsesAtomicDelivery()
+	-[AppStateDeliveryTests chromiumTypingStartFailureKeepsClipboard(error:)]
+	AppStateDeliveryTests.pasteLastThatCopiesClearsAnErrorOnScreen()
+	-[AppStateDeliveryTests streamDeliveryPreservesOnlyRequestedQuotes(input:formatting:expected:)]
+	AppStateDeliveryTests.autoPasteRunsAfterClipboardWriteWhenEnabled()
+	AppStateDeliveryTests.pasteLastThatOnlyCopiesSaysSoEveryTime()
+	AppStateDeliveryTests.pasteLastDelayCannotPostIntoANewRun()
+	AppStateDeliveryTests.withAutomaticPasteOffPasteLastOnlyCopies()
+	-[AppStateDeliveryTests chromiumTypesCompletedOutputAndWritesClipboardOnce(output:expectedSteps:)]
+	AppStateDeliveryTests.bufferedButUntypedStreamErrorReportsPlainFailure()
+	-[AppStateDeliveryTests pasteLastWithNoCapturedEditorSaysWhyInsteadOfEditorChanged(trusted:)]
+	AppStateDeliveryTests.nonAppendOnlyStreamBeforeAnyPostUsesAtomicPasteFallback()
+	-[AppStateDeliveryTests chromiumTypingFailureKeepsClipboardAndSuccessfulRun(reason:)]
+	AppStateDeliveryTests.cancelMidStreamLeavesTypedPrefixButNoClipboardOrHistory()
+	AppStateDeliveryTests.preDeltaProviderErrorReportsPlainFailureWithoutPartialTextWarning()
+	AppStateDeliveryTests.missingAccessibilityTrustUsesAtomicDelivery()
+	AppStateDeliveryTests.twoBackToBackSuccessfulRunsWriteDistinctResultsAndReturnToIdle()
+	-[AppStateDeliveryTests aRunWithNoCapturedEditorSaysWhyInsteadOfEditorChanged(trusted:)]
+	CaretFitRowTests.needsAccessibilityAndNotPaste()
+	ProviderCredentialTests.failedCredentialDeletionMustNotLookSuccessful()
+	ProviderCredentialTests.providerConfigurationIsFrozenBeforeTransformation()
+	ProviderCredentialTests.changedEndpointIgnoresOldSuccessAndFailure()
+	ProviderCredentialTests.unreadableSavedKeyDoesNotFallBackToEnvironment()
+	ProviderCredentialTests.oldConnectionSuccessCannotReplaceNewFailure()
+	-[CombiningMarkSpacingTests combiningMarksDoNotTriggerSpacing(unit:)]
+	-[CombiningMarkSpacingTests lastUnitOfEmojiOrDecomposedAccentIsUnspaced(text:)]
+	WorkflowAbilitiesTests.routingNormalizesAndMoves()
+	WorkflowAbilitiesTests.primaryRoutesButDedicatedAndRevisionStayExplicit()
+	RunActivityTests.supersededRunEndsOnlyItsOwnActivity()
+	RunActivityTests.failedRunEndsItsActivity()
+	RunActivityTests.cancelledRunEndsItsActivity()
+	RunActivityTests.successfulRunHoldsOneUserInitiatedActivityUntilItFinishes()
+	TypedDeliveryTests.repeatedSpacingRequestPostsOnlyOneSpace()
+	-[TypedDeliveryTests streamingSmartSpacingSurvivesTheRealTypist(deltas:)]
+	-[TypedDeliveryTests onboardingHoldsPasteOnlyWhileSyrupIsInFront(ownProcess:expectedPastes:)]
+	SpeechPermissionRequesterTests.requestAuthorizationCanResumeFromBackgroundQueueWhenCalledOnMainActor()
+	ShortTapTests.holdReleasedBefore300MillisecondsIsDiscardedSilently()
+	ShortTapTests.holdReleasedAt300MillisecondsProceeds()
+	ShortTapTests.toggleModeNeverDiscards()
+	ShortTapTests.revisionHoldReleasedEarlyIsDiscarded()
+	MishearingProbeEngineTests.exactDiscardedAndFailedSamplesRemainDistinct()
+	MishearingProbeEngineTests.offlineFeedCombinesBuffersWithoutDroppingFrames()
+	MishearingProbeEngineTests.plausibleFormsNeedTwoLettersAndStayNearTheTermLength()
+	MishearingProbeEngineTests.canceledEngineDoesNotProceedToRecognition()
+	MishearingProbeEngineTests.missingVoicesAndAssetsNeverStartSynthesisOrRecognition()
+	MishearingProbeEngineTests.dropsCarrierSpillAndFlagsEverydayFormsByTheirOwnLocale()
+	MishearingProbeEngineTests.usesVocabularyAndAggregatesAcrossVoicesAndLocales()
+	FnKeyHotkeyTests.holdDoubleTapKeepsRecordingUntilTheNextDoubleTap()
+	FnKeyHotkeyTests.tapsAHoldAndCombinationsDoNotStopALatchedRun()
+	FnKeyHotkeyTests.aCombinationCancelsTheRunItStarted()
+	FnKeyHotkeyTests.homeTellsALatchedRunHowToFinishAndForgetsWhenItEnds()
+	FnKeyHotkeyTests.toggleDoubleTapDoesNotStartWhileTypingInSyrup()
+	FnKeyHotkeyTests.toggleSlowSecondTapDoesNotStart()
+	FnKeyHotkeyTests.toggleDoubleTapToStopDoesNotStartAgain()
+	FnKeyHotkeyTests.tapThenHoldIsAnOrdinaryHold()
+	FnKeyHotkeyTests.toggleIgnoresCombinationsWhenIdleAndWhileRecording()
+	FnKeyHotkeyTests.toggleSingleTapWhileIdleDoesNothing()
+	FnKeyHotkeyTests.toggleLongPressDoesNotStopARecording()
+	FnKeyHotkeyTests.toggleLongPressesAreNotTaps()
+	FnKeyHotkeyTests.holdSingleTapIsStillDiscarded()
+	FnKeyHotkeyTests.aLatchEndsWithItsRun()
+	FnKeyHotkeyTests.toggleDoubleTapStartsOnTheSecondRelease()
+	FnKeyHotkeyTests.toggleSingleTapAlsoStopsARunFromTheDictateShortcut()
+	FnKeyHotkeyTests.theOptionIsOffByDefaultAndPersists()
+	-[FnKeyHotkeyTests turningFnOffCancelsALatchedRun(viaPause:)]
+	FnKeyHotkeyTests.typingInSyrupIgnoresFn()
+	FnKeyHotkeyTests.toggleSingleTapStopsARecordingAndDelivers()
+	FnKeyHotkeyTests.pollingRunsOnlyWhileEnabledAndListening()
+	FnKeyHotkeyTests.holdStartsOnPress()
+	FnKeyHotkeyTests.toggleTapsDoNotCancelAResultOnItsWay()
+	ForwardCompatibilityTests.aWorkflowWithAnUnknownProviderLoadsWithTheDefaultProvider()
+	ForwardCompatibilityTests.aHistoryRecordWithAnUnknownProviderStillLoads()
+	ForwardCompatibilityTests.aWorkflowListWithNoWorkflowsFailsToDecodeInsteadOfTrappingLater()
+	ForwardCompatibilityTests.oneUnreadableHistoryRecordDoesNotCostTheOthers()
+	-[ProviderCorpusTests noDocumentedErrorReadsAsATemperatureOrStreamingRejection(_:)]
+	-[ProviderCorpusTests documentedStreamsParseAsDocumented(_:)]
+	-[SpeechModelConformanceTests theManagerFollowsTheMachineOnEveryExploredTransition(modelOnDisk:replacing:)]
+
+** TEST FAILED **
+
+Testing started

@@ -1,0 +1,14 @@
+✘ Test run with 47 tests in 1 suite failed after 9.106 seconds with 2 issues.
+2026-11-14 21:11:24.989 xcodebuild[29322:19516056] [MT] IDETestOperationsObserverDebug: 19.369 elapsed -- Testing started completed.
+2026-11-14 21:11:24.989 xcodebuild[29322:19516056] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-14 21:11:24.989 xcodebuild[29322:19516056] [MT] IDETestOperationsObserverDebug: 19.369 sec, +19.369 sec -- end
+
+Test session results, code coverage, and logs:
+	$TMPDIR/syrup-tests.NrTKIw/build/Logs/Test/Test-Syrup-2026.11.14_21-10-39--0300.xcresult
+
+Failing tests:
+	-[OpenAICompatibleTransformerTests aRejectionIsRememberedByTheParameterItBlames(_:streamed:)]
+
+** TEST FAILED **
+
+Testing started

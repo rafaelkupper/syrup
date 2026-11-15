@@ -1,0 +1,12 @@
+✔ Suite OpenAICompatibleTransformerTests passed after 9.551 seconds.
+✔ Test run with 829 tests in 115 suites passed after 9.576 seconds.
+2026-11-14 20:55:08.537 xcodebuild[47876:19348596] [MT] IDETestOperationsObserverDebug: 11.160 elapsed -- Testing started completed.
+2026-11-14 20:55:08.537 xcodebuild[47876:19348596] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-14 20:55:08.537 xcodebuild[47876:19348596] [MT] IDETestOperationsObserverDebug: 11.160 sec, +11.160 sec -- end
+
+Test session results, code coverage, and logs:
+	$TMPDIR/syrup-tests.NcTojl/build/Logs/Test/Test-Syrup-2026.11.14_20-54-29--0300.xcresult
+
+** TEST SUCCEEDED **
+
+Testing started

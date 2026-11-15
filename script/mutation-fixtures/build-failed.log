@@ -1,0 +1,20 @@
+
+PruneExplicitPrecompiledModules $TMPDIR/syrup-capture.d_wmrebw/test-root/build/Build/Intermediates.noindex/ExplicitPrecompiledModules
+
+
+Test session results, code coverage, and logs:
+	$TMPDIR/syrup-capture.d_wmrebw/test-root/build/Logs/Test/Test-Syrup-2026.11.14_21-15-58--0300.xcresult
+
+Testing failed:
+	Expected 'func' keyword in instance method declaration
+	Found an unexpected second identifier in function declaration; is there an accidental break?
+	Expected '(' in argument list of function declaration
+	Testing cancelled because the build failed.
+
+** TEST FAILED **
+
+
+The following build commands failed:
+	SwiftDriver Syrup normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Syrup' from project 'Syrup')
+	Testing project Syrup with scheme Syrup
+(2 failures)
