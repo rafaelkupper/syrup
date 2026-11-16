@@ -81,7 +81,7 @@ Line numbers are as of `9ebd963`, confirmed then by `--list`. A listed mutation 
 
 Found in review (Astra and Fable each reproduced it); the commit first listed `StatusIndicator.swift:136` as equivalent, which was wrong.
 
-The success flash task (`StatusIndicator.showSuccess`) calls `clearSuccess()` after its sleep without checking cancellation or identity; the error reset has `errorResetRunID` for this, the flash has nothing. Sequence, three copies within the 1-second flash:
+Before the fix, the success flash task (`StatusIndicator.showSuccess`) called `clearSuccess()` after its sleep without checking cancellation or identity; the error reset has `errorResetRunID` for this, the flash had nothing. Sequence, three copies within the 1-second flash:
 
 1. Copy A shows the checkmark. A's sleep ends and its hop back to the main actor is queued.
 2. Copy B runs `showSuccess()`: it cancels A, too late, and sets `flashTask` to B.

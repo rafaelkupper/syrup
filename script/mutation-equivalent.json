@@ -139,7 +139,7 @@
       "occurrence": 1,
       "before": "isShowingSuccess = false",
       "after": "}",
-      "reason": "In clearSuccess. Only the flash task calls it, after checking it was not cancelled, and both writers of flashTask (showSuccess and cancelSuccess) cancel the old task first, on the main actor. So when clearSuccess runs, flashTask is the finishing task itself. Keeping its handle only delays releasing it: showSuccess cancels and replaces it, and cancelSuccess cancels a finished task, which does nothing."
+      "reason": "In clearSuccess. Only the flash task calls it, after checking it was not cancelled, and the other two writers of flashTask (showSuccess and cancelSuccess) cancel the old task first, on the main actor. So when clearSuccess runs, flashTask is the finishing task itself. Keeping its handle only delays releasing it: showSuccess cancels and replaces it, and cancelSuccess cancels a finished task, which does nothing."
     }
   ]
 }
