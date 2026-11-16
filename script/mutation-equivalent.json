@@ -130,6 +130,16 @@
       "before": "try pasteboard.write(delivered)",
       "after": "host?.clearErrorAfterCopy()",
       "reason": "In pasteLastResult after a successful clipboard write. The next call synchronously clears the old pipeline error, so its old reset finds idle. A new run cancels that reset, and every later error schedules a fresh UUID before yielding. The obsolete callback cannot clear a newer error; cancelling it only shortens its remaining sleep."
+    },
+    {
+      "file": "Sources/App/StatusIndicator.swift",
+      "scope": "final class StatusIndicator > private func clearSuccess()",
+      "original": "flashTask = nil",
+      "mutated": "",
+      "occurrence": 1,
+      "before": "isShowingSuccess = false",
+      "after": "}",
+      "reason": "In clearSuccess. Only the flash task calls it, after checking it was not cancelled, and both writers of flashTask (showSuccess and cancelSuccess) cancel the old task first, on the main actor. So when clearSuccess runs, flashTask is the finishing task itself. Keeping its handle only delays releasing it: showSuccess cancels and replaces it, and cancelSuccess cancels a finished task, which does nothing."
     }
   ]
 }

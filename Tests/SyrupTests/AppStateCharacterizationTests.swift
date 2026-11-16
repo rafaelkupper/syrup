@@ -37,6 +37,39 @@ struct StatusDisplayCharacterizationTests {
         await eventually { state.menuBarSymbol == "waveform" }
     }
 
+    /// A flash timer can wake just as it is cancelled: its sleep has returned, but its callback still
+    /// waits for the main actor. This sleeper returns normally after a cancel, which is that moment.
+    /// The woken timer must neither hide the newer checkmark nor keep the next copy from replacing
+    /// the newer timer.
+    @Test(arguments: [false, true])
+    func aFlashTimerThatWokeAsItWasCancelledCannotHideNewerCopies(startRunBetweenCopies: Bool) async {
+        let flash = ManualResetSleeper()
+        let state = characterizedState(
+            history: historyWithSuccess(),
+            feedbackFlashSleeper: { try await flash.sleep(nanoseconds: $0) }
+        )
+        let firstFinished = FlashTaskLifetime.track { state.copyLastResult() }
+        await flash.waitForCallCount(1)
+        if startRunBetweenCopies {
+            state.triggerPressed()
+            state.cancelRequested()
+            await state.waitForPendingWork()
+        }
+        let secondFinished = FlashTaskLifetime.track { state.copyLastResult() }
+        await flash.waitForCallCount(2)
+        await flash.resumeCall(0)
+        await eventually { firstFinished.isSet }
+        #expect(state.menuBarSymbol == "checkmark.circle", "the first timer hid the second copy's checkmark")
+
+        state.copyLastResult()
+        await flash.waitForCallCount(3)
+        await flash.resumeCall(1)
+        await eventually { secondFinished.isSet }
+        #expect(state.menuBarSymbol == "checkmark.circle", "the second timer hid the third copy's checkmark")
+        await flash.resumeCall(2)
+        await eventually { state.menuBarSymbol == "waveform" }
+    }
+
     @Test func disabledRecordingCueIsExplicitlyHidden() async {
         let settings = makeTestSettings(), cue = CueLog()
         settings.showRecordingCue = false

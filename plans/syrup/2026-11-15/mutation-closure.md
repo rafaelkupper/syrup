@@ -28,7 +28,7 @@ Added 14 Swift Testing declarations, including parameterized cases, and strength
 
 ## Verification
 
-Totals: **183 mutants: 127 killed, 15 timed out (counted as killed), 29 did not compile, 11 listed as equivalent, 1 open survivor** (`StatusIndicator.swift:136`, below). None unclassified or unrun.
+Totals: **183 mutants: 127 killed, 15 timed out (counted as killed), 29 did not compile, 11 listed as equivalent, 1 open survivor** (`StatusIndicator.swift:136`, below). None unclassified or unrun. The survivor exposed a bug, fixed afterwards on `flash-race-fix`; with the fix, that mutant is equivalent and listed.
 
 The final focused confirmation killed all 23 selected mutants, each with its intended assertion failure, and no timeouts. The 15 timed-out mutants in the discovery runs also recorded assertion failures in existing tests, so none is a kill by timeout alone (checked in review).
 
@@ -68,14 +68,14 @@ Line numbers are current, confirmed by `--list`. A listed mutation applies only 
 | HotkeyController:75 | `installingAControllerDoesNotCancelAnExistingShortcutRecording` |
 | HotkeyController:203, deletion | `disablingFnClearsTheLatchWhileARecordingIsFinishing` |
 | StatusIndicator:130,160,168, deletions | Equivalent: retaining a canceled or completed task handle cannot run a callback again; subsequent scheduling/cancellation replaces or discards it. |
-| StatusIndicator:136, deletion | **Open survivor; exposes a production bug** (below). |
+| StatusIndicator:136, deletion | Exposed a production bug (below). Equivalent once it was fixed: `clearSuccess` then runs only for the current, uncancelled flash. |
 | StatusIndicator:161, deletion | Equivalent: cancellation paths leave idle or a run that refuses the callback, and subsequent errors replace the retained ID before yielding. |
 | StatusIndicator:165, Bool | Equivalent: both versions call `clearErrorAfterDelay` once; only disposal of the finished task and its ID differs. |
 | StatusIndicator:167, deletion | Equivalent: this one-shot callback has already run; a retained ID cannot trigger it again and later schedules replace it. |
 | HotkeyController:204, deletion | Equivalent: a capturing Fn run is canceled and clears the flag on idle; a stopping run cannot capture again, and leaving recording clears the private flag before a new run. |
 | StatusIndicator:143, existing deletion entry | Equivalent: the superseding UUID prevents the replaced task from acting; each run schedules at most one reset. |
 
-## Open: a woken flash timer hides newer flashes
+## Fixed: a woken flash timer hid newer flashes
 
 Found in review (Astra and Fable each reproduced it); the commit first listed `StatusIndicator.swift:136` as equivalent, which was wrong.
 
@@ -86,4 +86,4 @@ The success flash task (`StatusIndicator.showSuccess`) calls `clearSuccess()` af
 3. A runs `clearSuccess()`: it hides B's checkmark at once and sets `flashTask = nil`, dropping B's handle.
 4. Copy C cannot cancel B. When B's timer ends, it hides C's checkmark early.
 
-Deleting line 136 keeps B's handle, so C cancels B: the mutant behaves better than the code, and no test can kill it without pinning the defect. The effect is cosmetic (the menu bar checkmark disappears early); copies, clipboard, and paste are unaffected. The code moved unchanged out of `AppState`, so 1.0 had the same race. The fix is a production change: check `Task.isCancelled` (or a flash generation) before `clearSuccess()`, red-first with the reviewers' test, which blocks the main actor until the first timer has woken and then copies twice more.
+Deleting line 136 keeps B's handle, so C cancels B: the mutant behaves better than the code, and no test can kill it without pinning the defect. The effect is cosmetic (the menu bar checkmark disappears early); copies, clipboard, and paste are unaffected. The code moved unchanged out of `AppState`, so 1.0 had the same race. Fixed on 2026-11-15 on its own branch, `flash-race-fix`: the flash task checks `Task.isCancelled` once it has the main actor, before `clearSuccess()`. Every replacement cancels the task first, on the main actor, so a woken but replaced timer now does nothing. `aFlashTimerThatWokeAsItWasCancelledCannotHideNewerCopies` failed before the fix at both checks, for a replacing copy and for a run in between; its sleeper returns normally after a cancel, which is the woken-timer moment. The mutation tool's one mutant of the new line is killed.
