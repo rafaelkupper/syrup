@@ -120,8 +120,8 @@ final class StatusIndicator {
             } catch {
                 return
             }
-            // The sleep can end just as a newer flash or a run cancels this one, before this line
-            // gets the main actor. Every replacement cancels first, so a cancelled flash is stale.
+            // The sleep can end just as a newer flash, a run, or an error cancels this one, before
+            // this line gets the main actor. Every replacement cancels first, so this one is stale.
             guard !Task.isCancelled else { return }
 
             self?.clearSuccess()

@@ -8,6 +8,8 @@ Close every mutant of `git diff e09af51..HEAD -- Sources/` with tests or justifi
 
 Started at `5ff3afd` on `t3/close-surviving-mutants`. The tool lists 183 mutants, including the existing `StatusIndicator.scheduleErrorReset` equivalence. The two existing translation equivalences are outside this diff.
 
+Line numbers in this receipt are as of `9ebd963`. The fix described at the end later added three lines to `StatusIndicator.swift` after line 122, so that file's lines from 123 on are three higher on `main`.
+
 ## Constraints
 
 Tests and equivalence entries only; no production changes, app launch, real microphone, clipboard, hotkeys, paid APIs, delegation, or push. Use isolated tests. Commit as Syrup contributors. A real product bug is reported, not fixed here.
@@ -24,11 +26,11 @@ Added 14 Swift Testing declarations, including parameterized cases, and strength
 
 `OwnerBoundaryContractTests` compiles the unmodified `ResultActions.swift` and `OutputVolumeChain.swift` against boundary doubles in `Tests/OwnerBoundaryProbe/`. It observes the sentence-context request and typed error-code log without real Accessibility or OSLog delivery, and costs about 2 seconds. It is a stopgap for the tests-only constraint: it breaks whenever either file uses a new member of the copied types. Once production changes are allowed, replace it with two seams (pass `readsSentence` to `DeliveryTarget`'s `contextProbe`, give `OutputVolumeChain` an injectable log sink) and delete `Tests/OwnerBoundaryProbe`.
 
-`aCancelledFlashTimerCannotHideANewerCopy` uses a task-local lifetime signal to wait for the entire older flash task to finish before asserting that it did not hide a newer flash. Its sleeper honors cancellation after waking, so it covers a timer cancelled while asleep, not one that already woke (see the open survivor below). Deleting the cancel in `showSuccess` (line 113) fails its first case, and deleting the one in `cancelSuccess` (line 129) its second (checked in review).
+`aCancelledFlashTimerCannotHideANewerCopy` uses a task-local lifetime signal to wait for the entire older flash task to finish before asserting that it did not hide a newer flash. Its sleeper honors cancellation after waking, so it covers a timer cancelled while asleep, not one that already woke (see the race below). Deleting the cancel in `showSuccess` (line 113) fails its first case, and deleting the one in `cancelSuccess` (line 129) its second (checked in review).
 
 ## Verification
 
-Totals: **183 mutants: 127 killed, 15 timed out (counted as killed), 29 did not compile, 11 listed as equivalent, 1 open survivor** (`StatusIndicator.swift:136`, below). None unclassified or unrun. The survivor exposed a bug, fixed afterwards on `flash-race-fix`; with the fix, that mutant is equivalent and listed.
+Totals: **183 mutants: 127 killed, 15 timed out (counted as killed), 29 did not compile, 11 listed as equivalent, 1 survivor** (`StatusIndicator.swift:136`, below). None unclassified or unrun. The survivor exposed a bug, fixed afterwards on `flash-race-fix`; with the fix, that mutant is equivalent and listed.
 
 The final focused confirmation killed all 23 selected mutants, each with its intended assertion failure, and no timeouts. The 15 timed-out mutants in the discovery runs also recorded assertion failures in existing tests, so none is a kill by timeout alone (checked in review).
 
@@ -44,7 +46,7 @@ The raw run output, per-mutant logs, and aggregation scripts (about 100 MB) stay
 
 ## Survivor mappings
 
-Line numbers are current, confirmed by `--list`. A listed mutation applies only to its exact operator and text, not every mutation of that line.
+Line numbers are as of `9ebd963`, confirmed then by `--list`. A listed mutation applies only to its exact operator and text, not every mutation of that line.
 
 | Source and line | Test or equivalence |
 | --- | --- |

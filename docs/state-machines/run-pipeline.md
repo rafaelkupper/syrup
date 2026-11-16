@@ -137,7 +137,7 @@ stateDiagram-v2
     On --> Off: a run starts or an error shows
 ```
 
-Invariants: the flash shows only while idle with no run (model-checked). Every replacement cancels the timer first, and the timer checks for cancellation once it has the main actor, so a timer whose sleep ended just as a newer flash or a run replaced it does nothing. Before 2026-11-15 it relied on `Task.sleep` honoring cancellation, and such a timer hid the newer checkmark and dropped the newer timer, which then hid the next one early. The error reset, below, checks its run ID instead.
+Invariants: the flash shows only while idle with no run (model-checked). Every replacement cancels the timer first, and the timer checks for cancellation once it has the main actor, so a timer whose sleep ended just as a newer flash, a run, or an error replaced it does nothing. Before 2026-11-15 it relied on `Task.sleep` honoring cancellation, and such a timer hid the newer checkmark and dropped the newer timer, which then hid the next one early. The error reset, below, checks its run ID instead.
 
 Tests: `AppStateResultTests.successFeedbackFlashClearsAfterDelay`, `StatusDisplayCharacterizationTests`, `RunLifecycleModelTests`.
 
