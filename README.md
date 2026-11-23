@@ -175,3 +175,39 @@ Syrup is free software under the [GNU Affero General Public License v3.0](LICENS
 If you want to use Syrup's code in a product without those obligations, a commercial license is available. Open an issue in this repository to ask about one.
 
 Contributions are welcome. By contributing, you agree that your contribution may be distributed under both the AGPL-3.0 and Syrup's commercial license.
+
+## Third-party software and models
+
+Syrup's own code is AGPL-3.0. The components below keep their own licenses, and their copyright and license notices are reproduced or linked here as those licenses require.
+
+### Included in the app
+
+| Component | Version | License | Copyright |
+| --- | --- | --- | --- |
+| [Sparkle](https://github.com/sparkle-project/Sparkle) | 2.10.1 | [MIT](https://github.com/sparkle-project/Sparkle/blob/2.10.1/LICENSE) | Andy Matuschak, Elgato Systems GmbH, Kornel Lesiński, Mayur Pawashe, C.W. Betts, Petroules Corporation, Big Nerd Ranch |
+| bsdiff 4.3, part of Sparkle | | BSD-2-Clause | Colin Percival |
+| sais-lite, part of Sparkle | | MIT | Yuta Mori |
+| ed25519, part of Sparkle | | zlib | Orson Peters |
+| SUSignatureVerifier, part of Sparkle | | BSD-2-Clause | Mark Hamlin |
+| [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) | 2.4.0 | [MIT](https://github.com/sindresorhus/KeyboardShortcuts/blob/2.4.0/license) | Sindre Sorhus |
+| [FluidAudio](https://github.com/FluidInference/FluidAudio) | 0.18.0 | [Apache-2.0](https://github.com/FluidInference/FluidAudio/blob/v0.18.0/LICENSE) | FluidInference |
+| [fastcluster](https://github.com/fastcluster/fastcluster), part of FluidAudio | | [BSD-2-Clause](https://github.com/FluidInference/FluidAudio/blob/v0.18.0/ThirdPartyLicenses/fastcluster-LICENSE.md) | Daniel Müllner; Google Inc. |
+| [VBx](https://github.com/BUTSpeechFIT/VBx) clustering, part of FluidAudio | | [Apache-2.0](https://github.com/FluidInference/FluidAudio/blob/v0.18.0/ThirdPartyLicenses/vbx-LICENSE.md) | BUT Speech@FIT |
+| [text-processing-rs](https://github.com/FluidInference/text-processing-rs), part of FluidAudio | 0.3.1 | [Apache-2.0](https://github.com/FluidInference/FluidAudio/blob/v0.18.0/ThirdPartyLicenses/NemoTextProcessing-LICENSE.md) | FluidInference |
+| [NeMo Text Processing](https://github.com/NVIDIA/NeMo-text-processing) grammars, part of text-processing-rs | | Apache-2.0 | NVIDIA Corporation & affiliates |
+| [rustfst](https://github.com/Garvys/rustfst), [flate2](https://github.com/rust-lang/flate2-rs), and their Rust dependencies, part of text-processing-rs | | MIT or Apache-2.0 | Alexandre Caulier, Alex Crichton, and their contributors |
+| LuxTTS English pronunciation data, bundled by FluidAudio (Syrup does not use it) | | [See notice](https://github.com/FluidInference/FluidAudio/blob/v0.18.0/ThirdPartyLicenses/LuxTtsEnglishG2P-LICENSE.md) | Derived from [eSpeak NG](https://github.com/espeak-ng/espeak-ng) (GPL-3.0-or-later; Jonathan Duddington, Reece H. Dunn and contributors), [FrequencyWords](https://github.com/hermitdave/FrequencyWords) (CC-BY-SA-4.0; Hermit Dave, from OpenSubtitles2018), and [english-words](https://github.com/dwyl/english-words) (Unlicense) |
+
+### Optional speech models
+
+These are not part of the download. Syrup fetches one from Hugging Face only when you choose to download it.
+
+| Model in Syrup | Files | Based on | License |
+| --- | --- | --- | --- |
+| Parakeet Ultra | [FluidInference/parakeet-ultra-coreml](https://huggingface.co/FluidInference/parakeet-ultra-coreml) | [moondream/parakeet-ultra](https://huggingface.co/moondream/parakeet-ultra), post-trained from NVIDIA [parakeet-tdt-0.6b-v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) | [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/) |
+| Parakeet Redux | [FluidInference/parakeet-redux-coreml](https://huggingface.co/FluidInference/parakeet-redux-coreml) | [moondream/parakeet-redux](https://huggingface.co/moondream/parakeet-redux), a 1.58-bit version of NVIDIA parakeet-tdt-0.6b-v3 | [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/) |
+| Nemotron Streaming 3.5 | [FluidInference/Nemotron-3.5-ASR-Streaming-Multilingual-0.6b-CoreML](https://huggingface.co/FluidInference/Nemotron-3.5-ASR-Streaming-Multilingual-0.6b-CoreML) | NVIDIA [nemotron-3.5-asr-streaming-0.6b](https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b) | [OpenMDW-1.1](https://openmdw.ai/license/1-1/) |
+| Parakeet Unified EN 0.6B | [FluidInference/parakeet-unified-en-0.6b-coreml](https://huggingface.co/FluidInference/parakeet-unified-en-0.6b-coreml) | NVIDIA [parakeet-unified-en-0.6b](https://huggingface.co/nvidia/parakeet-unified-en-0.6b) | Licensed by NVIDIA Corporation under the [NVIDIA Open Model License](https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/) |
+| Canary 180M Flash | [aufklarer/Canary-180M-Flash-CoreML](https://huggingface.co/aufklarer/Canary-180M-Flash-CoreML) | NVIDIA [canary-180m-flash](https://huggingface.co/nvidia/canary-180m-flash) | [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/) |
+
+The Core ML conversions are by FluidInference and aufklarer. Apple's `SpeechAnalyzer`, Foundation Models, and system frameworks are part of macOS and are used under Apple's terms.
